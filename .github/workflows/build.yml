@@ -1,0 +1,50 @@
+# Workflow GitHub Actions — à placer dans .github/workflows/build.yml
+# Nécessite un jeton GitHub avec le scope "workflow" pour être poussé par un outil.
+name: Build APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: SDK + NDK
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018"
+
+      - name: Rust
+        run: |
+          rustup target add aarch64-linux-android
+          cargo install cargo-ndk
+
+      - name: Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Build
+        run: bash scripts/compiler_manjaro.sh
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FRIDAY-debug-apk
+          path: dist/*.apk
