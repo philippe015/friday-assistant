@@ -36,7 +36,7 @@ jobs:
             SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           fi
           yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
-          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "platform-tools"
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
       - name: Rust + cargo-ndk
         run: |
@@ -49,9 +49,8 @@ jobs:
           gradle-version: '8.13'
 
       - name: Bibliothèque Rust JNI
-        env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
         run: |
+          echo "NDK détecté : ${ANDROID_NDK_ROOT:-$ANDROID_NDK_HOME}"
           cd native
           cargo test
           cargo ndk -t arm64-v8a -o ../app/src/main/jniLibs build --release
