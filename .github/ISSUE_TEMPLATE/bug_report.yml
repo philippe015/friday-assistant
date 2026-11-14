@@ -1,0 +1,45 @@
+name: 🐞 Bug
+description: Signaler un dysfonctionnement
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Merci de décrire précisément le problème (version, appareil, étapes).
+  - type: input
+    id: version
+    attributes:
+      label: Version de F.R.I.D.A.Y.
+      placeholder: "2.2.0 (versionCode 36)"
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Appareil et Android
+      placeholder: "Samsung SM-S918B — Android 17"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Étapes pour reproduire
+      placeholder: |
+        1. Ouvrir l'app
+        2. Activer l'écoute
+        3. Dire « Friday stop »
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportement attendu
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / capture (facultatif)
+      description: "adb logcat | grep -i friday  ou capture d'écran"
+    validations:
+      required: false

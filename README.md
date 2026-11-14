@@ -133,6 +133,24 @@ bash scripts/compiler_manjaro.sh          # APK dans dist/
 - [ ] Thèmes du cockpit
 - [ ] Variante `armeabi-v7a`
 
+## 🛠️ Développement
+
+| Ressource | Rôle |
+|---|---|
+| [CONTRIBUTING.md](CONTRIBUTING.md) | flux de contribution, conventions, processus de release |
+| [CHANGELOG.md](CHANGELOG.md) | historique des versions |
+| [BUILD.md](BUILD.md) | compilation (Linux x86_64, aarch64, CI) |
+| [Tests](tests/) | tests Java, Python et Rust |
+
+**Intégration continue** :
+
+| Workflow | Déclencheur | Action |
+|---|---|---|
+| [`Tests`](.github/workflows/ci.yml) | pull request, push | tests Java / Python / Rust / syntaxe JS |
+| [`Build APK`](.github/workflows/build.yml) | push, tag `v*` | APK debug + APK **release signé**, publication sur tag |
+
+Dependabot surveille **Gradle**, **Cargo** et les **GitHub Actions**.
+
 ## 🔐 Signature de release
 
 Les APK de release sont signés automatiquement par GitHub Actions avec un keystore dédié

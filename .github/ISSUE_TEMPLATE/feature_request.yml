@@ -1,0 +1,34 @@
+name: 💡 Proposition
+description: Suggérer une fonctionnalité ou une amélioration
+title: "[Idée] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: Besoin
+      description: Quel problème cela résout-il ?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solution proposée
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives envisagées
+    validations:
+      required: false
+  - type: checkboxes
+    id: impact
+    attributes:
+      label: Impact estimé
+      options:
+        - label: Interface / cockpit
+        - label: Voix (Vosk, TTS, clonage)
+        - label: IA (Mistral)
+        - label: Performance / batterie
+        - label: Sécurité / vie privée

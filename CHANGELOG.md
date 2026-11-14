@@ -1,0 +1,38 @@
+# Changelog
+
+Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
+versionnage [SemVer](https://semver.org/lang/fr/).
+
+## [2.2.0] — 2026-11-14
+
+### Ajouté
+- **Écoute interactive** : micro maintenu pendant le calcul Mistral et la lecture TTS (threads séparés)
+- **Interruption vocale** : « Friday stop », « Friday attends », « Friday, j'ai une précision »,
+  « Friday, explique autrement », « Friday, arrête l'écoute »
+- Bouton **« Interrompre la réponse »** dans le cockpit et la notification Android
+- **Clonage vocal** Mistral (Voxtral), activation enregistrée après capture
+- Anti-écho : `VOICE_COMMUNICATION` + `AcousticEchoCanceler` / `NoiseSuppressor`
+- Bibliothèque **Rust** `libfriday_core.so` (détection de mot-clé, JNI)
+
+### Modifié
+- Détection de fin de phrase accélérée (~2,1 s, réglable) et fenêtre de dialogue de 75 s
+- Annulation des requêtes HTTP Mistral et des segments audio en cours
+
+### Corrigé
+- Une réponse annulée ne peut plus être prononcée après coup
+
+## [2.0.2] — 2026-11-14
+
+### Ajouté
+- Publication du dépôt (sources Java/Python/Rust, scripts de build, tests)
+- APK debug de référence
+
+### Corrigé
+- Analyse statique de l'APK documentée (`ANALYSE.md`)
+
+## [2.0.0] — 2026-11-06
+
+### Ajouté
+- Cockpit HUD (WebView), mémoire personnelle chiffrée, profils de personnalité
+- Mistral Chat Completions, recherche web, analyse de photos (Vision)
+- Vosk hors-ligne, TTS Android, GPS et résolution de lieux
