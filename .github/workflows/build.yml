@@ -4,6 +4,9 @@ on:
   push:
     branches: [ main ]
     tags: [ 'v*' ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
   workflow_dispatch:
 
 permissions:
@@ -48,6 +51,11 @@ jobs:
         run: |
           rustup target add aarch64-linux-android
           cargo install cargo-ndk --locked
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native
 
       - name: Gradle
         uses: gradle/actions/setup-gradle@v4
