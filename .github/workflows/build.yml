@@ -1,5 +1,3 @@
-# Workflow GitHub Actions — à placer dans .github/workflows/build.yml
-# Nécessite un jeton GitHub avec le scope "workflow" pour être poussé par un outil.
 name: Build APK
 
 on:
@@ -24,27 +22,45 @@ jobs:
         with:
           python-version: '3.14'
 
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Alias python3.14
+        run: |
+          if ! command -v python3.14 >/dev/null; then
+            sudo ln -sf "$(command -v python3)" /usr/local/bin/python3.14
+          fi
+          python3.14 --version
 
-      - name: SDK + NDK
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018"
+      - name: Android SDK packages
+        run: |
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "platform-tools"
 
-      - name: Rust
+      - name: Rust + cargo-ndk
         run: |
           rustup target add aarch64-linux-android
-          cargo install cargo-ndk
+          cargo install cargo-ndk --locked
 
       - name: Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
 
-      - name: Build
-        run: bash scripts/compiler_manjaro.sh
+      - name: Bibliothèque Rust JNI
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
+        run: |
+          cd native
+          cargo test
+          cargo ndk -t arm64-v8a -o ../app/src/main/jniLibs build --release
+
+      - name: Build APK
+        run: gradle --no-daemon :app:assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: FRIDAY-debug-apk
-          path: dist/*.apk
+          path: app/build/outputs/apk/debug/app-debug.apk
