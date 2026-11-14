@@ -3,7 +3,7 @@
 **F.R.I.D.A.Y.** est un assistant vocal et conversationnel **100 % natif Android** : cockpit **HUD** holographique (WebView), backend **Python embarqué**, détection de mot-clé en **Rust**, reconnaissance vocale **hors-ligne (Vosk)** et IA **Mistral**.
 
 > Sources **v2.2.0** — application en développement actif.
-> APK **v2.2.0** compilé et publié (voir [Releases](../../releases/latest)).
+> APK **v2.2.0 release signé** publié par la CI (voir [Releases](../../releases/latest)).
 
 ---
 
@@ -127,11 +127,23 @@ bash scripts/compiler_manjaro.sh          # APK dans dist/
 ## 🗺️ Feuille de route
 
 - [x] APK **v2.2.0** compilé (debug) et publié
-- [ ] APK **release signé** (keystore dédié, `debuggable=false`)
+- [x] APK **release signé** par la CI (keystore en secret GitHub, `debuggable=false`)
 - [ ] Workflow GitHub Actions (build reproductible)
 - [ ] Historique persistant chiffré des conversations
 - [ ] Thèmes du cockpit
 - [ ] Variante `armeabi-v7a`
+
+## 🔐 Signature de release
+
+Les APK de release sont signés automatiquement par GitHub Actions avec un keystore dédié
+(secrets : `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`).
+
+```
+Certificat : CN=Philippe, OU=FRIDAY, O=philippe015, L=Paris, C=FR
+SHA-256    : 81becec7f794bb647cd5abb1db9d84f12d51c5c9b00f609bde52804c2930106e
+```
+
+> ⚠️ Sauvegardez le keystore : sans lui, aucune mise à jour de l'app ne pourra être signée avec la même identité.
 
 ## 📄 Licence
 
