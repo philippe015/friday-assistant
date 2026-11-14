@@ -3,7 +3,7 @@
 **F.R.I.D.A.Y.** est un assistant vocal et conversationnel **100 % natif Android** : cockpit **HUD** holographique (WebView), backend **Python embarqué**, détection de mot-clé en **Rust**, reconnaissance vocale **hors-ligne (Vosk)** et IA **Mistral**.
 
 > Sources **v2.2.0** — application en développement actif.
-> APK disponible : **v2.0.2** (voir [Releases](../../releases/latest)).
+> APK **v2.2.0** compilé et publié (voir [Releases](../../releases/latest)).
 
 ---
 
@@ -126,6 +126,7 @@ bash scripts/compiler_manjaro.sh          # APK dans dist/
 
 ## 🗺️ Feuille de route
 
+- [x] APK **v2.2.0** compilé (debug) et publié
 - [ ] APK **release signé** (keystore dédié, `debuggable=false`)
 - [ ] Workflow GitHub Actions (build reproductible)
 - [ ] Historique persistant chiffré des conversations

@@ -85,3 +85,67 @@ keytool -genkeypair -v -keystore friday-release.jks -alias friday \
 ```
 
 > ⚠️ Ne **jamais** committer le keystore ni les mots de passe : ils sont exclus par `.gitignore`.
+
+---
+
+## 🅰️ Compiler sur **aarch64** (Linux ARM / téléphone) — recette validée
+
+Build **réussi de bout en bout** sur un conteneur aarch64. Les outils Google (aapt2, NDK) sont x86_64 : voici les contournements utilisés.
+
+### 1. Python 3.14 (arm64)
+
+```bash
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt-get update
+sudo apt-get install -y python3.14 python3.14-dev python3.14-venv
+```
+
+> ⚠️ **Locale obligatoire** : Python 3.14 crée dans le venv un lien symbolique `𝜋thon` (easter egg).
+> Avec une locale `POSIX`, Gradle échoue sur `Failed to create MD5 hash ... ????thon`.
+> ```bash
+> export LANG=C.UTF-8 LC_ALL=C.UTF-8
+> export JAVA_TOOL_OPTIONS="-Dfile.encoding=UTF-8"
+> ```
+
+### 2. aapt2 x86_64 sous QEMU
+
+```bash
+sudo apt-get install -y qemu-user-static libc6:amd64 libstdc++6:amd64 zlib1g:amd64
+mkdir -p /opt/android-sdk/aapt2-qemu
+cat > /opt/android-sdk/aapt2-qemu/aapt2 <<'SH'
+#!/bin/sh
+exec /usr/bin/qemu-x86_64-static /opt/android-sdk/build-tools/35.0.0/aapt2 "$@"
+SH
+chmod +x /opt/android-sdk/aapt2-qemu/aapt2
+```
+
+### 3. Rust → Android (sans NDK exécutable)
+
+Le clang du NDK est x86_64 et **ne peut pas s'auto-réexécuter** sous QEMU sans `binfmt_misc`.
+Solution : lier avec **`rust-lld` fourni par Rust** (binaire natif aarch64) et les objets du NDK.
+
+```bash
+rustup target add aarch64-linux-android
+RL=~/.rustup/toolchains/stable-aarch64-unknown-linux-gnu/lib/rustlib/aarch64-unknown-linux-gnu/bin/rust-lld
+printf '#!/bin/sh\nexec %s -flavor gnu "$@"\n' "$RL" > /usr/local/bin/rust-ndk-ld
+chmod +x /usr/local/bin/rust-ndk-ld
+
+SYS=$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android
+CLC=$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/18/lib/linux/aarch64
+
+export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=/usr/local/bin/rust-ndk-ld
+export RUSTFLAGS="-C link-arg=-L$SYS/26 -C link-arg=-L$SYS -C link-arg=-L$CLC \
+  -C link-arg=$SYS/26/crtbegin_so.o -C link-arg=$SYS/26/crtend_so.o"
+
+cd native && cargo build --release --target aarch64-linux-android
+mkdir -p ../app/src/main/jniLibs/arm64-v8a
+cp target/aarch64-linux-android/release/libfriday_core.so ../app/src/main/jniLibs/arm64-v8a/
+```
+
+### 4. Gradle
+
+```bash
+gradle --no-daemon -Pandroid.aapt2FromMavenOverride=/opt/android-sdk/aapt2-qemu/aapt2 :app:assembleDebug
+```
+
+Résultat obtenu : **BUILD SUCCESSFUL**, APK ≈ 22 Mo contenant `libfriday_core.so` (511 Ko) et `libvosk.so` (10 Mo).
