@@ -1,0 +1,41 @@
+plugins {
+    id 'com.android.application'
+    id 'com.chaquo.python'
+}
+
+android {
+    namespace 'fr.friday.assistant'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'fr.friday.assistant'
+        minSdk 26
+        targetSdk 35
+        versionCode 36
+        versionName '2.2.0'
+        ndk { abiFilters 'arm64-v8a' }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    buildTypes {
+        // Installe la v2.0 à côté de la v1.x, sans effacer ses clés ni son modèle Vosk.
+        debug { applicationIdSuffix '.smartpreview' }
+    }
+    packaging {
+        jniLibs { useLegacyPackaging true }
+    }
+}
+
+chaquopy {
+    defaultConfig {
+        version = '3.14'
+        buildPython('python3.14')
+    }
+}
+
+dependencies {
+    implementation 'com.alphacephei:vosk-android:0.3.75'
+    implementation 'androidx.core:core:1.13.1'
+    implementation 'androidx.exifinterface:exifinterface:1.3.7'
+}

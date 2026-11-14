@@ -1,6 +1,19 @@
-*.apk
-*.apks
-*.aab
-.idea/
-build/
 .gradle/
+.tools/
+.gradle/
+build/
+app/build/
+native/target/
+app/src/main/jniLibs/*/*.so
+dist/
+*.log
+local.properties
+
+# Keystore / secrets locaux
+*.jks
+*.keystore
+release-pass.txt
+
+# Artefacts APK (distribués via Releases)
+*.apk
+*.aab

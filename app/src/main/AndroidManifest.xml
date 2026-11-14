@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-feature android:name="android.hardware.microphone" android:required="true" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <queries>
+        <intent><action android:name="android.intent.action.TTS_SERVICE" /></intent>
+        <!-- Visibilité ciblée : uniquement les anciennes éditions connues de F.R.I.D.A.Y. -->
+        <package android:name="fr.friday.assistant" />
+        <package android:name="fr.friday.assistant.preview" />
+        <package android:name="fr.friday.assistant.smartpreview" />
+    </queries>
+    <application
+        android:name="com.chaquo.python.android.PyApplication"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false"
+        android:label="F.R.I.D.A.Y. Smart"
+        android:theme="@android:style/Theme.Material.NoActionBar"
+        android:icon="@drawable/friday_icon">
+        <activity android:name=".MainActivity" android:exported="true" android:configChanges="orientation|screenSize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/friday_file_paths" />
+        </provider>
+        <service android:name=".FridayService"
+            android:exported="false"
+            android:foregroundServiceType="microphone|location" />
+    </application>
+</manifest>
