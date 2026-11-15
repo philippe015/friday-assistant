@@ -99,7 +99,12 @@ public final class NativeAI {
         // Localisation toujours transmise exclusivement pour une question où elle a été autorisée.
         String text = question;
         if (locationContext != null && !locationContext.trim().isEmpty())
-            text += "\n\n[Position partagée ponctuellement par l'utilisateur : " + locationContext + "]";
+            text += "\n\n[CONTEXTE GPS ANDROID RÉEL, AUTORISÉ POUR CETTE QUESTION : "
+                    + locationContext
+                    + "]\nTu as reçu la position dans cette requête. "
+                    + "N'affirme pas que le GPS n'est pas disponible pour cette question. "
+                    + "Précise ce qui est mesuré (coordonnées, précision, ancienneté) "
+                    + "et ce qui n'est pas connu (adresse exacte, établissements).";
         return mistralAnswer(settings, key, text, history);
     }
 
