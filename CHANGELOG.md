@@ -1,3 +1,11 @@
+## [3.7.3] — Arrêt vocal répété et diagnostic acoustique
+
+- Résout un cas ignoré par la v3.7.2 : « stop stop », « stop stop stop », « arrête arrête » et mélanges de commandes courtes étaient rejetés par la validation stricte des ordres sans mot-clé.
+- Étend la grammaire Vosk du décodeur STOP aux répétitions ; une répétition dans la transcription partielle confirme immédiatement l'intention, avec filtre anti-écho conservé.
+- Affiche dans la télémétrie « Interruption vocale » le niveau sonore PCM reçu par Android sur une échelle indicative 0–100, uniquement pendant une réponse. Cette valeur n'est pas une mesure de voix utilisateur : l'écho du haut-parleur peut également faire varier le niveau.
+- Ajoute des tests automatisés de répétitions, de faux positifs et de mesure acoustique. La voix n'est ni enregistrée ni transmise à un serveur pour ce diagnostic.
+- **Limitation** : sans signal microphone exploitable, aucun correctif textuel ou grammaire Vosk ne peut déclencher un stop verbal. Pour isoler le défaut, utiliser le bouton « Interrompre la réponse », et comparer la télémétrie microphone avec ou sans casque.
+
 ## [3.7.2] — Décodeur STOP vocal indépendant (correctif expérimental)
 
 - Diagnostic : constat d'architecture de v3.7.1, où un seul décodeur Vosk devait simultanément transcrire la question et identifier les commandes courtes malgré l'audio du haut-parleur.
