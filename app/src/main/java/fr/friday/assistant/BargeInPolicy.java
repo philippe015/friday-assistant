@@ -26,9 +26,12 @@ public final class BargeInPolicy {
         if (startsWithWake(phrase)) return false;
         String s = VoiceText.normalize(phrase)
                 .replaceAll("[^a-z0-9 ]+", " ").replaceAll("\\s+", " ").trim();
-        return s.matches("(stop|stoppe|arrete|tais toi|silence|pause|attends|"
-                + "arrete de parler|coupe la voix|stop la reponse|arrete la reponse)"
-                + "(?: s il te plait)?");
+        // La dictée Vosk peut regrouper plusieurs ordres répétés en une phrase :
+        // « stop stop stop », « arrête arrête » ne doivent jamais être rejetés.
+        return s.matches("(?:stop|stoppe|arrete|silence|pause|attends)(?: (?:stop|stoppe|arrete|silence|pause|attends)){0,9}"
+                + "(?: s il te plait| maintenant| tout de suite)?")
+                || s.matches("(?:tais toi|arrete de parler|coupe la voix|stop la reponse|arrete la reponse)"
+                    + "(?: s il te plait)?");
     }
 
     /** Filtre d'écho : le mot prononcé par FRIDAY ne doit pas arrêter FRIDAY. */
