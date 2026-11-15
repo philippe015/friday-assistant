@@ -1,3 +1,12 @@
+## [3.6.0] — Streaming conversationnel et TTS progressif
+
+- SSE Mistral Chat Completions : réponses texte reçues par fragments via `stream: true`, gestion des événements `data:`, de `[DONE]` et des fins de flux.
+- Tampon de phrases complet, file TTS bornée à 12 phrases et synthèse vocale Android pendant que le modèle répond.
+- Interruption : annulation réseau et thread TTS du tour précédent, sans réécouter la réponse après une interruption partielle.
+- Première parole mesurée sur Android ; aucun délai universel garanti. Paramètre natif pour désactiver le streaming.
+- Le connecteur Web Mistral Conversations reste en mode complet, pour préserver ses références vérifiables.
+- Tests unitaires du découpage SSE/texte ; validation de la latence réelle et de la voix toujours nécessaire sur téléphone.
+
 ## [3.5.0] — Fiabilité Mistral et diagnostics
 
 - Reprises HTTP bornées (429 et 500/502/503/504) avec Retry-After, backoff et arrêt lors des interruptions. Jamais de répétition des requêtes 4xx définitives.

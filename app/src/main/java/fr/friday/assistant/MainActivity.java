@@ -36,7 +36,7 @@ public class MainActivity extends Activity {
     private TextView lastErrorLabel;
     private TextView mistralKeyState;
     private EditText mistralModel, mistralKey;
-    private CheckBox voiceEnabled, locationEnabled, locationShare, placeNameEnabled;
+    private CheckBox voiceEnabled, streamingEnabled, locationEnabled, locationShare, placeNameEnabled;
     private CheckBox memoryEnabled;
     private CheckBox webEnabled;
     private TextView voiceSampleStatus;
@@ -228,6 +228,13 @@ public class MainActivity extends Activity {
         voiceEnabled.setText("Répondre à voix haute"); voiceEnabled.setTextColor(Color.WHITE);
         voiceEnabled.setChecked("1".equals(prefs.get("voice_enabled", "1")));
         config.addView(voiceEnabled);
+        streamingEnabled = new CheckBox(this);
+        streamingEnabled.setText("Réponse Mistral progressive (streaming + synthèse vocale au fil des phrases)");
+        streamingEnabled.setTextColor(Color.WHITE);
+        streamingEnabled.setChecked("1".equals(prefs.get("stream_enabled", "1")));
+        config.addView(streamingEnabled);
+        config.addView(label("La recherche Web de Mistral peut encore attendre la réponse complète. "
+                + "Désactivez cette option si le réseau coupe les flux SSE."));
         config.addView(label("LOCALISATION · permission Android facultative"));
         locationEnabled = new CheckBox(this);
         locationEnabled.setText("Activer la position uniquement sur demande vocale");
@@ -320,6 +327,7 @@ public class MainActivity extends Activity {
             prefs.put("barge_in_enabled", bargeEnabled.isChecked() ? "1" : "0");
             prefs.put("tts_speed", bounded(ttsInput, 100, 70, 150));
             prefs.put("voice_enabled", voiceEnabled.isChecked() ? "1" : "0");
+            prefs.put("stream_enabled", streamingEnabled.isChecked() ? "1" : "0");
             prefs.put("location_enabled", locationEnabled.isChecked() ? "1" : "0");
             prefs.put("location_share", locationEnabled.isChecked() && locationShare.isChecked() ? "1" : "0");
             prefs.put("address_lookup", locationEnabled.isChecked() && placeNameEnabled.isChecked() ? "1" : "0");

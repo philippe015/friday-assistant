@@ -20,6 +20,9 @@ import org.vosk.Recognizer;
 
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -76,12 +79,19 @@ public class FridayService extends Service {
         final String clarificationContext;
         ResponseTurn(String context) { clarificationContext = context; }
         volatile Thread thread;
+        volatile Thread speaker;
+        volatile boolean streamedVoice;
+        volatile boolean streamingVoiceSucceeded;
         volatile boolean cancelled;
+        final long startedAt = SystemClock.elapsedRealtime();
+        final AtomicLong firstVoiceAt = new AtomicLong();
         void cancel() {
             cancelled = true;
             api.cancel();
             Thread t = thread;
             if (t != null) t.interrupt();
+            Thread audio = speaker;
+            if (audio != null) audio.interrupt();
         }
     }
     private boolean live(ResponseTurn turn) { return running && currentTurn == turn && !turn.cancelled; }
@@ -598,8 +608,10 @@ public class FridayService extends Service {
                 prepared += "\n\n[CONTEXTE DE LA DEMANDE INTERROMPUE : "
                         + turn.clarificationContext + "]\n[TRAITE LA PRÉCISION ACTUELLE EN "
                         + "LIEN AVEC CE SUJET, SANS INVENTER.]";
-            String answer = local != null ? local : NativeAI.answer(settings, prepared,
-                historySnapshot(), locationForApi, turn.api);
+            String answer = local != null ? local : (
+                "1".equals(settings.get("stream_enabled", "1"))
+                ? streamAndSpeak(prepared, historySnapshot(), locationForApi, turn)
+                : NativeAI.answer(settings, prepared, historySnapshot(), locationForApi, turn.api));
             if (!live(turn)) return;
             // Preuve d'une transmission API ponctuelle réussie, sans conserver les coordonnées.
             if (locationForApi != null && local == null) {
@@ -612,10 +624,12 @@ public class FridayService extends Service {
             }
             if (memoryAction) event("status", "Commande mémoire effectuée localement.");
             else event("assistant", answer);
-            spokenText = answer;
-            speakingNow = true;
-            event("status", "Réponse vocale en cours. Dites « Friday stop » ou posez une autre question.");
-            boolean spoken = speak(answer, turn);
+            if (!turn.streamedVoice) {
+                spokenText = answer;
+                speakingNow = true;
+                event("status", "Réponse vocale en cours. Dites « Friday stop » ou posez une autre question.");
+            }
+            boolean spoken = turn.streamedVoice ? turn.streamingVoiceSucceeded : speak(answer, turn);
             if (!live(turn)) return;
             lastReplyAt = SystemClock.elapsedRealtime();
             if (spoken) event("status", "Réponse terminée. Je reste à l'écoute pour une précision.");
@@ -634,6 +648,77 @@ public class FridayService extends Service {
             }
         }
     }
+    /** File bornée : l'API SSE ne bloque pas la synthèse TTS pendant l'audio.
+     *  L'annulation du tour interrompt le producteur réseau et la voix. */
+    private String streamAndSpeak(String question, List<JSONObject> history,
+            String locationForApi, ResponseTurn turn) throws Exception {
+        final ArrayBlockingQueue<String> queue = new ArrayBlockingQueue<>(12);
+        final String end = "\u0000FRIDAY_STREAM_END";
+        final AtomicInteger count = new AtomicInteger();
+        final AtomicBoolean voiceOk = new AtomicBoolean(true);
+        final boolean canSpeak = ttsReady && tts != null
+                && "1".equals(settings.get("voice_enabled", "1"));
+        Thread audio = null;
+        if (canSpeak) {
+            audio = new Thread(() -> {
+                try {
+                    while (live(turn)) {
+                        String phrase = queue.poll(150, TimeUnit.MILLISECONDS);
+                        if (phrase == null) continue;
+                        if (end.equals(phrase)) break;
+                        if (!live(turn)) break;
+                        spokenText = phrase;
+                        speakingNow = true;
+                        if (!speak(phrase, turn)) {
+                            voiceOk.set(false);
+                            break;
+                        }
+                    }
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    voiceOk.set(false);
+                }
+            }, "friday-progressive-tts");
+            turn.speaker = audio;
+            audio.start();
+        }
+        try {
+            final boolean useVoice = canSpeak;
+            String result = NativeAI.answerStreaming(settings, question, history,
+                locationForApi, turn.api, piece -> {
+                    if (!live(turn)) throw new IllegalStateException("Réponse interrompue");
+                    if (!useVoice) return;
+                    if (count.get() == 0)
+                        event("status", "Mistral diffuse sa réponse progressivement : lecture vocale en cours…");
+                    count.incrementAndGet();
+                    while (live(turn)) {
+                        try {
+                            if (queue.offer(piece, 100, TimeUnit.MILLISECONDS)) return;
+                        } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                            throw new IllegalStateException("Réponse interrompue", ex);
+                        }
+                    }
+                    throw new IllegalStateException("Réponse interrompue");
+                });
+            if (audio != null) {
+                if (count.get() == 0) {
+                    // Réponse locale ou chemin Web non-streaming : une seule lecture.
+                    while (live(turn) && !queue.offer(result, 100, TimeUnit.MILLISECONDS)) { }
+                }
+                while (live(turn) && !queue.offer(end, 100, TimeUnit.MILLISECONDS)) { }
+                while (live(turn) && audio.isAlive()) audio.join(150L);
+                if (!live(turn)) throw new InterruptedException("Réponse interrompue");
+                turn.streamedVoice = true;
+                turn.streamingVoiceSucceeded = voiceOk.get();
+            }
+            return result;
+        } finally {
+            if (audio != null && audio.isAlive()) audio.interrupt();
+            turn.speaker = null;
+        }
+    }
+
     /** Diagnostics courants lus localement, sans appel à une API distante. */
     private String deviceAnswer(String question) {
         String q = VoiceText.normalize(question);
@@ -729,7 +814,12 @@ public class FridayService extends Service {
             String utterance = "friday_" + System.nanoTime() + "_" + (++index);
             tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                 @Override public void onStart(String id) {
-                    if (utterance.equals(id)) event("tts", "Lecture de la réponse, segment " + indexSafe(id) + "…");
+                    if (utterance.equals(id)) {
+                        if (turn.firstVoiceAt.compareAndSet(0, SystemClock.elapsedRealtime()))
+                            event("latency", "Première parole après "
+                                    + (turn.firstVoiceAt.get() - turn.startedAt) + " ms (mesuré par Android).");
+                        event("tts", "Lecture de la réponse, segment " + indexSafe(id) + "…");
+                    }
                 }
                 @Override public void onDone(String id) {
                     if (utterance.equals(id)) done.countDown();
