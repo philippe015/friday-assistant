@@ -19,8 +19,11 @@ public final class NativeAI {
         public void cancel() {
             // IMPORTANT : débrancher HTTP peut bloquer sur certains téléphones.
             // Ne jamais retenir le thread micro ou retarder tts.stop() pour le réseau.
-            cancelled = true;
-            HttpURLConnection pending = connection;
+            HttpURLConnection pending;
+            synchronized (this) {
+                cancelled = true;
+                pending = connection;
+            }
             if (pending != null) {
                 Thread close = new Thread(pending::disconnect, "friday-cancel-http");
                 close.setDaemon(true);
