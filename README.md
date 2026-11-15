@@ -7,6 +7,18 @@
 
 ---
 
+## Feuille de route des prochaines versions
+
+Le plan de développement validé est disponible dans **[docs/ROADMAP_MISTRAL.md](docs/ROADMAP_MISTRAL.md)** :
+
+- **[v3.5.0 — Fiabilité Mistral, GPS et Web](https://github.com/philippe015/friday-assistant/issues/29)** : diagnostics, reprise réseau annulable, tests du profil actif, consentement GPS.
+- **[v3.6.0 — Streaming et TTS progressif](https://github.com/philippe015/friday-assistant/issues/30)** : démarrage vocal accéléré, file de phrases et interruptions fiables.
+- **[v3.7.0 — Reconnaissance vocale avancée](https://github.com/philippe015/friday-assistant/issues/31)** : vocabulaire Vosk, options Voxtral et consommation batterie.
+
+Ces fonctions sont **prévues**, pas encore livrées. L'IA reste **Mistral uniquement** ; le profil actif définit la personnalité et le GPS ne peut être transmis à Mistral qu'avec l'accord ponctuel de l'utilisateur.
+
+---
+
 ## ✨ Fonctionnalités (v3.4.1)
 
 ### 🎙️ Voix
