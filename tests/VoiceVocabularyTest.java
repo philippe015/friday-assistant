@@ -13,6 +13,9 @@ public final class VoiceVocabularyTest {
         check(names.contains("elite dangerous"));
         String grammar = VoiceVocabulary.grammar("elite dangerous\nSaint-Maur-des-Fossés");
         check(grammar.contains("\"[unk]\""));
+        check(grammar.contains("\"stop\""));
+        check(grammar.contains("\"attends\""));
+        check(grammar.contains("\"j ai une precision\""));
         check(grammar.contains("\"friday\""));
         check(grammar.contains("saint-maur-des-fossés"));
         check(VoiceVocabulary.phrases("x\nnom").size() == 1);
