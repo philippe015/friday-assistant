@@ -3,6 +3,19 @@
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 versionnage [SemVer](https://semver.org/lang/fr/).
 
+## [3.2.1] — 2026-11-15
+
+### Corrigé
+- **Réponses locales trompeuses** : la logique Python prioritaire appliquait encore
+  d'anciens tests par sous-chaîne pour l'heure/la date, annulant le correctif Java de v3.2.0.
+  Les demandes contenant un lieu ou un autre sujet sont maintenant transmises à DeepSeek.
+- **Confiance Vosk inefficace** : activation de `setWords(true)` sur tous les décodeurs
+  et prise en compte des mots de chaque segment reconnu, pas seulement du segment final.
+- **Cycle de vie audio** : libération du contrôle automatique de gain (AGC) à la fermeture
+  du microphone.
+- **Tests de non-régression** : scénarios français couvrant météo, villes, transports,
+  dates et heure.
+
 ## [3.2.0] — 2026-11-15
 
 ### Corrigé
