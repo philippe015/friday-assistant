@@ -18,12 +18,35 @@ def prepare_question(text: str) -> str:
     return s[:12000]
 
 
+# Les intentions locales doivent être strictes : une phrase parlant de météo,
+# d'une ville ou d'un autre sujet doit arriver au moteur DeepSeek.
+_TIME_WORDS = frozenset("""
+    friday frida freiday freday fride vendredi
+    quelle quel quelles quels heure heures il est sont
+    as tu vous peux peut me dire donner donne dis moi
+    maintenant actuelle actuellement s te plait stp l
+""".split())
+_DATE_WORDS = frozenset("""
+    friday frida freiday freday fride vendredi
+    quelle quel quelles quels jour date sommes nous on est en
+    annee aujourd hui mois le combien tu peux peut me dire
+    donner donne dis moi stp s te plait
+""".split())
+
+
 def local_answer(question: str, epoch_ms: int):
-    """Utilise l'horloge et le fuseau horaire réellement définis sur Android."""
-    q = _fold(question)
+    """Réponse hors ligne uniquement pour une demande d'heure/date sans autre sujet.
+
+    Vosk peut mal transcrire « météo à Vitry » en « heure à Vitry » :
+    toute ville, tout sujet et tout nombre supplémentaire excluent la réponse locale.
+    """
+    tokens = re.findall(r"[a-z]+|[0-9]+", _fold(question))
+    if not tokens or len(tokens) > 9:
+        return None
+    words = set(tokens)
     now = datetime.fromtimestamp(int(epoch_ms) / 1000)
-    if any(x in q for x in ("quelle heure", "heure est-il", "il est quelle heure", "donne moi l'heure", "donne-moi l'heure")):
+    if ("heure" in words or "heures" in words) and words <= _TIME_WORDS:
         return f"Il est {now.hour} heures {now.minute:02d}."
-    if any(x in q for x in ("quel jour", "quelle date", "date sommes nous", "date sommes-nous", "quelle annee", "en quelle annee")):
+    if words.intersection(("jour", "date", "annee", "aujourd")) and words <= _DATE_WORDS:
         return f"Nous sommes le {DAY_NAMES[now.weekday()]} {now.day} {MONTHS[now.month-1]} {now.year}."
     return None
