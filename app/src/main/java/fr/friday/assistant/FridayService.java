@@ -7,6 +7,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
 import android.media.*;
 import android.media.audiofx.AcousticEchoCanceler;
+import android.media.audiofx.AutomaticGainControl;
 import android.media.audiofx.NoiseSuppressor;
 import android.os.*;
 import android.speech.tts.TextToSpeech;
@@ -53,6 +54,7 @@ public class FridayService extends Service {
     private volatile ResponseTurn currentTurn;
     private AcousticEchoCanceler echoCanceler;
     private NoiseSuppressor noiseSuppressor;
+    private AutomaticGainControl gainControl;
     private SecurePrefs settings;
     public static final String ACTION_ASK_TEXT = "fr.friday.assistant.ASK_TEXT";
     private final ConcurrentLinkedQueue<String> textQuestions = new ConcurrentLinkedQueue<>();
@@ -207,7 +209,7 @@ public class FridayService extends Service {
                     int minimum = AudioRecord.getMinBufferSize(16000, AudioFormat.CHANNEL_IN_MONO,
                         AudioFormat.ENCODING_PCM_16BIT);
                     if (minimum <= 0) throw new IllegalStateException("Microphone 16 kHz indisponible");
-                    int bytes = Math.max(8192, minimum * 2);
+                    int bytes = Math.max(16384, minimum * 4);
                     boolean bargeEnabled = "1".equals(settings.get("barge_in_enabled", "1"));
                     int src = bargeEnabled ? MediaRecorder.AudioSource.VOICE_COMMUNICATION : MediaRecorder.AudioSource.VOICE_RECOGNITION;
                     ar = new AudioRecord(src, 16000, AudioFormat.CHANNEL_IN_MONO,
@@ -230,6 +232,10 @@ public class FridayService extends Service {
                             if (NoiseSuppressor.isAvailable()) {
                                 noiseSuppressor = NoiseSuppressor.create(ar.getAudioSessionId());
                                 if (noiseSuppressor != null) noiseSuppressor.setEnabled(true);
+                            }
+                            if (AutomaticGainControl.isAvailable()) {
+                                gainControl = AutomaticGainControl.create(ar.getAudioSessionId());
+                                if (gainControl != null) gainControl.setEnabled(true);
                             }
                         } catch (Exception effectError) { Log.w("FRIDAY_MIC", "Effets audio non disponibles", effectError); }
                     }
