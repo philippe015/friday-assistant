@@ -69,7 +69,7 @@ public class MainActivity extends Activity {
         getWindow().setStatusBarColor(Color.rgb(3, 16, 26));
         getWindow().setNavigationBarColor(Color.rgb(3, 16, 26));
         prefs = new SecurePrefs(this);
-        // Migration unique : supprimer la clé et les paramètres Mistral, sans effacer
+        // Migration unique : supprimer l'ancienne clé API de l'autre fournisseur, sans effacer
         // une éventuelle clé Mistral déjà présente dans les anciens profils.
         if (!"1".equals(prefs.get("mistral_only_v330", "0"))) {
             prefs.setSecret("openai", "");
