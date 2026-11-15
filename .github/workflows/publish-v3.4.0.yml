@@ -1,0 +1,70 @@
+name: Publish FRIDAY v3.4.0
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-v3.4.0.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout FRIDAY v3.4.0
+        uses: actions/checkout@v4
+
+      - name: Vérifier la version du code
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq "versionCode 55" app/build.gradle
+          grep -Fq "versionName '3.4.0'" app/build.gradle
+
+      - name: Confirmer la compilation officielle signée
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run watch 43727702474 --repo "$GITHUB_REPOSITORY" --exit-status --interval 10
+
+      - name: Télécharger APK release signé
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 43727702474 --repo "$GITHUB_REPOSITORY" \
+            --name FRIDAY-release-signed-apk --dir dist
+          test -s dist/app-release.apk
+          unzip -tq dist/app-release.apk
+          mv dist/app-release.apk dist/FRIDAY-v3.4.0-release.apk
+          sha256sum dist/FRIDAY-v3.4.0-release.apk
+
+      - name: Tagger FRIDAY v3.4.0
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v3.4.0" >/dev/null 2>&1; then
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref='refs/tags/v3.4.0' -f sha="$GITHUB_SHA"
+          fi
+
+      - name: Publier l'APK Android sur GitHub Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view v3.4.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload v3.4.0 dist/FRIDAY-v3.4.0-release.apk \
+              --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create v3.4.0 dist/FRIDAY-v3.4.0-release.apk \
+              --repo "$GITHUB_REPOSITORY" --verify-tag \
+              --title "F.R.I.D.A.Y. v3.4.0 - Assistant Mistral amélioré" \
+              --notes "Correctifs du profil de personnalité actif (Mistral Chat et Web), de la télémétrie Recherche Web auparavant bloquée sur Désactivée, de la localisation Android et des diagnostics GPS, et du dialogue interruption puis précision avec conservation du contexte. Consentement GPS ponctuel maintenu. APK release signé, versionCode 55, tests et compilation Android GitHub Actions validés. La précision GPS, la reconnaissance vocale et la recherche Web nécessitent encore une validation sur votre téléphone et votre propre compte Mistral."
+          fi
+          gh release view v3.4.0 --repo "$GITHUB_REPOSITORY" --json url,assets
