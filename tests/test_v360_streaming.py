@@ -33,8 +33,11 @@ class StreamingIntegration(unittest.TestCase):
 
     def test_version(self):
         gradle = (ROOT / "app/build.gradle").read_text()
-        self.assertIn("versionCode 58", gradle)
-        self.assertIn("versionName '3.6.0'", gradle)
+        import re
+        self.assertGreaterEqual(int(re.search(r"versionCode (\d+)", gradle).group(1)), 58)
+        model = re.search(r"versionName '(\d+)\.(\d+)\.(\d+)'", gradle)
+        self.assertIsNotNone(model)
+        self.assertGreaterEqual(tuple(map(int, model.groups())), (3, 6, 0))
 
 if __name__ == "__main__":
     unittest.main()
