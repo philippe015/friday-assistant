@@ -353,10 +353,14 @@ public final class NativeAI {
                 String input = question;
                 if (WebSearch.isFollowUp(question) && !previous.isEmpty())
                     input += "\n[Question précédente pour comprendre la relance : " + previous + "]";
-                return conversation(cfg, key, model, input, history).answer;
+                WebReply found = conversation(cfg, key, model, input, history);
+                cfg.put("web_last_status", found.references > 0 ? "Sources vérifiées"
+                        : found.executed ? "Outil exécuté, aucune URL" : "Recherche non confirmée");
+                return found.answer;
             } catch (Exception error) {
                 CancelToken cancellation = CANCEL.get();
                 if (cancellation != null) cancellation.check();
+                cfg.put("web_last_status", "Indisponible : " + webFailure(error));
                 webWarning = "Recherche Web Mistral indisponible : " + webFailure(error)
                         + ". Réponse générée sans vérification Internet.";
             }
