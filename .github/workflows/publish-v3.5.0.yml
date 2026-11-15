@@ -21,7 +21,7 @@ jobs:
         run: |
           set -euo pipefail
           grep -Fq "versionCode 57" app/build.gradle
-          grep -Fq "versionName '3.4.1'" app/build.gradle
+          grep -Fq "versionName '3.5.0'" app/build.gradle
 
       - name: Wait for signed APK build
         env:
@@ -63,7 +63,7 @@ jobs:
           else
             gh release create v3.5.0 dist/FRIDAY-v3.5.0-release.apk \
               --repo "$GITHUB_REPOSITORY" --verify-tag \
-              --title "F.R.I.D.A.Y. v3.5.0 - Identité et GPS Mistral corrigés" \
+              --title "F.R.I.D.A.Y. v3.5.0 - Fiabilité réseau et Web Mistral" \
               --notes "FRIDAY v3.5.0 : reprises annulables des erreurs HTTP 429 et 500/502/503/504, Retry-After, sélection explicite des modèles Mistral accessibles et cache 1 heure, diagnostics Web vérifiables. Conservation du GPS sur consentement, profil actif et écoute interruptible. APK Android signé versionCode 57, tests et compilation validés. L'accès réel aux outils Mistral et au GPS nécessite un test sur appareil."
           fi
           gh release view v3.5.0 --repo "$GITHUB_REPOSITORY" --json url,assets
