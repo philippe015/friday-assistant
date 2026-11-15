@@ -1,0 +1,68 @@
+name: Publish FRIDAY v3.2.2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-v3.2.2.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout version 3.2.2
+        uses: actions/checkout@v4
+
+      - name: Vérifier la version du code
+        run: |
+          set -euo pipefail
+          grep -Fq "versionCode 53" app/build.gradle
+          grep -Fq "versionName '3.2.2'" app/build.gradle
+
+      - name: Attendre la compilation officielle signée
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run watch 43721508261 --repo "$GITHUB_REPOSITORY" --exit-status --interval 10
+
+      - name: Récupérer l'APK signé
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 43721508261 --repo "$GITHUB_REPOSITORY" \
+            --name FRIDAY-release-signed-apk --dir dist
+          test -s dist/app-release.apk
+          unzip -tq dist/app-release.apk
+          mv dist/app-release.apk dist/FRIDAY-v3.2.2-release.apk
+          sha256sum dist/FRIDAY-v3.2.2-release.apk
+
+      - name: Créer le tag v3.2.2
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! gh api "repos/\${GITHUB_REPOSITORY}/git/ref/tags/v3.2.2" >/dev/null 2>&1; then
+            gh api --method POST "repos/\${GITHUB_REPOSITORY}/git/refs" \
+              -f ref='refs/tags/v3.2.2' -f sha="$GITHUB_SHA"
+          fi
+
+      - name: Publier la release Android
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view v3.2.2 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload v3.2.2 dist/FRIDAY-v3.2.2-release.apk --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create v3.2.2 dist/FRIDAY-v3.2.2-release.apk \
+              --repo "$GITHUB_REPOSITORY" --verify-tag \
+              --title "F.R.I.D.A.Y. v3.2.2 - Recherche Web intelligente" \
+              --notes "Améliorations de la compréhension des questions en français, recherches Web DeepSeek plus pertinentes, prise en charge des relances (Et à Lyon ?), lecture des liens via DeepSeek Fetch, signalement des erreurs de recherche et activation/test Web dans les réglages. Requiert une clé DeepSeek active et un accès réseau ; recherches et lectures potentiellement facturées. Tests automatiques et compilation Android réussis. Tester le comportement réel sur le téléphone."
+          fi
+          gh release view v3.2.2 --repo "$GITHUB_REPOSITORY" --json url,assets
