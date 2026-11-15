@@ -1,3 +1,9 @@
+## v3.7.3 — Répétition de STOP et diagnostic microphone
+
+- Les répétitions « stop stop », « stop stop stop » et « arrête arrête » sont traitées comme une seule commande d'interruption pendant la parole, sans exiger « Friday ».
+- La télémétrie d'interruption affiche le **niveau sonore PCM capté** (0–100), indicatif et local. Un niveau non nul peut aussi provenir de l'écho : il ne prouve pas que le mot « stop » a été reconnu.
+- Si le bouton « Interrompre la réponse » fonctionne mais pas la commande orale, vérifier le réglage d'interruption, l'accès microphone Android et essayer un casque pour réduire l'écho.
+
 ## Correctif d'interruption v3.7.2
 
 **Deux décodeurs vocaux** sont désormais utilisés pendant une réponse : le Vosk libre pour les questions et un décodeur Vosk limité aux commandes « stop », « arrête », « attends » et « j'ai une précision ». Le second reste inactif hors réponse pour limiter la consommation. Son état apparaît dans le cockpit sous **Interruption vocale**. Le bouton Interrompre fonctionne même si Android coupe le microphone.

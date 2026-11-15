@@ -18,7 +18,10 @@ public final class VoiceStopSpotter {
           + "\"je veux preciser\",\"je voudrais preciser\","
           + "\"friday stop\",\"friday arrete\",\"friday arrête\","
           + "\"friday attends\",\"friday silence\",\"friday j ai une precision\","
-          + "\"friday j'ai une précision\",\"friday arrete l ecoute\"]";
+          + "\"friday j'ai une précision\",\"friday arrete l ecoute\","
+          + "\"stop stop\",\"stop stop stop\",\"stop stop stop stop\","
+          + "\"arrete arrete\",\"arrete arrete arrete\","
+          + "\"friday stop stop\",\"friday stop stop stop\"]";
 
     private Action last = Action.NONE;
     private int confirmations = 0;
@@ -59,7 +62,13 @@ public final class VoiceStopSpotter {
         } else {
             confirmations++;
         }
-        if (finalResult || confirmations >= 2) {
+        // La répétition est déjà une confirmation volontaire dans un même
+        // résultat Vosk : « stop stop stop » n'a pas à attendre deux callbacks.
+        String normalized = VoiceText.normalize(recognized)
+                .replaceAll("[^a-z0-9 ]+", " ").replaceAll("\\s+", " ").trim();
+        boolean repeated = choice == Action.STOP && normalized.matches(
+                ".*\\b(stop|stoppe|arrete|silence|pause|attends)\\s+(stop|stoppe|arrete|silence|pause|attends)\\b.*");
+        if (finalResult || confirmations >= 2 || repeated) {
             reset();
             return choice;
         }

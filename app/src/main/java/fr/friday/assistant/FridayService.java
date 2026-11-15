@@ -309,6 +309,7 @@ public class FridayService extends Service {
                         (echoProtection ? "activé." : "non garanti : préférez des écouteurs."));
                     byte[] buffer = new byte[4096];
                     long lastPolicyCheck = 0, lastVoice = 0, lastPartialPublished = 0;
+                    long lastMicLevelAt = 0;
                     String completed = "", interim = "";
                     double confidenceSum = 0;
                     int confidenceCount = 0;
@@ -366,6 +367,18 @@ public class FridayService extends Service {
                             micSilenced = false;
                             interruptDiagnostics = "Micro à nouveau accessible";
                             event("status", "Microphone de nouveau accessible. Dites Friday.");
+                        }
+                        // Affiche uniquement une mesure d'énergie PCM indicative.
+                        // Pas de transcription stockée, ni envoi de son au modèle.
+                        long micNow = SystemClock.elapsedRealtime();
+                        if (currentTurn != null && bargeEnabled &&
+                                micNow - lastMicLevelAt >= 1200) {
+                            lastMicLevelAt = micNow;
+                            int level = MicSignalMeter.level(buffer, count);
+                            interruptDiagnostics = stopRecognizerUnavailable
+                                    ? "Décodeur STOP indisponible · niveau micro " + level + "/100"
+                                    : "Décodeur STOP actif · niveau micro " + level
+                                      + "/100 (voix ou écho)";
                         }
                         // Décodeur court dédié aux commandes d'interruption : le
                         // décodeur général peut mélanger « stop » avec la voix TTS.

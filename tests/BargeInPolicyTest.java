@@ -36,6 +36,18 @@ public class BargeInPolicyTest {
         check(BargeInPolicy.contextualFollowUp("Friday, donne plus de précisions"), "demande de détails conserve sujet");
         check(BargeInPolicy.contextualFollowUp("Peux-tu préciser ?"), "demande de précision conserve sujet");
         check(!BargeInPolicy.isStopAnswer("stop"), "ne pas désactiver la validation wake des commandes générales");
-        System.out.println("BargeInPolicyTest OK (34 tests)");
+        check(BargeInPolicy.isBareStopAnswer("Stop stop"), "stop répété deux fois");
+        check(BargeInPolicy.isBareStopAnswer("Stop, stop, stop !"), "stop répété trois fois");
+        check(BargeInPolicy.isBareStopAnswer("STOP STOP STOP STOP STOP"), "stop répété cinq fois");
+        check(BargeInPolicy.isBareStopAnswer("Arrête, arrête !"), "arrête répété");
+        check(BargeInPolicy.isBareStopAnswer("stop arrête stop"), "ordres alternés");
+        check(BargeInPolicy.isBareStopAnswer("Stop tout de suite"), "arrêt immédiat");
+        check(!BargeInPolicy.isBareStopAnswer("stop stop de parler de cinéma"), "ne pas détourner une question");
+        check(!BargeInPolicy.isBareStopAnswer("stop and go"), "faux positif en conversation");
+        check(BargeInPolicy.earlyBarge("stop stop stop", "Voici mon explication"),
+                "répétition pendant streaming coupe la voix");
+        check(!BargeInPolicy.earlyBarge("stop stop", "On dit stop stop pour arrêter"),
+                "anti-écho de la commande répétée");
+        System.out.println("BargeInPolicyTest OK (44 tests)");
     }
 }
