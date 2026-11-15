@@ -36,6 +36,7 @@ public class FridayService extends Service {
     private static final int NOTIFICATION_ID = 9717;
     private static volatile boolean active = false;
     private static volatile boolean micSilenced = false;
+    private static volatile boolean foregroundLocationEnabled = false;
     private volatile boolean running = false;
     private Thread worker;
     private AudioRecord recorder;
@@ -67,6 +68,9 @@ public class FridayService extends Service {
 
     public static boolean isActive() { return active; }
     public static boolean isMicSilenced() { return micSilenced; }
+    public static boolean locationForegroundEnabled() {
+        return foregroundLocationEnabled;
+    }
     private static final class ResponseTurn {
         final NativeAI.CancelToken api = new NativeAI.CancelToken();
         final String clarificationContext;
@@ -135,6 +139,7 @@ public class FridayService extends Service {
                 if (useLocation) types |= ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION;
                 startForeground(NOTIFICATION_ID, notification("Écoute native · écran allumé ou verrouillé"), types);
             } else startForeground(NOTIFICATION_ID, notification("Écoute native · écran allumé ou verrouillé"));
+            foregroundLocationEnabled = useLocation;
         } catch (Exception ex) {
             event("error", "Service microphone refusé : démarrer l'écoute depuis l'application ouverte.");
             stopSelf(); return START_NOT_STICKY;
@@ -540,6 +545,10 @@ public class FridayService extends Service {
                 } else if (!FridayLocation.providerEnabled(this)) {
                     local = "Le service de localisation du téléphone est désactivé. "
                             + "Activez le GPS dans les paramètres Android.";
+                } else if (Build.VERSION.SDK_INT >= 29 && !foregroundLocationEnabled) {
+                    local = "La localisation a été activée après le démarrage de l'écoute. "
+                            + "Arrêtez puis redémarrez l'écoute dans FRIDAY pour que le service vocal "
+                            + "dispose du GPS Android, puis réessayez.";
                 } else {
                     event("status", "Acquisition GPS Android en cours, selon la précision disponible…");
                     FridayLocation.Fix fix = FridayLocation.locate(this);
