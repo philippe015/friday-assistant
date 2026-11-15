@@ -34,9 +34,8 @@ public class MainActivity extends Activity {
     private SecurePrefs prefs;
     private TextView status;
     private TextView lastErrorLabel;
-    private TextView openaiKeyState;
-    private Spinner providerSpinner;
-    private EditText openaiUrl, openaiModel, openaiKey;
+    private TextView mistralKeyState;
+    private EditText mistralModel, mistralKey;
     private CheckBox voiceEnabled, locationEnabled, locationShare, placeNameEnabled;
     private CheckBox memoryEnabled;
     private CheckBox webEnabled;
@@ -70,16 +69,21 @@ public class MainActivity extends Activity {
         getWindow().setStatusBarColor(Color.rgb(3, 16, 26));
         getWindow().setNavigationBarColor(Color.rgb(3, 16, 26));
         prefs = new SecurePrefs(this);
-        // Migration des modèles retirés : « deepseek-chat » n'existe plus (API 2026).
-        String storedModel = prefs.get("openai_model", "");
-        if (storedModel.isEmpty()
-                || storedModel.equals("deepseek-chat")
-                || storedModel.equals("deepseek-reasoner")
-                || storedModel.startsWith("deepseek-v3")) {
-            prefs.put("openai_model", "deepseek-flash");
+        // Migration unique : supprimer la clé et les paramètres Mistral, sans effacer
+        // une éventuelle clé Mistral déjà présente dans les anciens profils.
+        if (!"1".equals(prefs.get("mistral_only_v330", "0"))) {
+            prefs.setSecret("openai", "");
+            prefs.setSecret("agnes", "");
+            prefs.put("openai_model", "");
+            prefs.put("openai_url", "");
+            prefs.put("available_models", "");
+            prefs.put("available_models_time", "0");
+            String previous = prefs.get("mistral_model", "").trim();
+            if (previous.isEmpty()) prefs.put("mistral_model", "mistral-small-latest");
+            prefs.put("mode", "mistral");
+            prefs.put("provider", "mistral");
+            prefs.put("mistral_only_v330", "1");
         }
-        // Migration : supprimer l'ancienne clé Agnès stockée sur les installations précédentes.
-        try { prefs.setSecret("agnes", ""); prefs.setSecret("mistral", ""); prefs.put("mode", "deepseek"); prefs.put("agnes_model", ""); } catch (Exception ignored) {}
         // Supprime une éventuelle ancienne clé Google Places, désormais inutilisée.
         try { prefs.setSecret("places", ""); } catch (Exception ignored) {}
         buildUi();
@@ -111,7 +115,7 @@ public class MainActivity extends Activity {
         LinearLayout bar = new LinearLayout(this);
         bar.setPadding(dp(7),dp(3),dp(7),dp(3));
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = label("F.R.I.D.A.Y. · 3.2.2");
+        TextView title = label("F.R.I.D.A.Y. · 3.3.0");
         title.setTextSize(15); title.setTextColor(Color.rgb(71,228,249));
         bar.addView(title, new LinearLayout.LayoutParams(0,dp(48),1));
         Button configure = button("⚙ Réglages", () -> configScroll.setVisibility(configScroll.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
@@ -150,34 +154,32 @@ public class MainActivity extends Activity {
         outer.addView(configScroll, new LinearLayout.LayoutParams(-1, dp(340)));
         config.addView(label("MOTEUR VOCAL LOCAL · français Vosk (~41 Mo à télécharger une fois)"));
         config.addView(button(ModelInstaller.installed(this) ? "✓ Modèle installé" : "↓ Télécharger le modèle français", this::installModel));
-        config.addView(label("MOTEUR IA · DEEPSEEK (unique fournisseur)"));
-        openaiUrl = field("https://api.deepseek.com", false);
-        openaiUrl.setText(prefs.get("openai_url", "https://api.deepseek.com"));
-        openaiModel = field("deepseek-flash", false);
-        openaiModel.setText(prefs.get("openai_model", "deepseek-flash"));
-        config.addView(label("Modèle DeepSeek"));
-        config.addView(openaiModel);
-        config.addView(label("Clé API DeepSeek (laissez vide pour conserver)"));
-        openaiKey = field(prefs.hasSecret("openai") ? "Clé déjà enregistrée" : "Clé manquante", true);
-        config.addView(openaiKey);
-        openaiKeyState = label(prefs.hasSecret("openai")
-                ? "✔ Clé DeepSeek : enregistrée"
-                : "✘ Clé DeepSeek : absente — collez la clé puis appuyez sur « Enregistrer la clé »");
-        config.addView(openaiKeyState);
-        config.addView(button("💾 Enregistrer la clé DeepSeek", this::saveKeyOnly));
-        config.addView(button("🌐 Se connecter / créer ma clé sur platform.deepseek.com", this::openDeepSeekPage));
-        config.addView(button("🔍 Détecter les modèles disponibles", this::detectModels));
+        config.addView(label("MOTEUR IA · MISTRAL (fournisseur unique)"));
+        mistralModel = field("mistral-small-latest", false);
+        mistralModel.setText(prefs.get("mistral_model", "mistral-small-latest"));
+        config.addView(label("Modèle Mistral"));
+        config.addView(mistralModel);
+        config.addView(label("Clé API Mistral (laissez vide pour conserver)"));
+        mistralKey = field(prefs.hasSecret("mistral") ? "Clé déjà enregistrée" : "Clé manquante", true);
+        config.addView(mistralKey);
+        mistralKeyState = label(prefs.hasSecret("mistral")
+                ? "✔ Clé Mistral : enregistrée"
+                : "✘ Clé Mistral : absente — collez-la puis appuyez sur « Enregistrer la clé »");
+        config.addView(mistralKeyState);
+        config.addView(button("💾 Enregistrer la clé Mistral", this::saveKeyOnly));
+        config.addView(button("🌐 Ouvrir Mistral Studio · clés API", this::openMistralPage));
+        config.addView(button("🔍 Détecter les modèles Mistral", this::detectModels));
         webEnabled = new CheckBox(this);
-        webEnabled.setText("Recherche Web intelligente (DeepSeek) : réponses sourcées, API facturable");
+        webEnabled.setText("Recherche Web (Mistral Conversations) : réponses sourcées, API facturable");
         webEnabled.setTextColor(Color.WHITE);
         webEnabled.setChecked("1".equals(prefs.get("web_enabled", "1")));
         config.addView(webEnabled);
         config.addView(button("🌐 Activer et tester la recherche Web", this::enableAndTestWeb));
-        config.addView(label("En mode Web, FRIDAY consulte des sources publiques. Les recherches DeepSeek peuvent être facturées."));
+        config.addView(label("En mode Web, FRIDAY consulte des sources publiques. Les recherches Mistral peuvent être facturées."));
 
         config.addView(label("MÉMOIRE PERSONNELLE · uniquement sur demande explicite"));
         memoryEnabled = new CheckBox(this);
-        memoryEnabled.setText("Activer ma mémoire chiffrée (les notes seront transmises à DeepSeek avec les questions)");
+        memoryEnabled.setText("Activer ma mémoire chiffrée (les notes seront transmises à Mistral avec les questions)");
         memoryEnabled.setTextColor(Color.WHITE);
         memoryEnabled.setChecked("1".equals(prefs.get("memory_enabled", "0")));
         config.addView(memoryEnabled);
@@ -233,7 +235,7 @@ public class MainActivity extends Activity {
         locationEnabled.setChecked("1".equals(prefs.get("location_enabled", "0")));
         config.addView(locationEnabled);
         locationShare = new CheckBox(this);
-        locationShare.setText("Autoriser l'envoi ponctuel de mes coordonnées GPS à DeepSeek pour les questions locales");
+        locationShare.setText("Autoriser l'envoi ponctuel de mes coordonnées GPS à Mistral pour les questions locales");
         locationShare.setTextColor(Color.WHITE);
         locationShare.setChecked("1".equals(prefs.get("location_share", "0")));
         config.addView(locationShare);
@@ -244,7 +246,7 @@ public class MainActivity extends Activity {
         config.addView(placeNameEnabled);
         config.addView(label("Aucune clé Google : ce géocodeur est une fonction d'Android, dont le fournisseur peut accéder à Internet. Désactivé par défaut."));
         config.addView(label("Aucun suivi GPS permanent : mesure à la demande (jusqu'à 16 s) et objectif 3 m non garanti. " +
-            "La précision effectivement mesurée est affichée. Si le partage IA est autorisé, les coordonnées précises de cette question sont transmises à l’API DeepSeek."));
+            "La précision effectivement mesurée est affichée. Si le partage IA est autorisé, les coordonnées précises de cette question sont transmises à l’API Mistral."));
         config.addView(button("◎ Tester précision GPS · cible 3 m", this::showGpsAccuracy));
         config.addView(label("DIAGNOSTIC · dernière erreur du moteur IA"));
         lastErrorLabel = label(prefs.get("last_error", "").isEmpty()
@@ -268,7 +270,7 @@ public class MainActivity extends Activity {
             startActivity(intent);
         }));
         config.addView(label("L'écoute native continue avec écran allumé ou verrouillé après un démarrage volontaire depuis l'application visible. Un redémarrage du service depuis l'application est nécessaire après tout changement de permission de localisation. La notification permet d'arrêter le micro."));
-        config.addView(label("La reconnaissance vocale est locale ; seule la question transcrite est envoyée à l’API DeepSeek configurée. Les clés API natives sont chiffrées Android Keystore."));
+        config.addView(label("La reconnaissance vocale est locale ; seule la question transcrite est envoyée à l’API Mistral. Les clés API natives sont chiffrées Android Keystore."));
 
         hud = new WebView(this);
         hud.setBackgroundColor(Color.rgb(5,17,28));
@@ -300,14 +302,12 @@ public class MainActivity extends Activity {
     }
     private void save() {
         try {
-            prefs.put("mode", "deepseek");
-            prefs.put("provider", "openai");
-            String deepseekUrl = openaiUrl.getText().toString().trim();
-            prefs.put("openai_url", deepseekUrl.isEmpty() ? "https://api.deepseek.com" : deepseekUrl);
-            prefs.put("openai_model", openaiModel.getText().toString().trim());
-            String openaiGiven = openaiKey.getText().toString().trim();
-            if (!openaiGiven.isEmpty()) prefs.setSecret("openai", openaiGiven);
-            openaiKey.setText("");
+            prefs.put("mode", "mistral");
+            prefs.put("provider", "mistral");
+            prefs.put("mistral_model", mistralModel.getText().toString().trim());
+            String mistralGiven = mistralKey.getText().toString().trim();
+            if (!mistralGiven.isEmpty()) prefs.setSecret("mistral", mistralGiven);
+            mistralKey.setText("");
             prefs.put("memory_enabled", memoryEnabled.isChecked() ? "1" : "0");
             prefs.put("web_enabled", webEnabled.isChecked() ? "1" : "0");
             prefs.put("silence_ms", bounded(silenceInput, 2100, 900, 6000));
@@ -318,9 +318,9 @@ public class MainActivity extends Activity {
             prefs.put("location_enabled", locationEnabled.isChecked() ? "1" : "0");
             prefs.put("location_share", locationEnabled.isChecked() && locationShare.isChecked() ? "1" : "0");
             prefs.put("address_lookup", locationEnabled.isChecked() && placeNameEnabled.isChecked() ? "1" : "0");
-            String keyInfo = prefs.hasSecret("openai")
-                    ? (SecurePrefs.LAST_ERROR.isEmpty() ? "Clé DeepSeek enregistrée." : "Clé enregistrée. ⚠ " + SecurePrefs.LAST_ERROR)
-                    : "⚠ Aucune clé DeepSeek enregistrée : les réponses seront refusées.";
+            String keyInfo = prefs.hasSecret("mistral")
+                    ? (SecurePrefs.LAST_ERROR.isEmpty() ? "Clé Mistral enregistrée." : "Clé enregistrée. ⚠ " + SecurePrefs.LAST_ERROR)
+                    : "⚠ Aucune clé Mistral enregistrée : les réponses seront refusées.";
             status.setText(keyInfo + " Réglages enregistrés. Arrêtez puis redémarrez le service pour appliquer les permissions.");
             if (locationEnabled.isChecked() && !FridayLocation.hasPermission(this)) requestLocationAccess();
             Toast.makeText(this,"Réglages natifs enregistrés",Toast.LENGTH_SHORT).show();
@@ -348,28 +348,28 @@ public class MainActivity extends Activity {
     }
     /** Enregistre la clé telle qu'elle est saisie, sans toucher au reste des réglages. */
     private void saveKeyOnly() {
-        String typed = openaiKey == null ? "" : openaiKey.getText().toString().trim();
+        String typed = mistralKey == null ? "" : mistralKey.getText().toString().trim();
         if (typed.isEmpty()) {
-            openaiKeyState.setText(prefs.hasSecret("openai")
+            mistralKeyState.setText(prefs.hasSecret("mistral")
                     ? "✔ Clé déjà enregistrée (champ vide : la clé existante est conservée)"
-                    : "✘ Aucune clé : collez la clé DeepSeek (elle commence par « sk- »)");
+                    : "✘ Aucune clé : collez la clé Mistral (elle commence par « sk- »)");
             return;
         }
-        prefs.setSecret("openai", typed);
-        openaiKey.setText("");
-        boolean ok = prefs.hasSecret("openai");
-        openaiKeyState.setText(ok
-                ? "✔ Clé DeepSeek enregistrée" + (SecurePrefs.LAST_ERROR.isEmpty() ? "" : " — ⚠ " + SecurePrefs.LAST_ERROR)
+        prefs.setSecret("mistral", typed);
+        mistralKey.setText("");
+        boolean ok = prefs.hasSecret("mistral");
+        mistralKeyState.setText(ok
+                ? "✔ Clé Mistral enregistrée" + (SecurePrefs.LAST_ERROR.isEmpty() ? "" : " — ⚠ " + SecurePrefs.LAST_ERROR)
                 : "✘ Échec de l'enregistrement de la clé");
-        status.setText(ok ? "Clé DeepSeek enregistrée. Vous pouvez détecter les modèles." : "Clé non enregistrée.");
-        Toast.makeText(this, ok ? "Clé DeepSeek enregistrée" : "Clé non enregistrée", Toast.LENGTH_SHORT).show();
+        status.setText(ok ? "Clé Mistral enregistrée. Vous pouvez détecter les modèles." : "Clé non enregistrée.");
+        Toast.makeText(this, ok ? "Clé Mistral enregistrée" : "Clé non enregistrée", Toast.LENGTH_SHORT).show();
     }
 
     /** Activation immédiate, puis test réseau réellement exécuté hors du thread UI. */
     private void enableAndTestWeb() {
         webEnabled.setChecked(true);
         prefs.put("web_enabled", "1");
-        status.setText("Recherche Web activée. Vérification de l'API DeepSeek…");
+        status.setText("Recherche Web activée. Vérification de l'API Mistral…");
         new Thread(() -> {
             String result;
             try { result = NativeAI.testWeb(prefs); }
@@ -384,13 +384,13 @@ public class MainActivity extends Activity {
 
     private void detectModels() {
         // La clé saisie mais non encore enregistrée est prise en compte immédiatement.
-        if (openaiKey != null) {
-            String typed = openaiKey.getText().toString().trim();
-            if (!typed.isEmpty()) { prefs.setSecret("openai", typed); openaiKey.setText(""); }
+        if (mistralKey != null) {
+            String typed = mistralKey.getText().toString().trim();
+            if (!typed.isEmpty()) { prefs.setSecret("mistral", typed); mistralKey.setText(""); }
         }
-        final String key = prefs.secret("openai");
-        if (key.isEmpty()) { status.setText("Enregistrez d'abord la clé DeepSeek."); return; }
-        final String url = prefs.get("openai_url", "https://api.deepseek.com");
+        final String key = prefs.secret("mistral");
+        if (key.isEmpty()) { status.setText("Enregistrez d'abord la clé Mistral."); return; }
+        final String url = "https://api.mistral.ai/v1";
         status.setText("Interrogation de la liste des modèles…");
         new Thread(() -> {
             try {
@@ -401,17 +401,17 @@ public class MainActivity extends Activity {
                         return;
                     }
                     String[] arr = models.toArray(new String[0]);
-                    String current = prefs.get("openai_model", "").trim();
+                    String current = prefs.get("mistral_model", "").trim();
                     String chosen = current;
                     // Le modèle configuré n'existe pas dans la liste → on applique un modèle valide.
                     if (!models.contains(current)) {
                         chosen = models.get(0);
                         for (String m : models) {
                             String low = m.toLowerCase(java.util.Locale.ROOT);
-                            if (low.contains("flash")) { chosen = m; break; }
+                            if (low.contains("small")) { chosen = m; break; }
                         }
-                        prefs.put("openai_model", chosen);
-                        if (openaiModel != null) openaiModel.setText(chosen);
+                        prefs.put("mistral_model", chosen);
+                        if (mistralModel != null) mistralModel.setText(chosen);
                     }
                     StringBuilder sb = new StringBuilder();
                     for (String m : models) { if (sb.length() > 0) sb.append(", "); sb.append(m); }
@@ -434,21 +434,21 @@ public class MainActivity extends Activity {
         String err = prefs.get("last_error", "");
         String when = prefs.get("last_error_time", "");
         String payload = err.isEmpty() ? "Aucune erreur enregistrée." :
-                "[" + when + "] " + err + "\nmodèle=" + prefs.get("openai_model", "?")
-                + " url=" + prefs.get("openai_url", "?")
-                + " clé=" + (prefs.hasSecret("openai") ? "présente" : "absente");
+                "[" + when + "] " + err + "\nmodèle=" + prefs.get("mistral_model", "?")
+                + " url=" + "https://api.mistral.ai/v1"
+                + " clé=" + (prefs.hasSecret("mistral") ? "présente" : "absente");
         android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
         if (cm != null) cm.setPrimaryClip(android.content.ClipData.newPlainText("friday-error", payload));
         Toast.makeText(this, "Erreur copiée dans le presse-papiers", Toast.LENGTH_SHORT).show();
     }
 
-    private void openDeepSeekPage() {
+    private void openMistralPage() {
         try {
             startActivity(new Intent(Intent.ACTION_VIEW,
-                    android.net.Uri.parse("https://platform.deepseek.com/api_keys")));
-            status.setText("Page DeepSeek ouverte : créez ou copiez votre clé, puis collez-la ici.");
+                    android.net.Uri.parse("https://console.mistral.ai/api-keys/")));
+            status.setText("Page Mistral ouverte : créez ou copiez votre clé, puis collez-la ici.");
         } catch (Exception e) {
-            status.setText("Aucun navigateur disponible : ouvrez https://platform.deepseek.com/api_keys");
+            status.setText("Aucun navigateur disponible : ouvrez https://console.mistral.ai/api-keys/");
         }
     }
 
