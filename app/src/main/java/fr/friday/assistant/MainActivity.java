@@ -555,7 +555,9 @@ public class MainActivity extends Activity {
     private void showGpsAccuracy() {
         if (!"1".equals(prefs.get("location_enabled", "0"))) {
             prefs.put("location_enabled", "1");
+            prefs.put("location_share", "0");
             locationEnabled.setChecked(true);
+            locationShare.setChecked(false);
         }
         if (!FridayLocation.hasPermission(this)) {
             cachedLocation = "Autorisation Android de localisation manquante.";
@@ -685,6 +687,9 @@ public class MainActivity extends Activity {
                 if (kind.equals("interrupted")) {
                     hudCloneSpeaking.set(false);
                     if (webVoice != null) { try { webVoice.stop(); } catch (Exception ignored) { } }
+                }
+                if (kind.equals("location")) {
+                    cachedLocation = text;
                 }
                 if (kind.equals("error")) {
                     prefs.put("last_error", text);
