@@ -335,7 +335,8 @@ public class FridayService extends Service {
                             now < bargePendingUntil) ? Math.min(silenceMs, 1300) : silenceMs;
                         if (lastVoice > 0 && now - lastVoice >= timeout &&
                                 (!completed.isEmpty() || !interim.isEmpty())) {
-                            String tail = parse(recognizer.getFinalResult(), "text");
+                            String finalJson = recognizer.getFinalResult();
+                            String tail = parse(finalJson, "text");
                             String phrase = VoiceText.join(completed, tail);
                             if (phrase.isEmpty()) phrase = interim;
                             // Vosk fermé/réinitialisé, mais le micro reste ouvert sans interruption.
@@ -345,7 +346,18 @@ public class FridayService extends Service {
                                 SystemClock.elapsedRealtime() - lastSpeechEndedAt < 3000L;
                             completed = interim = ""; lastVoice = 0;
                             earlyCancelled = false; sawSpeakerFeedback = false;
-                            if (!dropSpeaker && !phrase.trim().isEmpty()) handlePhrase(phrase.trim());
+                            double confidence = averageConfidence(finalJson);
+                            boolean unclear = phrase.split("\\s+").length >= 3 && confidence > 0 && confidence < 0.55;
+                            if (!dropSpeaker && !phrase.trim().isEmpty()) {
+                                if (unclear) {
+                                    // Transcription douteuse : on montre ce qui a été entendu au lieu d'interroger l'IA.
+                                    event("user", phrase.trim());
+                                    event("error", "Je n'ai pas bien compris : « " + phrase.trim()
+                                            + " » (confiance " + Math.round(confidence * 100) + " %). Pouvez-vous répéter ?");
+                                } else {
+                                    handlePhrase(phrase.trim());
+                                }
+                            }
                         }
                     }
                 } catch (Exception captureError) {
@@ -390,6 +402,19 @@ public class FridayService extends Service {
         event("status", status);
     }
     /** L'ancien tour annulé ne peut plus ni parler ni remplacer la nouvelle réponse. */
+    /** Confiance moyenne des mots renvoyés par Vosk (0 = inconnue). */
+    private static double averageConfidence(String json) {
+        try {
+            org.json.JSONArray words = new org.json.JSONObject(json).optJSONArray("result");
+            if (words == null || words.length() == 0) return 0;
+            double sum = 0;
+            for (int i = 0; i < words.length(); i++) {
+                sum += words.getJSONObject(i).optDouble("conf", 0);
+            }
+            return sum / words.length();
+        } catch (Exception e) { return 0; }
+    }
+
     private void handlePhrase(String heard) {
         if (!running || heard == null || heard.trim().isEmpty()) return;
         long now = SystemClock.elapsedRealtime();

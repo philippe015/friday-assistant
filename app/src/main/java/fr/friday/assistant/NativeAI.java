@@ -35,19 +35,44 @@ public final class NativeAI {
         return "Date et heure du téléphone : " + date.format(now) + " ; fuseau " + TimeZone.getDefault().getID() +
                ". Cette date prime sur les connaissances internes du modèle.";
     }
+    /** Mots tolérés dans une question purement « heure » ou « date ». */
+    private static final java.util.Set<String> TIME_WORDS = new java.util.HashSet<>(java.util.Arrays.asList(
+            "friday", "quelle", "quel", "quelles", "quels", "heure", "heures", "il", "est", "sont",
+            "as", "tu", "vous", "peux", "peut", "me", "dire", "donner", "donne", "dis", "moi",
+            "maintenant", "actuelle", "actuellement", "s'il", "te", "plait", "plaît", "stp"));
+    private static final java.util.Set<String> DATE_WORDS = new java.util.HashSet<>(java.util.Arrays.asList(
+            "friday", "quelle", "quel", "jour", "date", "sommes", "nous", "on", "est", "en",
+            "année", "annee", "aujourd'hui", "hui", "mois", "nous", "sommes", "le", "combien",
+            "tu", "peux", "peut", "me", "dire", "donner", "donne", "dis", "moi", "stp", "s'il", "te", "plait"));
+
+    /**
+     * Réponses locales volontairement **strictes** : si la phrase contient un mot hors du champ
+     * « heure » / « date » (météo, ville, vitesse, recherche…), on laisse l'IA répondre.
+     * Évite qu'une question mal transcrite (« quelle heure est-il à Vitry ») parte en réponse locale.
+     */
     public static String localAnswer(String q) {
-        String s = q.toLowerCase(Locale.FRENCH);
-        if (s.contains("quelle heure") || s.contains("l'heure") || s.contains("heure est-il")) {
+        String s = q == null ? "" : q.toLowerCase(Locale.FRENCH)
+                .replaceAll("[^a-zà-ÿ' ]", " ").replaceAll("\\s+", " ").trim();
+        if (s.isEmpty()) return null;
+        String[] words = s.split(" ");
+        if (words.length > 8) return null;              // question développée → IA
+        java.util.Set<String> used = new java.util.HashSet<>(java.util.Arrays.asList(words));
+
+        boolean timeLike = (s.contains("heure") || s.contains("heures"))
+                && TIME_WORDS.containsAll(used);
+        if (timeLike) {
             SimpleDateFormat f = new SimpleDateFormat("HH 'heures' mm", Locale.FRENCH);
             return "Il est " + f.format(new Date()) + ".";
         }
-        if (s.contains("quel jour") || s.contains("date sommes-nous") || s.contains("quelle date") || s.contains("en quelle année") || s.contains("quelle année"))
+        boolean dateLike = (s.contains("date") || s.contains("jour") || s.contains("année")
+                || s.contains("annee") || s.contains("aujourd'hui"))
+                && DATE_WORDS.containsAll(used);
+        if (dateLike) {
             return "Nous sommes le " + timeContext().replace("Date et heure du téléphone : ", "").split(" ; ")[0] + ".";
+        }
         return null;
     }
-    public static String answer(SecurePrefs settings, String question, List<JSONObject> history) throws Exception {
-        return answer(settings, question, history, null);
-    }
+
     /** Réponse annulable lors d'un « Friday stop » ou d'une nouvelle question. */
     public static String answer(SecurePrefs settings, String question, List<JSONObject> history,
                                 String locationContext, CancelToken token) throws Exception {
