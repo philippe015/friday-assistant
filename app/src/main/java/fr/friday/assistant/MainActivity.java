@@ -111,7 +111,7 @@ public class MainActivity extends Activity {
         LinearLayout bar = new LinearLayout(this);
         bar.setPadding(dp(7),dp(3),dp(7),dp(3));
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = label("F.R.I.D.A.Y. · 2.2.0");
+        TextView title = label("F.R.I.D.A.Y. · 3.2.2");
         title.setTextSize(15); title.setTextColor(Color.rgb(71,228,249));
         bar.addView(title, new LinearLayout.LayoutParams(0,dp(48),1));
         Button configure = button("⚙ Réglages", () -> configScroll.setVisibility(configScroll.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
@@ -168,10 +168,12 @@ public class MainActivity extends Activity {
         config.addView(button("🌐 Se connecter / créer ma clé sur platform.deepseek.com", this::openDeepSeekPage));
         config.addView(button("🔍 Détecter les modèles disponibles", this::detectModels));
         webEnabled = new CheckBox(this);
-        webEnabled.setText("Recherche Web (API DeepSeek) quand la question le justifie");
+        webEnabled.setText("Recherche Web intelligente (DeepSeek) : réponses sourcées, API facturable");
         webEnabled.setTextColor(Color.WHITE);
         webEnabled.setChecked("1".equals(prefs.get("web_enabled", "1")));
         config.addView(webEnabled);
+        config.addView(button("🌐 Activer et tester la recherche Web", this::enableAndTestWeb));
+        config.addView(label("En mode Web, FRIDAY consulte des sources publiques. Les recherches DeepSeek peuvent être facturées."));
 
         config.addView(label("MÉMOIRE PERSONNELLE · uniquement sur demande explicite"));
         memoryEnabled = new CheckBox(this);
@@ -361,6 +363,23 @@ public class MainActivity extends Activity {
                 : "✘ Échec de l'enregistrement de la clé");
         status.setText(ok ? "Clé DeepSeek enregistrée. Vous pouvez détecter les modèles." : "Clé non enregistrée.");
         Toast.makeText(this, ok ? "Clé DeepSeek enregistrée" : "Clé non enregistrée", Toast.LENGTH_SHORT).show();
+    }
+
+    /** Activation immédiate, puis test réseau réellement exécuté hors du thread UI. */
+    private void enableAndTestWeb() {
+        webEnabled.setChecked(true);
+        prefs.put("web_enabled", "1");
+        status.setText("Recherche Web activée. Vérification de l'API DeepSeek…");
+        new Thread(() -> {
+            String result;
+            try { result = NativeAI.testWeb(prefs); }
+            catch (Exception error) {
+                result = "Recherche Web activée, mais test impossible : "
+                        + (error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
+            }
+            final String detail = result;
+            runOnUiThread(() -> status.setText(detail));
+        }, "friday-test-web").start();
     }
 
     private void detectModels() {
