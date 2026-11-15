@@ -3,6 +3,16 @@
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 versionnage [SemVer](https://semver.org/lang/fr/).
 
+## [3.0.5] — 2026-11-15
+
+### Corrigé
+- **La clé DeepSeek saisie n'était pas prise en compte** tant que l'on n'appuyait pas sur
+  « Enregistrer les réglages » (situé tout en bas du panneau, hors écran).
+- Nouveau bouton **« 💾 Enregistrer la clé DeepSeek »** juste sous le champ, avec retour immédiat
+  (`✔ enregistrée` / `✘ échec`).
+- Le bouton **« 🔍 Détecter les modèles »** enregistre d'abord la clé présente dans le champ,
+  puis interroge `/models` — plus besoin d'aller plus bas dans les réglages.
+
 ## [3.0.4] — 2026-11-15
 
 ### Ajouté
