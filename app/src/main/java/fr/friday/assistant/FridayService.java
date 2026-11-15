@@ -781,6 +781,7 @@ public class FridayService extends Service {
         running = false;
         active = false;
         micSilenced = false;
+        foregroundLocationEnabled = false;
         textQuestions.clear();
         queuedQuestions.set(0);
         if (recorder != null) {
