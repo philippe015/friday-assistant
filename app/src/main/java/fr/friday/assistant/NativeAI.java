@@ -63,10 +63,10 @@ public final class NativeAI {
         // Partage ponctuel : ce contexte n'est pas conservé dans l'historique de chat.
         if (locationContext != null && !locationContext.isEmpty())
             text += "\n\n[Contexte de localisation autorisé pour cette requête : " + locationContext + "]";
-        if ("openai".equals(settings.get("provider", "mistral"))) {
+        if (!"mistral".equals(settings.get("provider", "openai"))) {
             String openKey = settings.secret("openai");
             if (openKey.isEmpty())
-                throw new IOException("Clé API du fournisseur compatible OpenAI absente : Réglages natifs → Enregistrer.");
+                throw new IOException("Clé API DeepSeek absente : Réglages natifs → collez la clé → Enregistrer (ou bouton « Se connecter »).");
             return openAiAnswer(settings, openKey, text, history);
         }
         String key = settings.secret("mistral");

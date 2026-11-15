@@ -3,6 +3,19 @@
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 versionnage [SemVer](https://semver.org/lang/fr/).
 
+## [2.4.0] — 2026-11-15
+
+### Modifié
+- **DeepSeek devient le fournisseur unique** (Mistral retiré de l'interface).
+- Nouveau bouton **« Se connecter / créer ma clé sur platform.deepseek.com »** : ouvre la page
+  web officielle dans le navigateur, où l'utilisateur crée/copie sa clé API.
+- Le cockpit affiche désormais **MOTEUR DEEPSEEK**.
+- La clé reste chiffrée localement (Android Keystore).
+
+### Notes
+- La **vision** et la **recherche Web** ne sont plus exposées : DeepSeek Chat ne propose pas
+  de connecteurs équivalents (les fonctions Mistral restent dans le code mais inactives).
+
 ## [2.3.0] — 2026-11-15
 
 ### Ajouté
