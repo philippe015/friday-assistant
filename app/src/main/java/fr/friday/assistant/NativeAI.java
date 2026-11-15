@@ -92,6 +92,45 @@ public final class NativeAI {
      * Fournisseur « compatible OpenAI » : DeepSeek, Ollama, LM Studio, vLLM…
      * Endpoint attendu : <baseUrl>/chat/completions
      */
+    /** Liste les modèles réellement proposés par le fournisseur (GET /models). */
+    public static List<String> listModels(String baseUrl, String key) throws Exception {
+        String root = baseUrl == null || baseUrl.trim().isEmpty()
+                ? "https://api.deepseek.com" : baseUrl.trim();
+        String url = root.replaceAll("/+$", "") + "/models";
+        HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+        conn.setRequestMethod("GET");
+        conn.setConnectTimeout(12000);
+        conn.setReadTimeout(20000);
+        conn.setRequestProperty("Authorization", "Bearer " + key);
+        conn.setRequestProperty("Accept", "application/json");
+        int status = conn.getResponseCode();
+        InputStream stream = status >= 200 && status < 300 ? conn.getInputStream() : conn.getErrorStream();
+        if (stream == null) throw new IOException("API HTTP " + status);
+        ByteArrayOutputStream data = new ByteArrayOutputStream();
+        try (InputStream in = stream) {
+            byte[] buffer = new byte[8192]; int n;
+            while ((n = in.read(buffer)) != -1) data.write(buffer, 0, n);
+        }
+        conn.disconnect();
+        String raw = data.toString(StandardCharsets.UTF_8.name());
+        if (status < 200 || status >= 300) {
+            throw new IOException("API HTTP " + status + " : "
+                    + (raw.length() > 200 ? raw.substring(0, 200) : raw));
+        }
+        JSONArray arr = new JSONObject(raw).optJSONArray("data");
+        List<String> ids = new java.util.ArrayList<>();
+        if (arr != null) {
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject o = arr.optJSONObject(i);
+                if (o != null) {
+                    String id = o.optString("id", "").trim();
+                    if (!id.isEmpty()) ids.add(id);
+                }
+            }
+        }
+        return ids;
+    }
+
     /** Modèles DeepSeek valides (doc 2026) : « deepseek-chat » n'existe plus. */
     private static final String[] DEEPSEEK_MODELS = {"deepseek-flash", "deepseek-v4-pro"};
 
@@ -118,9 +157,23 @@ public final class NativeAI {
         for (JSONObject old : compactHistory(history)) messages.put(old);
         messages.put(new JSONObject().put("role", "user").put("content", question));
 
+        // Découverte : les modèles réellement proposés par la clé (évite tout nom obsolète).
+        List<String> discovered = new java.util.ArrayList<>();
+        try { discovered = listModels(baseUrl, key); } catch (Exception ignored) { }
+        if (!discovered.isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            for (String id : discovered) { if (sb.length() > 0) sb.append(','); sb.append(id); }
+            cfg.put("available_models", sb.toString());
+            cfg.put("available_models_time", String.valueOf(System.currentTimeMillis()));
+        }
+
         // Modèle configuré d'abord, puis les modèles DeepSeek valides (repli automatique).
         java.util.LinkedHashSet<String> attempts = new java.util.LinkedHashSet<>();
-        attempts.add(configured);
+        // Les noms retirés ne sont pas réessayés inutilement.
+        boolean retired = configured.equals("deepseek-chat")
+                || configured.equals("deepseek-reasoner")
+                || configured.startsWith("deepseek-v3");
+        if (!retired) attempts.add(configured);
         java.util.Collections.addAll(attempts, DEEPSEEK_MODELS);
 
         String lastError = "";

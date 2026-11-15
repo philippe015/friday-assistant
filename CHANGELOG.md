@@ -3,6 +3,25 @@
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 versionnage [SemVer](https://semver.org/lang/fr/).
 
+## [3.0.4] — 2026-11-15
+
+### Ajouté
+- **Détection automatique des modèles** : l'app interroge `GET /models` avec votre clé et
+  utilise un modèle réellement proposé par votre compte (plus de nom obsolète).
+- Bouton **« 🔍 Détecter les modèles disponibles »** dans les réglages : affiche la liste
+  et la copie dans le presse-papiers.
+- La liste détectée est mise en cache (`available_models`) et réutilisée comme ordre de repli.
+
+## [3.0.3] — 2026-11-15
+
+### Corrigé
+- **Le champ « Modèle DeepSeek » conservait l'ancien nom** (`deepseek-chat`) enregistré dans les
+  préférences, alors que la valeur par défaut était corrigée : l'écran affichait donc toujours
+  l'ancien modèle.
+- **Migration au démarrage** : `deepseek-chat`, `deepseek-reasoner` et `deepseek-v3*` sont
+  remplacés par **`deepseek-flash`**.
+- Le nom retiré n'est plus envoyé à l'API avant le repli.
+
 ## [3.0.2] — 2026-11-15
 
 ### Corrigé
