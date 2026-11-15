@@ -68,6 +68,14 @@ public class MainActivity extends Activity {
         getWindow().setStatusBarColor(Color.rgb(3, 16, 26));
         getWindow().setNavigationBarColor(Color.rgb(3, 16, 26));
         prefs = new SecurePrefs(this);
+        // Migration des modèles retirés : « deepseek-chat » n'existe plus (API 2026).
+        String storedModel = prefs.get("openai_model", "");
+        if (storedModel.isEmpty()
+                || storedModel.equals("deepseek-chat")
+                || storedModel.equals("deepseek-reasoner")
+                || storedModel.startsWith("deepseek-v3")) {
+            prefs.put("openai_model", "deepseek-flash");
+        }
         // Migration : supprimer l'ancienne clé Agnès stockée sur les installations précédentes.
         try { prefs.setSecret("agnes", ""); prefs.setSecret("mistral", ""); prefs.put("mode", "deepseek"); prefs.put("agnes_model", ""); } catch (Exception ignored) {}
         // Supprime une éventuelle ancienne clé Google Places, désormais inutilisée.
@@ -155,6 +163,7 @@ public class MainActivity extends Activity {
                 : "✘ Clé DeepSeek : absente — utilisez le bouton ci-dessous";
         config.addView(label(openaiState));
         config.addView(button("🌐 Se connecter / créer ma clé sur platform.deepseek.com", this::openDeepSeekPage));
+        config.addView(button("🔍 Détecter les modèles disponibles", this::detectModels));
 
         config.addView(label("MÉMOIRE PERSONNELLE · uniquement sur demande explicite"));
         memoryEnabled = new CheckBox(this);
@@ -326,6 +335,33 @@ public class MainActivity extends Activity {
         input.setText(String.valueOf(value));
         return String.valueOf(value);
     }
+    private void detectModels() {
+        final String key = prefs.secret("openai");
+        if (key.isEmpty()) { status.setText("Enregistrez d'abord la clé DeepSeek."); return; }
+        status.setText("Interrogation de la liste des modèles…");
+        final String url = prefs.get("openai_url", "https://api.deepseek.com");
+        new Thread(() -> {
+            try {
+                java.util.List<String> models = NativeAI.listModels(url, key);
+                runOnUiThread(() -> {
+                    if (models.isEmpty()) {
+                        status.setText("Aucun modèle renvoyé par " + url + "/models");
+                        return;
+                    }
+                    StringBuilder sb = new StringBuilder();
+                    for (String m : models) { if (sb.length() > 0) sb.append(", "); sb.append(m); }
+                    prefs.put("available_models", String.join(",", models));
+                    status.setText("Modèles disponibles : " + sb);
+                    android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                    if (cm != null) cm.setPrimaryClip(android.content.ClipData.newPlainText("models", sb.toString()));
+                    Toast.makeText(this, "Liste copiée dans le presse-papiers", Toast.LENGTH_SHORT).show();
+                });
+            } catch (final Exception e) {
+                runOnUiThread(() -> status.setText("Détection impossible : " + e.getMessage()));
+            }
+        }, "friday-models").start();
+    }
+
     private void copyLastError() {
         String err = prefs.get("last_error", "");
         String when = prefs.get("last_error_time", "");
