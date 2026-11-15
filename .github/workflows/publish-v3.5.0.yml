@@ -1,0 +1,69 @@
+name: Publish FRIDAY v3.5.0
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-v3.5.0.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout v3.5.0
+        uses: actions/checkout@v4
+
+      - name: Validate app version
+        run: |
+          set -euo pipefail
+          grep -Fq "versionCode 57" app/build.gradle
+          grep -Fq "versionName '3.4.1'" app/build.gradle
+
+      - name: Wait for signed APK build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run watch 43748693174 --repo "$GITHUB_REPOSITORY" --exit-status --interval 10
+
+      - name: Download and verify signed APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 43748693174 --repo "$GITHUB_REPOSITORY" \
+            --name FRIDAY-release-signed-apk --dir dist
+          test -s dist/app-release.apk
+          unzip -tq dist/app-release.apk
+          mv dist/app-release.apk dist/FRIDAY-v3.5.0-release.apk
+          sha256sum dist/FRIDAY-v3.5.0-release.apk
+
+      - name: Tag version v3.5.0
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v3.5.0" >/dev/null 2>&1; then
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref='refs/tags/v3.5.0' -f sha="$GITHUB_SHA"
+          fi
+
+      - name: Publish official signed release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view v3.5.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload v3.5.0 dist/FRIDAY-v3.5.0-release.apk \
+              --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create v3.5.0 dist/FRIDAY-v3.5.0-release.apk \
+              --repo "$GITHUB_REPOSITORY" --verify-tag \
+              --title "F.R.I.D.A.Y. v3.5.0 - Identité et GPS Mistral corrigés" \
+              --notes "FRIDAY v3.5.0 : reprises annulables des erreurs HTTP 429 et 500/502/503/504, Retry-After, sélection explicite des modèles Mistral accessibles et cache 1 heure, diagnostics Web vérifiables. Conservation du GPS sur consentement, profil actif et écoute interruptible. APK Android signé versionCode 57, tests et compilation validés. L'accès réel aux outils Mistral et au GPS nécessite un test sur appareil."
+          fi
+          gh release view v3.5.0 --repo "$GITHUB_REPOSITORY" --json url,assets
