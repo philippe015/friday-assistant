@@ -3,6 +3,21 @@
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 versionnage [SemVer](https://semver.org/lang/fr/).
 
+## [3.1.0] — 2026-11-15
+
+### Ajouté
+- **Accès Web** via l'API DeepSeek : `POST /v1/tools/search` (recherche native DeepSeek).
+  Les meilleurs résultats (titre, URL, résumé) sont injectés dans la requête, avec consigne
+  de **citer les sources** ; les pages Web sont traitées comme des données non fiables.
+- Heuristique `WebSearch.needsWeb()` : la recherche ne se déclenche que si la question le
+  justifie (actualité, prix, météo, dates récentes, URL…), pour éviter les appels facturés.
+- Réglage **« Recherche Web (API DeepSeek) »** activé par défaut.
+
+### Amélioré
+- **Qualité du microphone** : ajout de l'**AGC** (`AutomaticGainControl`) en plus de
+  l'annulation d'écho et du réducteur de bruit, et **tampon audio ×4** (16384 octets minimum)
+  pour réduire les coupures et mieux capter les voix faibles.
+
 ## [3.0.5] — 2026-11-15
 
 ### Corrigé

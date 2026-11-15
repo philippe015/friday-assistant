@@ -39,6 +39,7 @@ public class MainActivity extends Activity {
     private EditText openaiUrl, openaiModel, openaiKey;
     private CheckBox voiceEnabled, locationEnabled, locationShare, placeNameEnabled;
     private CheckBox memoryEnabled;
+    private CheckBox webEnabled;
     private TextView voiceSampleStatus;
     private volatile boolean voiceRecording = false;
     private volatile boolean voicePreview = false;
@@ -166,6 +167,11 @@ public class MainActivity extends Activity {
         config.addView(button("💾 Enregistrer la clé DeepSeek", this::saveKeyOnly));
         config.addView(button("🌐 Se connecter / créer ma clé sur platform.deepseek.com", this::openDeepSeekPage));
         config.addView(button("🔍 Détecter les modèles disponibles", this::detectModels));
+        webEnabled = new CheckBox(this);
+        webEnabled.setText("Recherche Web (API DeepSeek) quand la question le justifie");
+        webEnabled.setTextColor(Color.WHITE);
+        webEnabled.setChecked("1".equals(prefs.get("web_enabled", "1")));
+        config.addView(webEnabled);
 
         config.addView(label("MÉMOIRE PERSONNELLE · uniquement sur demande explicite"));
         memoryEnabled = new CheckBox(this);
@@ -301,6 +307,7 @@ public class MainActivity extends Activity {
             if (!openaiGiven.isEmpty()) prefs.setSecret("openai", openaiGiven);
             openaiKey.setText("");
             prefs.put("memory_enabled", memoryEnabled.isChecked() ? "1" : "0");
+            prefs.put("web_enabled", webEnabled.isChecked() ? "1" : "0");
             prefs.put("silence_ms", bounded(silenceInput, 2100, 900, 6000));
             prefs.put("followup_sec", bounded(followupInput, 75, 15, 180));
             prefs.put("barge_in_enabled", bargeEnabled.isChecked() ? "1" : "0");
