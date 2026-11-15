@@ -66,7 +66,11 @@ public final class BargeInPolicy {
         if (s.isEmpty()) return false;
         return s.matches("^(?:et|mais|pour|plutot|non|je voulais dire|je veux dire|"
                 + "en fait|c est|ce serait|au sujet de|a propos de|par rapport a|"
-                + "ma precision|avec|sans|demain|hier|la semaine prochaine)\\b.*")
+                + "ma precision|peux tu preciser|pourrais tu preciser|"
+                + "donne moi plus de precisions|donne plus de precisions|"
+                + "donne plus de details|explique plus|explique davantage|"
+                + "sois plus precis|precise ta reponse|avec|sans|demain|hier|"
+                + "la semaine prochaine)\\b.*")
                 || (s.split(" ").length <= 5
                     && !s.matches("^(?:qui|comment|quelle|quel|pourquoi|qu est ce que)\\b.*"));
     }
