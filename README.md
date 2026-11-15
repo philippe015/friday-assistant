@@ -2,12 +2,12 @@
 
 **F.R.I.D.A.Y.** est un assistant vocal et conversationnel **application Android native** : cockpit **HUD** holographique (WebView), backend **Python embarqué**, détection de mot-clé en **Rust**, reconnaissance vocale **hors-ligne (Vosk)** et IA **Mistral**.
 
-> Sources **v3.3.0** — application en développement actif.
+> Sources **v3.4.0** — application en développement actif.
 > APK **release signé** publié par la CI (voir [Releases](../../releases/latest)).
 
 ---
 
-## ✨ Fonctionnalités (v3.3.0)
+## ✨ Fonctionnalités (v3.4.0)
 
 ### 🎙️ Voix
 - **Écoute interactive** : le microphone ne se coupe plus pendant le calcul Mistral ni pendant la lecture TTS (micro et traitement sur deux threads)
@@ -28,6 +28,12 @@
 - **Mémoire personnelle locale chiffrée** sur demande
 - **10 profils de personnalité** (16 000 caractères), chiffrés via **Android Keystore**
 - **Cerveau local Python** : heure, date, jour, année — **fonctionne sans réseau**
+
+### Fonctionnement amélioré (v3.4.0)
+- **Personnalité active** : le prompt sauvegardé du profil choisi est appliqué à chaque réponse Mistral, que la recherche Web soit active ou non ; le cockpit affiche le nom de ce profil.
+- **Diagnostic Web** : état réel de l'option et du test de l'outil, sans confondre « activé » et « testé ».
+- **GPS** : questions géolocalisées avec permission Android et diagnostic de la précision ; accord distinct pour un partage ponctuel à Mistral.
+- **Interruption et précision** : « Friday, attends, j'ai une précision » stoppe la réponse mais conserve le sujet pour la question suivante.
 
 ### 🖥️ Interface
 - Cockpit HUD holographique (HTML/CSS/JS local dans un WebView)
