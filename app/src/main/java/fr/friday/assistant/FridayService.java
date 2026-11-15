@@ -553,17 +553,32 @@ public class FridayService extends Service {
                         String place = "1".equals(settings.get("address_lookup", "0"))
                                 ? AndroidPlaceResolver.resolve(this, fix) : "";
                         if (!live(turn)) return;
-                        if (LocationIntent.direct(question)) {
-                            local = AndroidPlaceResolver.userText(fix, place);
-                        } else if ("1".equals(settings.get("location_share", "0"))) {
+                        // Le GPS Android et l'autorisation de transmettre les coordonnées
+                        // à Mistral sont deux choix indépendants. Ne jamais les confondre.
+                        boolean sharingAllowed = "1".equals(settings.get("location_share", "0"));
+                        if (sharingAllowed) {
                             locationForApi = fix.forAi()
                                     + (place.isEmpty() ? "" :
                                         "\nLieu estimé par le géocodeur Android : " + place
-                                        + ". Vérifie si nécessaire ; n'invente jamais une adresse exacte.");
+                                        + ". Cette adresse est approximative et non vérifiée.")
+                                    + "\nLa position ci-dessus vient du GPS Android pour CETTE demande. "
+                                    + "Tu disposes donc bien de la position transmise, même si tu "
+                                    + "n'as pas accès directement aux capteurs du téléphone. "
+                                    + "Si la question porte sur l'emplacement actuel, fournis "
+                                    + "d'abord les coordonnées et le lieu estimé s'il existe ; "
+                                    + "n'invente pas le nom d'une rue ni un établissement.";
+                            event("status", "Position GPS acquise. Partage ponctuel autorisé avec Mistral.");
+                        } else if (LocationIntent.direct(question)) {
+                            local = AndroidPlaceResolver.userText(fix, place)
+                                    + " La position reste uniquement sur votre téléphone : "
+                                    + "le partage des coordonnées avec Mistral n'est pas autorisé. "
+                                    + "Pour l'activer, choisissez « Configurer le GPS pour "
+                                    + "les réponses locales » dans les réglages.";
                         } else {
-                            local = "J'ai trouvé votre position sur le téléphone, mais le partage GPS "
-                                    + "avec Mistral est désactivé. Activez « Partage ponctuel des "
-                                    + "coordonnées » pour les recherches autour de vous.";
+                            local = "J'ai trouvé votre position sur le téléphone, mais "
+                                    + "son partage avec Mistral n'est pas autorisé. "
+                                    + "Autorisez le partage ponctuel GPS dans les réglages "
+                                    + "pour rechercher des informations autour de vous.";
                         }
                     }
                 }
@@ -577,6 +592,11 @@ public class FridayService extends Service {
             String answer = local != null ? local : NativeAI.answer(settings, prepared,
                 historySnapshot(), locationForApi, turn.api);
             if (!live(turn)) return;
+            // Preuve d'une transmission API ponctuelle réussie, sans conserver les coordonnées.
+            if (locationForApi != null && local == null) {
+                settings.put("gps_last_shared", String.valueOf(System.currentTimeMillis()));
+                event("gps_api", "Coordonnées GPS transmises à Mistral pour cette question (API répondante).");
+            }
             boolean privateLocation = LocationIntent.nearby(question);
             if (!privateLocation && !memoryAction) {
                 addHistory("user", question); addHistory("assistant", answer);
