@@ -28,6 +28,16 @@ public final class VoiceStopSpotterTest {
         yes(VoiceStopSpotter.GRAMMAR.startsWith("[\"[unk]\""), "inconnus Vosk autorisés");
         yes(VoiceStopSpotter.GRAMMAR.contains("\"stop\""), "grammaire STOP");
         yes(VoiceStopSpotter.GRAMMAR.contains("\"j'ai une précision\""), "grammaire précision");
-        System.out.println("VoiceStopSpotterTest OK (12 cas)");
+        yes(d.accept("stop stop", "Voici une réponse.", false)
+                == VoiceStopSpotter.Action.STOP, "répétition détectée dès le premier résultat partiel");
+        yes(d.accept("stop stop stop", "Voici une réponse.", true)
+                == VoiceStopSpotter.Action.STOP, "stop répété trois fois");
+        yes(d.accept("arrête arrête", "Voici une réponse.", false)
+                == VoiceStopSpotter.Action.STOP, "répétition arrête acceptée");
+        yes(d.accept("stop stop", "Il explique stop stop dans un tutoriel.", true)
+                == VoiceStopSpotter.Action.NONE, "stop répété généré par FRIDAY ignoré");
+        yes(VoiceStopSpotter.GRAMMAR.contains("\\"stop stop stop\\""),
+                "grammaire Vosk inclut les trois STOP");
+        System.out.println("VoiceStopSpotterTest OK (17 cas)");
     }
 }
