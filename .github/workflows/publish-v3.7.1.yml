@@ -1,0 +1,69 @@
+name: Publish FRIDAY v3.7.1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-v3.7.1.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout v3.7.1
+        uses: actions/checkout@v4
+
+      - name: Validate app version
+        run: |
+          set -euo pipefail
+          grep -Fq "versionCode 60" app/build.gradle
+          grep -Fq "versionName '3.7.1'" app/build.gradle
+
+      - name: Wait for signed APK build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run watch 43754306535 --repo "$GITHUB_REPOSITORY" --exit-status --interval 10
+
+      - name: Download and verify signed APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 43754306535 --repo "$GITHUB_REPOSITORY" \
+            --name FRIDAY-release-signed-apk --dir dist
+          test -s dist/app-release.apk
+          unzip -tq dist/app-release.apk
+          mv dist/app-release.apk dist/FRIDAY-v3.7.1-release.apk
+          sha256sum dist/FRIDAY-v3.7.1-release.apk
+
+      - name: Tag version v3.7.1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v3.7.1" >/dev/null 2>&1; then
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref='refs/tags/v3.7.1' -f sha="$GITHUB_SHA"
+          fi
+
+      - name: Publish official signed release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view v3.7.1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload v3.7.1 dist/FRIDAY-v3.7.1-release.apk \
+              --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create v3.7.1 dist/FRIDAY-v3.7.1-release.apk \
+              --repo "$GITHUB_REPOSITORY" --verify-tag \
+              --title "F.R.I.D.A.Y. v3.7.1 - Interruption vocale corrigée" \
+              --notes "FRIDAY v3.7.1 : interruption vocale plus fiable pendant les réponses Mistral en streaming. « stop », « arrête », « attends », « pause » ou « j'ai une précision » peuvent désormais être détectés sans mot-clé pendant que FRIDAY parle ; le TTS est arrêté avant la déconnexion HTTP et ne peut pas redémarrer après interruption. Mode « une question » corrigé : micro maintenu pendant la réponse, arrêté ensuite ; instructions de grammaire Vosk facultative enrichies. VersionCode 60, compilation Android et tests CI réussis. Test réel sur téléphone requis pour vérifier le microphone, l'anti-écho et la réactivité."
+          fi
+          gh release view v3.7.1 --repo "$GITHUB_REPOSITORY" --json url,assets
