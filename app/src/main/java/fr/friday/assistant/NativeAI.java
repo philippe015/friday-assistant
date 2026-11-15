@@ -132,7 +132,7 @@ public final class NativeAI {
 
     private static String clip(String text, int limit) {
         if (text == null) return "";
-        String clean = text.replaceAll("[\u0000-\u001f]+", " ").trim();
+        String clean = text.replaceAll("\\p{Cntrl}+", " ").trim();
         return clean.length() <= limit ? clean : clean.substring(0, limit);
     }
 
