@@ -36,7 +36,7 @@ public final class VoiceStopSpotterTest {
                 == VoiceStopSpotter.Action.STOP, "répétition arrête acceptée");
         yes(d.accept("stop stop", "Il explique stop stop dans un tutoriel.", true)
                 == VoiceStopSpotter.Action.NONE, "stop répété généré par FRIDAY ignoré");
-        yes(VoiceStopSpotter.GRAMMAR.contains("\\"stop stop stop\\""),
+        yes(VoiceStopSpotter.GRAMMAR.contains("\"stop stop stop\""),
                 "grammaire Vosk inclut les trois STOP");
         System.out.println("VoiceStopSpotterTest OK (17 cas)");
     }
