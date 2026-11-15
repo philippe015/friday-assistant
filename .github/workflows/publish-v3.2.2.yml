@@ -25,14 +25,14 @@ jobs:
 
       - name: Attendre la compilation officielle signée
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           gh run watch 43721508261 --repo "$GITHUB_REPOSITORY" --exit-status --interval 10
 
       - name: Récupérer l'APK signé
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           gh run download 43721508261 --repo "$GITHUB_REPOSITORY" \
@@ -44,17 +44,17 @@ jobs:
 
       - name: Créer le tag v3.2.2
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if ! gh api "repos/\${GITHUB_REPOSITORY}/git/ref/tags/v3.2.2" >/dev/null 2>&1; then
-            gh api --method POST "repos/\${GITHUB_REPOSITORY}/git/refs" \
+          if ! gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/v3.2.2" >/dev/null 2>&1; then
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
               -f ref='refs/tags/v3.2.2' -f sha="$GITHUB_SHA"
           fi
 
       - name: Publier la release Android
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           if gh release view v3.2.2 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
