@@ -20,7 +20,7 @@ public final class WebSearch {
             + "horaires?|ouverture|fermeture|sortie|sorties|officiel|disponibilite|mise a jour)\\b"
             + "|\\b20[2-9][0-9]\\b");
     private static final Pattern FACTUAL = Pattern.compile(
-            "^(?:(?:dis moi|peux tu me dire|peux tu m expliquer|je voudrais savoir|j aimerais savoir|"
+            "^(?:(?:(?:dis moi|peux tu me dire|peux tu m expliquer|je voudrais savoir|j aimerais savoir|"
             + "explique moi|explique|decris|liste|compare|donne moi des informations)\\s+)?"
             + "(?:qui|quoi|que|qu|quel|quelle|quels|quelles|quand|ou|combien|comment|pourquoi|"
             + "est ce que|qu est ce que)\\b|"
