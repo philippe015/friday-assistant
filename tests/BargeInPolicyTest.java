@@ -13,6 +13,13 @@ public class BargeInPolicyTest {
         check(BargeInPolicy.earlyBarge("Friday explique moi autrement", "Bonjour je suis Friday"), "question interrupt");
         check(!BargeInPolicy.canBarge("Friday où est l'hôpital", "Friday où est l'hôpital proche, dit Friday où est l'hôpital"), "anti-echo");
         check(!BargeInPolicy.canBarge("le vendredi dernier", ""), "pas de wake");
-        System.out.println("BargeInPolicyTest OK (11 tests)");
+        check(BargeInPolicy.wantsToAddDetails("Friday attends j'ai une précision"), "attends plus précision");
+        check(BargeInPolicy.wantsToAddDetails("Friday, je voudrais préciser"), "demande correction");
+        check(!BargeInPolicy.isStopAnswer("Friday attends j'ai une précision"), "précision ne doit pas être stop");
+        check(BargeInPolicy.isStopAnswer("Friday attends"), "arrêt parole seul");
+        check(BargeInPolicy.contextualFollowUp("Et demain à Paris ?"), "relance temporelle");
+        check(BargeInPolicy.contextualFollowUp("Je voulais dire samedi"), "correction contexte");
+        check(!BargeInPolicy.contextualFollowUp("Quelle est la population de Tokyo ?"), "nouvelle question indépendante");
+        System.out.println("BargeInPolicyTest OK (18 tests)");
     }
 }
