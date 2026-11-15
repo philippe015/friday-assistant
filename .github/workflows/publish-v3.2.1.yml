@@ -1,0 +1,66 @@
+name: Publish FRIDAY v3.2.1
+
+# Publication ponctuelle du correctif deja compile et signe sur main.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-v3.2.1.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout de la version corrigee
+        uses: actions/checkout@v4
+
+      - name: Verification version du projet
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq "versionCode 52" app/build.gradle
+          grep -Fq "versionName '3.2.1'" app/build.gradle
+
+      - name: Recuperation APK release signe de la compilation officielle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh run download 43717189232 --repo "${GITHUB_REPOSITORY}" --name FRIDAY-release-signed-apk --dir dist
+          test -s dist/app-release.apk
+          unzip -tq dist/app-release.apk
+          cp dist/app-release.apk dist/FRIDAY-v3.2.1-release.apk
+          sha256sum dist/FRIDAY-v3.2.1-release.apk
+
+      - name: Creer tag v3.2.1 sur le code actuel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/v3.2.1" >/dev/null 2>&1; then
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+              -f ref='refs/tags/v3.2.1' -f sha="${GITHUB_SHA}"
+          fi
+
+      - name: Publier FRIDAY v3.2.1 dans Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view v3.2.1 --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release upload v3.2.1 dist/FRIDAY-v3.2.1-release.apk --repo "${GITHUB_REPOSITORY}"
+          else
+            gh release create v3.2.1 dist/FRIDAY-v3.2.1-release.apk \
+              --repo "${GITHUB_REPOSITORY}" \
+              --verify-tag \
+              --title "F.R.I.D.A.Y. v3.2.1 - Correctifs de reconnaissance vocale" \
+              --notes "Correctifs apres v3.2.0 : routage strict des questions d'heure/date, scores de confiance Vosk, gestion des segments, liberation AGC, tests de regression. APK Android release signe produit sur main par GitHub Actions. Installation par-dessus v3.2.0. Le bon fonctionnement sur votre appareil reste a confirmer."
+          fi
+          gh release view v3.2.1 --repo "${GITHUB_REPOSITORY}" --json url,assets
