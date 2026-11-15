@@ -81,6 +81,7 @@ public class FridayService extends Service {
         volatile Thread thread;
         volatile Thread speaker;
         volatile boolean streamedVoice;
+        volatile boolean streamingVoiceSucceeded;
         volatile boolean cancelled;
         final long startedAt = SystemClock.elapsedRealtime();
         final AtomicLong firstVoiceAt = new AtomicLong();
@@ -628,7 +629,7 @@ public class FridayService extends Service {
                 speakingNow = true;
                 event("status", "Réponse vocale en cours. Dites « Friday stop » ou posez une autre question.");
             }
-            boolean spoken = turn.streamedVoice || speak(answer, turn);
+            boolean spoken = turn.streamedVoice ? turn.streamingVoiceSucceeded : speak(answer, turn);
             if (!live(turn)) return;
             lastReplyAt = SystemClock.elapsedRealtime();
             if (spoken) event("status", "Réponse terminée. Je reste à l'écoute pour une précision.");
@@ -687,6 +688,8 @@ public class FridayService extends Service {
                 locationForApi, turn.api, piece -> {
                     if (!live(turn)) throw new IllegalStateException("Réponse interrompue");
                     if (!useVoice) return;
+                    if (count.get() == 0)
+                        event("status", "Mistral diffuse sa réponse progressivement : lecture vocale en cours…");
                     count.incrementAndGet();
                     while (live(turn)) {
                         try {
@@ -706,7 +709,8 @@ public class FridayService extends Service {
                 while (live(turn) && !queue.offer(end, 100, TimeUnit.MILLISECONDS)) { }
                 while (live(turn) && audio.isAlive()) audio.join(150L);
                 if (!live(turn)) throw new InterruptedException("Réponse interrompue");
-                turn.streamedVoice = voiceOk.get();
+                turn.streamedVoice = true;
+                turn.streamingVoiceSucceeded = voiceOk.get();
             }
             return result;
         } finally {
