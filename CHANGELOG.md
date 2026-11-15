@@ -3,6 +3,17 @@
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 versionnage [SemVer](https://semver.org/lang/fr/).
 
+## [3.2.0] — 2026-11-15
+
+### Corrigé
+- **Questions mal comprises** : les réponses locales (« il est X heures », « nous sommes le … »)
+  interceptaient des phrases contenant simplement le mot « heure ». Elles exigent désormais que
+  **tous** les mots de la phrase appartiennent au champ « heure » ou « date », et que la question
+  fasse **8 mots maximum**. « Quelle est la météo à Vitry ? » part donc bien à l'IA.
+- **Transcription douteuse** : la confiance moyenne des mots Vosk est vérifiée. En dessous de
+  **55 %** sur une phrase de 3 mots ou plus, FRIDAY affiche ce qu'il a entendu et demande de
+  répéter, au lieu d'envoyer une question erronée au modèle.
+
 ## [3.1.1] — 2026-11-15
 
 ### Corrigé
