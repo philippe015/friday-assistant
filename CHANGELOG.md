@@ -3,6 +3,15 @@
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 versionnage [SemVer](https://semver.org/lang/fr/).
 
+## [3.1.1] — 2026-11-15
+
+### Corrigé
+- **La détection des modèles n'appliquait pas le résultat** : la liste était affichée/copiée, mais
+  le champ « Modèle DeepSeek » conservait l'ancienne valeur (souvent obsolète).
+- Désormais, si le modèle configuré n'est pas proposé par le compte, l'app **applique
+  automatiquement** un modèle valide détecté (priorité à ceux contenant « flash »), met à jour
+  le champ et le réglage, et affiche une confirmation.
+
 ## [3.1.0] — 2026-11-15
 
 ### Ajouté
