@@ -20,6 +20,22 @@ public class BargeInPolicyTest {
         check(BargeInPolicy.contextualFollowUp("Et demain à Paris ?"), "relance temporelle");
         check(BargeInPolicy.contextualFollowUp("Je voulais dire samedi"), "correction contexte");
         check(!BargeInPolicy.contextualFollowUp("Quelle est la population de Tokyo ?"), "nouvelle question indépendante");
-        System.out.println("BargeInPolicyTest OK (18 tests)");
+        check(BargeInPolicy.isBareStopAnswer("Stop"), "arrêt vocal direct");
+        check(BargeInPolicy.isBareStopAnswer("Arrête"), "arrêt direct accents");
+        check(BargeInPolicy.isBareStopAnswer("Silence"), "silence direct");
+        check(BargeInPolicy.isBareStopAnswer("Attends"), "pause directe");
+        check(BargeInPolicy.isBareStopAnswer("Arrête de parler"), "arrêt verbal direct");
+        check(!BargeInPolicy.isBareStopAnswer("Stop l'écoute"), "stop sans wake ne coupe pas microphone");
+        check(!BargeInPolicy.isBareStopAnswer("Je ne veux pas stopper"), "éviter faux positif");
+        check(BargeInPolicy.earlyBarge("stop", "Voici la réponse progressive"), "stop pendant streaming");
+        check(BargeInPolicy.earlyBarge("j'ai une précision", "Voici ma réponse"), "précision sans wake pendant streaming");
+        check(!BargeInPolicy.earlyBarge("stop", "Stop. Voilà pourquoi."), "éviter arrêt par écho");
+        check(BargeInPolicy.earlyBarge("Friday stop", "Bonjour"), "stop avec wake");
+        check(BargeInPolicy.earlyBarge("Friday, j'ai une précision", "Bonjour"), "précision avec wake");
+        check(!BargeInPolicy.earlyBarge("bonjour", "Bonjour"), "ignorer son du haut-parleur");
+        check(BargeInPolicy.contextualFollowUp("Friday, donne plus de précisions"), "demande de détails conserve sujet");
+        check(BargeInPolicy.contextualFollowUp("Peux-tu préciser ?"), "demande de précision conserve sujet");
+        check(!BargeInPolicy.isStopAnswer("stop"), "ne pas désactiver la validation wake des commandes générales");
+        System.out.println("BargeInPolicyTest OK (34 tests)");
     }
 }
