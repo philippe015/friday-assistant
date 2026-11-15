@@ -371,8 +371,8 @@ public class MainActivity extends Activity {
         }
         final String key = prefs.secret("openai");
         if (key.isEmpty()) { status.setText("Enregistrez d'abord la clé DeepSeek."); return; }
-        status.setText("Interrogation de la liste des modèles…");
         final String url = prefs.get("openai_url", "https://api.deepseek.com");
+        status.setText("Interrogation de la liste des modèles…");
         new Thread(() -> {
             try {
                 java.util.List<String> models = NativeAI.listModels(url, key);
@@ -381,13 +381,29 @@ public class MainActivity extends Activity {
                         status.setText("Aucun modèle renvoyé par " + url + "/models");
                         return;
                     }
+                    String[] arr = models.toArray(new String[0]);
+                    String current = prefs.get("openai_model", "").trim();
+                    String chosen = current;
+                    // Le modèle configuré n'existe pas dans la liste → on applique un modèle valide.
+                    if (!models.contains(current)) {
+                        chosen = models.get(0);
+                        for (String m : models) {
+                            String low = m.toLowerCase(java.util.Locale.ROOT);
+                            if (low.contains("flash")) { chosen = m; break; }
+                        }
+                        prefs.put("openai_model", chosen);
+                        if (openaiModel != null) openaiModel.setText(chosen);
+                    }
                     StringBuilder sb = new StringBuilder();
                     for (String m : models) { if (sb.length() > 0) sb.append(", "); sb.append(m); }
                     prefs.put("available_models", String.join(",", models));
-                    status.setText("Modèles disponibles : " + sb);
-                    android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                    status.setText("Modèles détectés : " + sb
+                            + (chosen.equals(current) ? " · modèle appliqué : " + chosen
+                                                      : "\n→ modèle appliqué automatiquement : " + chosen));
+                    android.content.ClipboardManager cm =
+                            (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
                     if (cm != null) cm.setPrimaryClip(android.content.ClipData.newPlainText("models", sb.toString()));
-                    Toast.makeText(this, "Liste copiée dans le presse-papiers", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Modèle appliqué : " + chosen, Toast.LENGTH_LONG).show();
                 });
             } catch (final Exception e) {
                 runOnUiThread(() -> status.setText("Détection impossible : " + e.getMessage()));
