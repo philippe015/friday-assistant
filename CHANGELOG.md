@@ -3,6 +3,15 @@
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 versionnage [SemVer](https://semver.org/lang/fr/).
 
+## [2.2.2] — 2026-11-15
+
+### Corrigé
+- **Clé Mistral « absente » malgré la saisie** : si le Keystore de l'appareil échoue,
+  la clé est désormais conservée en **repli** (et l'incident est affiché), au lieu d'être perdue.
+- L'écran de réglages affiche l'état réel de la clé : `✔ enregistrée` / `✘ absente`
+  avec le détail d'une éventuelle erreur Keystore.
+- Message d'erreur explicite : « Réglages natifs → collez la clé → Enregistrer ».
+
 ## [2.2.1] — 2026-11-15
 
 ### Corrigé
