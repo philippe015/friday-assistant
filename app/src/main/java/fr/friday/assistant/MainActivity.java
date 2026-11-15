@@ -526,24 +526,76 @@ public class MainActivity extends Activity {
             catch (Exception e) { runOnUiThread(() -> status.setText("Erreur téléchargement : " + e.getMessage())); }
         }, "friday-model-download").start();
     }
-    /** Vérification ponctuelle de la précision réelle du GPS, sans partage réseau. */
+    /** Le partage de coordonnées avec Mistral requiert un consentement distinct. */
+    private void configureGpsForAssistant() {
+        new AlertDialog.Builder(this)
+                .setTitle("Localisation de F.R.I.D.A.Y.")
+                .setMessage("Le GPS peut répondre localement à « Où suis-je ? ». "
+                        + "Voulez-vous aussi transmettre ponctuellement les coordonnées à Mistral "
+                        + "uniquement lorsque vous posez une question sur les alentours ?")
+                .setPositiveButton("Autoriser le partage ponctuel", (dialog, which) -> {
+                    prefs.put("location_enabled", "1");
+                    prefs.put("location_share", "1");
+                    locationEnabled.setChecked(true);
+                    locationShare.setChecked(true);
+                    showGpsAccuracy();
+                })
+                .setNeutralButton("GPS local uniquement", (dialog, which) -> {
+                    prefs.put("location_enabled", "1");
+                    prefs.put("location_share", "0");
+                    locationEnabled.setChecked(true);
+                    locationShare.setChecked(false);
+                    showGpsAccuracy();
+                })
+                .setNegativeButton("Annuler", (dialog, which) -> {})
+                .show();
+    }
+
+    /** Acquisition réelle avec états distincts (permission, GPS, position). */
     private void showGpsAccuracy() {
-        if (!FridayLocation.hasPermission(this)) {
-            status.setText("Autorisez la position précise Android puis relancez le test GPS.");
-            requestLocationAccess(); return;
+        if (!"1".equals(prefs.get("location_enabled", "0"))) {
+            prefs.put("location_enabled", "1");
+            locationEnabled.setChecked(true);
         }
-        status.setText("Acquisition GPS en cours (objectif 3 m, non garanti)…");
+        if (!FridayLocation.hasPermission(this)) {
+            cachedLocation = "Autorisation Android de localisation manquante.";
+            status.setText(cachedLocation);
+            requestLocationAccess();
+            return;
+        }
+        if (!FridayLocation.providerEnabled(this)) {
+            cachedLocation = "Localisation Android désactivée : activez le GPS dans le téléphone.";
+            status.setText(cachedLocation);
+            if (pageReady && hud != null)
+                hud.evaluateJavascript("window.fridayLocationSync&&window.fridayLocationSync();", null);
+            return;
+        }
+        cachedLocation = "Acquisition GPS en cours (objectif 3 m non garanti)…";
+        status.setText(cachedLocation);
+        if (pageReady && hud != null)
+            hud.evaluateJavascript("window.fridayLocationSync&&window.fridayLocationSync();", null);
         new Thread(() -> {
-            FridayLocation.Fix fix = FridayLocation.locate(getApplicationContext());
-            String place = fix != null && "1".equals(prefs.get("address_lookup", "0")) ?
-                AndroidPlaceResolver.resolve(getApplicationContext(), fix) : "";
-            cachedLocation = fix == null ? "Position GPS indisponible" : AndroidPlaceResolver.userText(fix, place);
+            String result;
+            try {
+                FridayLocation.Fix fix = FridayLocation.locate(getApplicationContext());
+                String place = fix != null && "1".equals(prefs.get("address_lookup", "0"))
+                        ? AndroidPlaceResolver.resolve(getApplicationContext(), fix) : "";
+                result = fix == null
+                        ? "Android n'a pas fourni de position récente. Réessayez dehors."
+                        : AndroidPlaceResolver.userText(fix, place);
+            } catch (Exception error) {
+                result = "Acquisition GPS impossible : " + error.getClass().getSimpleName();
+            }
+            cachedLocation = result;
             runOnUiThread(() -> {
                 status.setText(cachedLocation);
-                if (pageReady && hud != null) hud.evaluateJavascript("window.fridayLocationSync&&window.fridayLocationSync();", null);
+                if (pageReady && hud != null)
+                    hud.evaluateJavascript("window.fridayLocationSync&&window.fridayLocationSync();"
+                            + "window.fridayRefreshNative&&window.fridayRefreshNative();", null);
             });
         }, "friday-gps-test").start();
     }
+
     private void requestLocationAccess() {
         if (FridayLocation.hasPermission(this)) {
             status.setText("Localisation Android autorisée. Enregistrez les réglages puis redémarrez l'écoute depuis l'application.");
@@ -615,7 +667,8 @@ public class MainActivity extends Activity {
             if (FridayLocation.hasPermission(this)) {
                 locationEnabled.setChecked(true);
                 prefs.put("location_enabled", "1");
-                status.setText("Position autorisée. Redémarrez l'écoute depuis l'application pour l'utiliser écran verrouillé.");
+                status.setText("Position autorisée. Mesure GPS en cours ; redémarrez l'écoute pour l'utiliser écran verrouillé.");
+                showGpsAccuracy();
             } else {
                 prefs.put("location_enabled", "0");
                 locationEnabled.setChecked(false);
