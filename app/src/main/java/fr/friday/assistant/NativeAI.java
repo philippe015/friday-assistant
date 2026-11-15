@@ -180,9 +180,37 @@ public final class NativeAI {
         }
         return chatMistral(cfg, key, question, history);
     }
+    /** Modèle de repli, disponible sur les offres actuelles (testé : HTTP 200). */
+    private static final String FALLBACK_MODEL = "ministral-8b-latest";
+
+    /** Le modèle est-il refusé par l'offre / inexistant (400, 404, 429) ? */
+    private static boolean modelRejected(Exception e) {
+        String m = e.getMessage() == null ? "" : e.getMessage();
+        return m.startsWith("API HTTP 400") || m.startsWith("API HTTP 404")
+                || m.startsWith("API HTTP 422") || m.startsWith("API HTTP 429");
+    }
+
     private static String chatMistral(SecurePrefs cfg, String key, String q, List<JSONObject> history) throws Exception {
-        return chat(cfg, key,
-                cfg.get("mistral_model", "ministral-8b-latest"), q, history);
+        String model = cfg.get("mistral_model", FALLBACK_MODEL).trim();
+        if (model.isEmpty()) model = FALLBACK_MODEL;
+        try {
+            return chat(cfg, key, model, q, history);
+        } catch (IOException e) {
+            if (!FALLBACK_MODEL.equals(model) && modelRejected(e)) {
+                // Repli automatique : l'offre du compte refuse le modèle configuré.
+                try {
+                    String reply = chat(cfg, key, FALLBACK_MODEL, q, history);
+                    cfg.put("mistral_model", FALLBACK_MODEL);
+                    return reply + "\n\nNote : le modèle \"" + model
+                            + "\" est refusé par votre offre. Repli automatique sur \"" + FALLBACK_MODEL + "\".";
+                } catch (IOException e2) {
+                    throw new IOException("Mistral (" + model + " puis " + FALLBACK_MODEL + ") : "
+                            + (e2.getMessage() == null ? "erreur inconnue" : e2.getMessage()), e2);
+                }
+            }
+            throw new IOException("Mistral (" + model + ") : "
+                    + (e.getMessage() == null ? "erreur inconnue" : e.getMessage()), e);
+        }
     }
     private static String chat(SecurePrefs cfg, String key, String model, String question, List<JSONObject> history) throws Exception {
         JSONArray messages = new JSONArray();

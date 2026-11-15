@@ -72,6 +72,15 @@ public class MainActivity extends Activity {
         getWindow().setStatusBarColor(Color.rgb(3, 16, 26));
         getWindow().setNavigationBarColor(Color.rgb(3, 16, 26));
         prefs = new SecurePrefs(this);
+        // Migration des modèles : les anciens noms (mistral-small/medium) renvoient 429 sur les offres actuelles.
+        String storedChat = prefs.get("mistral_model", "");
+        if (storedChat.startsWith("mistral-small") || storedChat.startsWith("mistral-medium")) {
+            prefs.put("mistral_model", "ministral-8b-latest");
+        }
+        String storedVision = prefs.get("vision_model", "");
+        if (storedVision.contains("mistral-small")) {
+            prefs.put("vision_model", "ministral-14b-2512");
+        }
         // Migration : supprimer l'ancienne clé Agnès stockée sur les installations précédentes.
         try { prefs.setSecret("agnes", ""); prefs.put("mode", "mistral"); prefs.put("agnes_model", ""); } catch (Exception ignored) {}
         // Supprime une éventuelle ancienne clé Google Places, désormais inutilisée.

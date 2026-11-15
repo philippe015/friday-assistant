@@ -3,6 +3,17 @@
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 versionnage [SemVer](https://semver.org/lang/fr/).
 
+## [2.2.3] — 2026-11-15
+
+### Corrigé
+- **« MOTEUR MISTRAL ERREUR »** alors que la voix et les réponses locales fonctionnent :
+  un modèle enregistré (`mistral-small-*` / `mistral-medium-*`) renvoie `429` sur les offres
+  actuelles. Les modèles stockés sont désormais **migrés automatiquement** au démarrage.
+- **Repli automatique** : si le modèle configuré est refusé (400/404/422/429), la question est
+  rejouée une fois avec `ministral-8b-latest`, le réglage est mis à jour et une note est ajoutée
+  à la réponse.
+- Les erreurs Mistral précisent désormais le **modèle utilisé**.
+
 ## [2.2.2] — 2026-11-15
 
 ### Corrigé
