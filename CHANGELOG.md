@@ -3,6 +3,16 @@
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 versionnage [SemVer](https://semver.org/lang/fr/).
 
+## [3.0.2] — 2026-11-15
+
+### Corrigé
+- **Modèle DeepSeek invalide** : `deepseek-chat` n'existe plus dans l'API 2026
+  (modèles actuels : `deepseek-flash`, `deepseek-v4-pro`). Le modèle par défaut devient
+  **`deepseek-flash`**.
+- **Repli automatique** : si le modèle configuré est refusé (400/404/422), la question est
+  rejouée avec `deepseek-flash` puis `deepseek-v4-pro`, et le réglage est corrigé.
+- **URL de base** : `https://api.deepseek.com` (chemin documenté) au lieu de `…/v1`.
+
 ## [3.0.1] — 2026-11-15
 
 ### Ajouté

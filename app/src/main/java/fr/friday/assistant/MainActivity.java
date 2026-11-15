@@ -141,10 +141,10 @@ public class MainActivity extends Activity {
         config.addView(label("MOTEUR VOCAL LOCAL · français Vosk (~41 Mo à télécharger une fois)"));
         config.addView(button(ModelInstaller.installed(this) ? "✓ Modèle installé" : "↓ Télécharger le modèle français", this::installModel));
         config.addView(label("MOTEUR IA · DEEPSEEK (unique fournisseur)"));
-        openaiUrl = field("https://api.deepseek.com/v1", false);
-        openaiUrl.setText(prefs.get("openai_url", "https://api.deepseek.com/v1"));
-        openaiModel = field("deepseek-chat", false);
-        openaiModel.setText(prefs.get("openai_model", "deepseek-chat"));
+        openaiUrl = field("https://api.deepseek.com", false);
+        openaiUrl.setText(prefs.get("openai_url", "https://api.deepseek.com"));
+        openaiModel = field("deepseek-flash", false);
+        openaiModel.setText(prefs.get("openai_model", "deepseek-flash"));
         config.addView(label("Modèle DeepSeek"));
         config.addView(openaiModel);
         config.addView(label("Clé API DeepSeek (laissez vide pour conserver)"));
@@ -284,7 +284,7 @@ public class MainActivity extends Activity {
             prefs.put("mode", "deepseek");
             prefs.put("provider", "openai");
             String deepseekUrl = openaiUrl.getText().toString().trim();
-            prefs.put("openai_url", deepseekUrl.isEmpty() ? "https://api.deepseek.com/v1" : deepseekUrl);
+            prefs.put("openai_url", deepseekUrl.isEmpty() ? "https://api.deepseek.com" : deepseekUrl);
             prefs.put("openai_model", openaiModel.getText().toString().trim());
             String openaiGiven = openaiKey.getText().toString().trim();
             if (!openaiGiven.isEmpty()) prefs.setSecret("openai", openaiGiven);
