@@ -92,12 +92,25 @@ public final class NativeAI {
      * Fournisseur « compatible OpenAI » : DeepSeek, Ollama, LM Studio, vLLM…
      * Endpoint attendu : <baseUrl>/chat/completions
      */
+    /** Modèles DeepSeek valides (doc 2026) : « deepseek-chat » n'existe plus. */
+    private static final String[] DEEPSEEK_MODELS = {"deepseek-flash", "deepseek-v4-pro"};
+
+    private static boolean modelProblem(Exception e) {
+        String m = e.getMessage() == null ? "" : e.getMessage();
+        return m.startsWith("API HTTP 400") || m.startsWith("API HTTP 404")
+                || m.startsWith("API HTTP 422") || m.contains("model");
+    }
+
+    /**
+     * Fournisseur « compatible OpenAI » : DeepSeek, Ollama, LM Studio, vLLM…
+     * Endpoint attendu : <baseUrl>/chat/completions
+     */
     private static String openAiAnswer(SecurePrefs cfg, String key, String question,
                                        List<JSONObject> history) throws Exception {
-        String baseUrl = cfg.get("openai_url", "https://api.deepseek.com/v1").trim();
-        if (baseUrl.isEmpty()) baseUrl = "https://api.deepseek.com/v1";
-        String model = cfg.get("openai_model", "deepseek-chat").trim();
-        if (model.isEmpty()) model = "deepseek-chat";
+        String baseUrl = cfg.get("openai_url", "https://api.deepseek.com").trim();
+        if (baseUrl.isEmpty()) baseUrl = "https://api.deepseek.com";
+        String configured = cfg.get("openai_model", "deepseek-flash").trim();
+        if (configured.isEmpty()) configured = "deepseek-flash";
         String url = baseUrl.replaceAll("/+$", "") + "/chat/completions";
 
         JSONArray messages = new JSONArray();
@@ -105,24 +118,40 @@ public final class NativeAI {
         for (JSONObject old : compactHistory(history)) messages.put(old);
         messages.put(new JSONObject().put("role", "user").put("content", question));
 
-        JSONObject body = new JSONObject();
-        body.put("model", model);
-        body.put("messages", messages);
-        body.put("max_tokens", 1600);
-        body.put("temperature", 0.45);
-        body.put("stream", false);
-        try {
-            JSONObject response = post(url, key, body);
-            JSONArray choices = response.optJSONArray("choices");
-            if (choices == null || choices.length() == 0) throw new IOException("réponse sans « choices »");
-            JSONObject msg = choices.getJSONObject(0).optJSONObject("message");
-            String content = msg == null ? "" : msg.optString("content", "");
-            if (content.trim().isEmpty()) throw new IOException("réponse vide");
-            return content;
-        } catch (IOException e) {
-            throw new IOException("Fournisseur « " + model + " » (" + url + ") : "
-                    + (e.getMessage() == null ? "erreur inconnue" : e.getMessage()), e);
+        // Modèle configuré d'abord, puis les modèles DeepSeek valides (repli automatique).
+        java.util.LinkedHashSet<String> attempts = new java.util.LinkedHashSet<>();
+        attempts.add(configured);
+        java.util.Collections.addAll(attempts, DEEPSEEK_MODELS);
+
+        String lastError = "";
+        for (String model : attempts) {
+            JSONObject body = new JSONObject();
+            body.put("model", model);
+            body.put("messages", messages);
+            body.put("max_tokens", 1600);
+            body.put("temperature", 0.45);
+            body.put("stream", false);
+            try {
+                JSONObject response = post(url, key, body);
+                JSONArray choices = response.optJSONArray("choices");
+                if (choices == null || choices.length() == 0) throw new IOException("réponse sans « choices »");
+                JSONObject msg = choices.getJSONObject(0).optJSONObject("message");
+                String content = msg == null ? "" : msg.optString("content", "");
+                if (content.trim().isEmpty()) throw new IOException("réponse vide");
+                if (!model.equals(configured)) {
+                    cfg.put("openai_model", model);
+                    content += "\n\nNote : modèle « " + configured + " » indisponible, repli automatique sur « " + model + " ».";
+                }
+                return content;
+            } catch (IOException e) {
+                lastError = e.getMessage() == null ? "erreur inconnue" : e.getMessage();
+                if (!modelProblem(e)) {
+                    throw new IOException("DeepSeek (" + model + ") : " + lastError, e);
+                }
+            }
         }
+        throw new IOException("DeepSeek : aucun modèle disponible (" + configured + ", "
+                + String.join(", ", DEEPSEEK_MODELS) + "). Dernière erreur : " + lastError, null);
     }
 
     /** Modèle de repli, disponible sur les offres actuelles (testé : HTTP 200). */
