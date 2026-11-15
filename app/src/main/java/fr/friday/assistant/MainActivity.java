@@ -394,6 +394,34 @@ public class MainActivity extends Activity {
         }, "friday-test-web").start();
     }
 
+    /** Une liste de modèles ne prouve pas la compatibilité avec web_search ou vision. */
+    private void showModelChoices(java.util.List<String> models, boolean cached) {
+        if (models.isEmpty()) {
+            status.setText("Aucun modèle Mistral accessible à cette clé.");
+            return;
+        }
+        String[] names = models.toArray(new String[0]);
+        new AlertDialog.Builder(this)
+                .setTitle("Modèles Mistral " + (cached ? "· cache 1 h" : "· API"))
+                .setMessage("Le modèle sélectionné est utilisé pour le chat. "
+                        + "L'outil Web nécessite une vérification séparée avec "
+                        + "« Activer et tester la recherche Web ».")
+                .setSingleChoiceItems(names, Math.max(0, models.indexOf(
+                        prefs.get("mistral_model", "mistral-small-latest"))), (dialog, index) -> {
+                    String name = names[index];
+                    prefs.put("mistral_model", name);
+                    mistralModel.setText(name);
+                    prefs.put("web_verified", "0");
+                    status.setText("Modèle Mistral choisi : " + name + ". Testez le Web séparément.");
+                    dialog.dismiss();
+                })
+                .setNeutralButton("Actualiser", (dialog, which) -> {
+                    prefs.put("available_models_time", "0");
+                    detectModels();
+                })
+                .setNegativeButton("Annuler", null).show();
+    }
+
     private void detectModels() {
         // La clé saisie mais non encore enregistrée est prise en compte immédiatement.
         if (mistralKey != null) {
@@ -403,6 +431,15 @@ public class MainActivity extends Activity {
         final String key = prefs.secret("mistral");
         if (key.isEmpty()) { status.setText("Enregistrez d'abord la clé Mistral."); return; }
         final String url = "https://api.mistral.ai/v1";
+        String cached = prefs.get("available_models", "");
+        long savedAt = 0L;
+        try { savedAt = Long.parseLong(prefs.get("available_models_time", "0")); }
+        catch (NumberFormatException ignored) {}
+        if (!cached.isEmpty() && System.currentTimeMillis() - savedAt < 3600000L
+                && savedAt <= System.currentTimeMillis()) {
+            showModelChoices(java.util.Arrays.asList(cached.split(",")), true);
+            return;
+        }
         status.setText("Interrogation de la liste des modèles…");
         new Thread(() -> {
             try {
@@ -412,29 +449,9 @@ public class MainActivity extends Activity {
                         status.setText("Aucun modèle renvoyé par " + url + "/models");
                         return;
                     }
-                    String[] arr = models.toArray(new String[0]);
-                    String current = prefs.get("mistral_model", "").trim();
-                    String chosen = current;
-                    // Le modèle configuré n'existe pas dans la liste → on applique un modèle valide.
-                    if (!models.contains(current)) {
-                        chosen = models.get(0);
-                        for (String m : models) {
-                            String low = m.toLowerCase(java.util.Locale.ROOT);
-                            if (low.contains("small")) { chosen = m; break; }
-                        }
-                        prefs.put("mistral_model", chosen);
-                        if (mistralModel != null) mistralModel.setText(chosen);
-                    }
-                    StringBuilder sb = new StringBuilder();
-                    for (String m : models) { if (sb.length() > 0) sb.append(", "); sb.append(m); }
                     prefs.put("available_models", String.join(",", models));
-                    status.setText("Modèles détectés : " + sb
-                            + (chosen.equals(current) ? " · modèle appliqué : " + chosen
-                                                      : "\n→ modèle appliqué automatiquement : " + chosen));
-                    android.content.ClipboardManager cm =
-                            (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-                    if (cm != null) cm.setPrimaryClip(android.content.ClipData.newPlainText("models", sb.toString()));
-                    Toast.makeText(this, "Modèle appliqué : " + chosen, Toast.LENGTH_LONG).show();
+                    prefs.put("available_models_time", String.valueOf(System.currentTimeMillis()));
+                    showModelChoices(models, false);
                 });
             } catch (final Exception e) {
                 runOnUiThread(() -> status.setText("Détection impossible : " + e.getMessage()));
@@ -783,8 +800,10 @@ public class MainActivity extends Activity {
     private String webTelemetry() {
         if (!"1".equals(prefs.get("web_enabled", "1"))) return "Désactivée";
         if (!prefs.hasSecret("mistral")) return "Clé Mistral absente";
-        return "1".equals(prefs.get("web_verified", "0"))
+        String state = "1".equals(prefs.get("web_verified", "0"))
                 ? "Activée · testée" : "Activée · non testée";
+        String recent = prefs.get("web_last_status", "");
+        return recent.isEmpty() ? state : state + " · " + recent;
     }
     private String gpsTelemetry() {
         if (!"1".equals(prefs.get("location_enabled", "0"))) return "Désactivé";
