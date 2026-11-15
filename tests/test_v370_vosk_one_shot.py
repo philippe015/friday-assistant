@@ -12,7 +12,8 @@ class VocabularyAndBatteryIntegration(unittest.TestCase):
         self.assertIn("oneShotTriggered = true", service)
         self.assertIn("while (running && !oneShotTriggered)", service)
         self.assertIn("ar.stop();", service)
-        self.assertIn("while (running && currentTurn != null)", service)
+        self.assertIn("oneShotTriggered && currentTurn == null", service)
+        self.assertIn("oneShotTriggered = false;", service)
 
     def test_vosk_mode_opt_in_and_unknown_word_fallback(self):
         activity = (JAVA / "MainActivity.java").read_text()
