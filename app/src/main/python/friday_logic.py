@@ -29,7 +29,7 @@ _TIME_WORDS = frozenset("""
 _DATE_WORDS = frozenset("""
     friday frida freiday freday fride vendredi
     quelle quel quelles quels jour date sommes nous on est en
-    annee aujourd hui mois le combien tu peux peut me dire
+    annee aujourd hui mois le la combien tu peux peut me dire
     donner donne dis moi stp s te plait
 """.split())
 
