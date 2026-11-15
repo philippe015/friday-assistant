@@ -1,5 +1,6 @@
 from pathlib import Path
 from xml.etree import ElementTree as ET
+import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,11 +41,15 @@ class ConflictIntegrationTest(unittest.TestCase):
         for component in ('versionState', 'versionsState', 'versionsBtn',
                           'MICRO BLOQUÉ', 'otherVersionsCount', 'currentVersion'):
             self.assertIn(component, html)
-        self.assertIn('2.2.0', html)
+        self.assertRegex(html, r'2\.\d+\.\d+')
 
     def test_build_version_and_dialog_compilation_fix(self):
         build = (ROOT / 'app/build.gradle').read_text()
-        self.assertIn("versionName '2.2.0'", build)
+        # Version >= 2.2.0 (le correctif 2.2.1+ ne doit pas casser ce test)
+        m = re.search(r"versionName '(\d+)\.(\d+)\.(\d+)'", build)
+        self.assertIsNotNone(m, 'versionName introuvable dans app/build.gradle')
+        version = tuple(int(x) for x in m.groups())
+        self.assertGreaterEqual(version, (2, 2, 0))
         self.assertIn("applicationIdSuffix '.smartpreview'", build)
         main = (JAVA / 'MainActivity.java').read_text()
         self.assertIn('import android.app.AlertDialog;', main)

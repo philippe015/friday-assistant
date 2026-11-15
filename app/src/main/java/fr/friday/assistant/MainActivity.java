@@ -149,11 +149,11 @@ public class MainActivity extends Activity {
         mistralKey = field(prefs.secret("mistral").isEmpty() ? "Clé Mistral manquante" : "Clé Mistral déjà enregistrée", true);
         config.addView(mistralKey);
         config.addView(label("Modèle Mistral"));
-        mistralModel = field("mistral-small-latest", false);
-        mistralModel.setText(prefs.get("mistral_model", "mistral-small-latest")); config.addView(mistralModel);
+        mistralModel = field("ministral-8b-latest", false);
+        mistralModel.setText(prefs.get("mistral_model", "ministral-8b-latest")); config.addView(mistralModel);
         config.addView(label("MODÈLE D'ANALYSE VISUELLE MISTRAL · nécessite la capacité vision"));
-        visionModel = field("mistral-small-2506", false);
-        visionModel.setText(prefs.get("vision_model", "mistral-small-2506"));
+        visionModel = field("ministral-14b-2512", false);
+        visionModel.setText(prefs.get("vision_model", "ministral-14b-2512"));
         config.addView(visionModel);
         config.addView(label("INTERNET · recherche Web officielle de Mistral (selon forfait, quotas et modèle)"));
         webMode = new Spinner(this);
@@ -329,7 +329,7 @@ public class MainActivity extends Activity {
             prefs.put("mode", "mistral");
             prefs.put("mistral_model", mistralModel.getText().toString().trim());
             String selectedVisionModel = visionModel.getText().toString().trim();
-            prefs.put("vision_model", selectedVisionModel.isEmpty() ? "mistral-small-2506" : selectedVisionModel);
+            prefs.put("vision_model", selectedVisionModel.isEmpty() ? "ministral-14b-2512" : selectedVisionModel);
             String selectedWebMode = webMode.getSelectedItemPosition() == 2 ? "off" :
                 webMode.getSelectedItemPosition() == 1 ? "auto" : "always";
             prefs.put("web_mode", selectedWebMode);
