@@ -3,6 +3,16 @@
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 versionnage [SemVer](https://semver.org/lang/fr/).
 
+## [2.2.4] — 2026-11-15
+
+### Corrigé
+- **Chaque question affichait « ERREUR »** : le mode Web utilisait l'API *Conversations* avec un modèle
+  `ministral-*`, qui ne prend pas en charge les connecteurs :
+  `HTTP 400 — Model ministral-8b-latest currently does not support builtin connectors`.
+- Les modèles `ministral-*` **n'utilisent plus** l'API Conversations : réponse directe via
+  `/v1/chat/completions`, avec une note si la question nécessitait Internet.
+- Le repli du mode Web couvre désormais **429 / 500 / 501** en plus de 400 / 404 / 422.
+
 ## [2.2.3] — 2026-11-15
 
 ### Corrigé

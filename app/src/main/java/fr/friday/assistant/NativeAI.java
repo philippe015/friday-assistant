@@ -138,13 +138,25 @@ public final class NativeAI {
     private static String mistralAnswer(SecurePrefs cfg, String key, String question, List<JSONObject> history) throws Exception {
         boolean surroundings = question.contains("RECHERCHE_ALENTOURS_WEB");
         String policy = cfg.get("web_mode", "1".equals(cfg.get("web", "1")) ? "always" : "off");
-        boolean web = WebPolicy.shouldSearch(policy, surroundings, WebIntent.needsWeb(question));
-        if (surroundings && !web)
-            return "Recherche des alentours indisponible : activez l'outil Web Mistral.";
+        String activeModel = cfg.get("mistral_model", FALLBACK_MODEL).trim();
+        if (activeModel.isEmpty()) activeModel = FALLBACK_MODEL;
+
+        // Les modèles « ministral » ne prennent pas en charge les connecteurs (web_search) :
+        // l'API Conversations répond alors « HTTP 400 ... does not support builtin connectors ».
+        boolean connectorCapable = !activeModel.startsWith("ministral");
+        boolean webWanted = WebPolicy.shouldSearch(policy, surroundings, WebIntent.needsWeb(question));
+        boolean web = webWanted && connectorCapable;
+
+        if (surroundings && !web) {
+            return "Recherche des alentours indisponible : l'outil Web Mistral n'est pas utilisable avec le modèle « "
+                    + activeModel + " ».";
+        }
+
+        String answer;
         if (web) {
             try {
                 JSONObject body = new JSONObject();
-                body.put("model", cfg.get("mistral_model", "ministral-8b-latest"));
+                body.put("model", activeModel);
                 body.put("instructions", system(cfg) +
                     " L'outil Web est autorisé : exploite les résultats réels des recherches lorsque la question le justifie. " +
                     "Pour les lieux proches, utilise les coordonnées et l'adresse estimée comme indices, vérifie les sources et ne présente pas de distance inventée. " +
@@ -154,11 +166,6 @@ public final class NativeAI {
                 inputs.put(new JSONObject().put("role", "user").put("content", question));
                 body.put("inputs", inputs);
                 body.put("tools", new JSONArray().put(new JSONObject().put("type", "web_search")));
-                // Le raisonnement ajustable est disponible sur Mistral Small (selon l'accès API).
-                if ("1".equals(cfg.get("deep_reasoning", "0")) &&
-                    "mistral-small-latest".equals(cfg.get("mistral_model", "ministral-8b-latest"))) {
-                    body.put("completion_args", new JSONObject().put("reasoning_effort", "high"));
-                }
                 body.put("store", false);
                 body.put("stream", false);
                 JSONObject response = post("https://api.mistral.ai/v1/conversations", key, body);
@@ -166,20 +173,30 @@ public final class NativeAI {
                 if (!extracted.isEmpty()) return extracted;
                 throw new IOException("Réponse Web sans texte");
             } catch (IOException webFailure) {
-                // Ne jamais refaire une requête facturable après un simple délai ou une erreur réseau.
-                // Repli uniquement si l'outil Web n'est pas accepté par le serveur / compte.
+                // Repli uniquement si l'outil Web est refusé par le serveur / le compte / le modèle.
                 String msg = webFailure.getMessage() == null ? "" : webFailure.getMessage();
-                if (msg.startsWith("API HTTP 400") || msg.startsWith("API HTTP 404") ||
-                        msg.startsWith("API HTTP 422") || msg.startsWith("API HTTP 501")) {
-                    if (surroundings) return "Recherche des alentours indisponible : l'outil Web Mistral n'est pas accessible avec ce compte/modèle (" + msg + ").";
-                    return chatMistral(cfg, key, question, history) +
-                            "\n\nNote : recherche Web indisponible pour cette réponse.";
+                if (msg.startsWith("API HTTP 400") || msg.startsWith("API HTTP 404")
+                        || msg.startsWith("API HTTP 422") || msg.startsWith("API HTTP 429")
+                        || msg.startsWith("API HTTP 500") || msg.startsWith("API HTTP 501")) {
+                    if (surroundings) {
+                        return "Recherche des alentours indisponible : l'outil Web Mistral n'est pas accessible "
+                                + "avec ce compte/modèle (" + msg + ").";
+                    }
+                    answer = chatMistral(cfg, key, question, history);
+                    return answer + "\n\nNote : recherche Web indisponible pour cette réponse (" + msg + ").";
                 }
                 throw webFailure;
             }
         }
-        return chatMistral(cfg, key, question, history);
+
+        answer = chatMistral(cfg, key, question, history);
+        if (webWanted && !connectorCapable && WebIntent.needsWeb(question)) {
+            answer += "\n\nNote : la recherche Web n'est pas prise en charge par le modèle « "
+                    + activeModel + " » ; réponse donnée sans consultation d'Internet.";
+        }
+        return answer;
     }
+
     /** Modèle de repli, disponible sur les offres actuelles (testé : HTTP 200). */
     private static final String FALLBACK_MODEL = "ministral-8b-latest";
 
