@@ -1,6 +1,6 @@
 # 🤖 F.R.I.D.A.Y. — Assistant personnel Android
 
-**F.R.I.D.A.Y.** est un assistant vocal et conversationnel **100 % natif Android** : cockpit **HUD** holographique (WebView), backend **Python embarqué**, détection de mot-clé en **Rust**, reconnaissance vocale **hors-ligne (Vosk)** et IA **Mistral**.
+**F.R.I.D.A.Y.** est un assistant vocal et conversationnel **100 % natif Android** : cockpit **HUD** holographique (WebView), backend **Python embarqué**, détection de mot-clé en **Rust**, reconnaissance vocale **hors-ligne (Vosk)** et IA **DeepSeek**.
 
 > Sources **v2.2.0** — application en développement actif.
 > APK **v2.2.0 release signé** publié par la CI (voir [Releases](../../releases/latest)).
@@ -10,22 +10,19 @@
 ## ✨ Fonctionnalités (v2.2.0)
 
 ### 🎙️ Voix
-- **Écoute interactive** : le microphone ne se coupe plus pendant le calcul Mistral ni pendant la lecture TTS (micro et traitement sur deux threads)
+- **Écoute interactive** : le microphone ne se coupe plus pendant le calcul DeepSeek ni pendant la lecture TTS (micro et traitement sur deux threads)
 - **Interruption par la voix** :
   - « Friday stop » / « Friday attends » → coupe **l'audio seul**, le micro reste actif
   - « Friday, j'ai une précision » → coupe la réponse et ouvre une courte fenêtre d'écoute
   - « Friday, explique autrement » → interrompt et relance une nouvelle réponse
   - « Friday, arrête l'écoute » → arrête complètement le service
-- **Clonage vocal Mistral** (Voxtral) — activation enregistrée après capture de l'échantillon
 - **Mot-clé « Friday »** détecté par une bibliothèque **Rust** (`native/`, JNI)
 - **Vosk** pour la reconnaissance française **hors-ligne**
 - **TTS Android** pour la restitution
 - Anti-écho : `VOICE_COMMUNICATION` + `AcousticEchoCanceler` / `NoiseSuppressor` (selon matériel)
 
 ### 🧠 Intelligence
-- **Mistral Chat Completions** (`/v1/chat/completions`)
-- **Recherche web** via l'API Conversations Mistral (`/v1/conversations`, outil `web_search`)
-- **Analyse de photos** (Mistral Vision) après prise de vue volontaire
+- **DeepSeek Chat Completions** (`https://api.deepseek.com/v1/chat/completions`, compatible OpenAI)
 - **Mémoire personnelle locale chiffrée** sur demande
 - **10 profils de personnalité** (16 000 caractères), chiffrés via **Android Keystore**
 - **Cerveau local Python** : heure, date, jour, année — **fonctionne sans réseau**
@@ -42,8 +39,7 @@
 app/src/main/java/fr/friday/assistant/   (24 classes Java)
 ├── MainActivity.java          (58 Ko)  activité principale + WebView
 ├── FridayService.java         (39 Ko)  service de premier plan (micro, TTS, HTTP)
-├── NativeAI.java              (20 Ko)  orchestration Mistral (annulation, tokens)
-├── MistralVoice.java                   clonage vocal / Voxtral
+├── NativeAI.java              orchestration DeepSeek (annulation, tokens)
 ├── VoiceSampleRecorder.java            capture de l'échantillon vocal
 ├── BargeInPolicy.java                  règles stop / précision / autrement
 ├── FridayLocation.java                 GPS + précision
@@ -68,7 +64,7 @@ scripts/                                build, diagnostic, installation
 ### Chaîne d'exécution
 
 ```
-Micro ─► Vosk / Rust (mot-clé) ─► FridayService ─► NativeAI ─► API Mistral
+Micro ─► Vosk / Rust (mot-clé) ─► FridayService ─► NativeAI ─► API DeepSeek
                                         │                        │
                                         ▼                        ▼
                                    TTS Android  ◄──── réponse ──┘
@@ -80,7 +76,7 @@ WebView (cockpit HUD) ◄── état/événements ── FridayService
 
 1. Télécharger l'APK depuis **[Releases](../../releases/latest)**
 2. Autoriser l'installation de sources inconnues
-3. Lancer l'app, saisir la **clé API Mistral**, tester depuis l'écran de diagnostic
+3. Lancer l'app → **Réglages natifs** → bouton **« Se connecter / créer ma clé »** (page DeepSeek) → coller la clé → **Enregistrer**
 
 **Pré-requis** : Android **8.0+** (API 26), appareil **arm64-v8a**.
 
@@ -119,7 +115,7 @@ bash scripts/compiler_manjaro.sh          # APK dans dist/
 ## ⚠️ Limites connues
 
 - Le téléphone peut entendre sa propre voix (l'anti-écho n'est pas une validation d'identité vocale) — un casque améliore nettement la fiabilité
-- L'annulation d'une requête HTTP peut survenir **après** facturation côté Mistral
+- L'annulation d'une requête HTTP peut survenir **après** facturation côté fournisseur
 - Le plein-duplex dépend des restrictions micro d'Android selon l'appareil
 - **arm64-v8a uniquement** (pas d'émulateur x86)
 - Le build exige **Python 3.14** et le **NDK** ; il n'est pas réalisable sur toutes les machines

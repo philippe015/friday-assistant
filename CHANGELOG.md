@@ -3,6 +3,27 @@
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 versionnage [SemVer](https://semver.org/lang/fr/).
 
+## [3.0.0] — 2026-11-15
+
+### Supprimé
+- **Tout le code Mistral** : `MistralVoice` (clonage vocal Voxtral), `WebIntent` / `WebPolicy`
+  (recherche Web via l'API Conversations), `NearbyIntent` (analyse des alentours),
+  `VoiceClonePolicy` / `VoiceCloneActivation` / `VoiceSampleRecorder`, analyse d'images (Vision).
+- Réglages associés : clé Mistral, modèle Mistral, modèle vision, mode Web, raisonnement approfondi,
+  voix clonée. Le bouton « Choisir Mistral Medium » disparaît.
+- Tests obsolètes liés à Mistral.
+
+### Modifié
+- **DeepSeek est le seul moteur** (endpoint `https://api.deepseek.com/v1`, modèle `deepseek-chat`),
+  avec le bouton « Se connecter / créer ma clé sur platform.deepseek.com ».
+- Le service annonce « Réflexion DeepSeek… » ; le cockpit et les libellés ne mentionnent plus Mistral.
+- `debug` conserve le suffixe `.smartpreview` (cohabitation avec les anciennes versions).
+
+### Notes
+- L'application est plus légère et n'envoie plus rien à Mistral.
+- La reconnaissance vocale (Vosk), la synthèse Android (TTS), la mémoire chiffrée, les profils de
+  personnalité et la localisation restent disponibles.
+
 ## [2.4.0] — 2026-11-15
 
 ### Modifié

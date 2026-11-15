@@ -55,7 +55,7 @@ public final class NativeAI {
         try { return answer(settings, question, history, locationContext); }
         finally { CANCEL.remove(); }
     }
-    /** Une seule clé et un seul fournisseur : Mistral AI. */
+    /** Un seul fournisseur : DeepSeek (API compatible OpenAI). */
     public static String answer(SecurePrefs settings, String question, List<JSONObject> history, String locationContext) throws Exception {
         String local = localAnswer(question);
         if (local != null) return local;
@@ -63,66 +63,13 @@ public final class NativeAI {
         // Partage ponctuel : ce contexte n'est pas conservé dans l'historique de chat.
         if (locationContext != null && !locationContext.isEmpty())
             text += "\n\n[Contexte de localisation autorisé pour cette requête : " + locationContext + "]";
-        if (!"mistral".equals(settings.get("provider", "openai"))) {
-            String openKey = settings.secret("openai");
-            if (openKey.isEmpty())
-                throw new IOException("Clé API DeepSeek absente : Réglages natifs → collez la clé → Enregistrer (ou bouton « Se connecter »).");
-            return openAiAnswer(settings, openKey, text, history);
-        }
-        String key = settings.secret("mistral");
-        if (key.isEmpty()) throw new IOException("Clé API Mistral absente : Réglages natifs → collez la clé → Enregistrer.");
-        return mistralAnswer(settings, key, text, history);
+        String openKey = settings.secret("openai");
+        if (openKey.isEmpty())
+            throw new IOException("Clé API DeepSeek absente : Réglages natifs → collez la clé → Enregistrer (ou bouton « Se connecter »).");
+        return openAiAnswer(settings, openKey, text, history);
     }
     /** Analyse ponctuelle d'une photo capturée volontairement, sans sauvegarde sur serveur local. */
-    public static String visionAnswer(SecurePrefs cfg, byte[] jpeg, String question) throws Exception {
-        if (jpeg == null || jpeg.length == 0 || jpeg.length > 2_000_000) throw new IOException("Image absente ou trop volumineuse.");
-        String key = cfg.secret("mistral");
-        if (key.isEmpty()) throw new IOException("Clé Mistral absente pour la vision : Réglages natifs → clé → Enregistrer.");
-        String prompt = question == null || question.trim().isEmpty() ? "Décris cette photo en français et signale tes incertitudes." : question.trim();
-        JSONArray content = new JSONArray();
-        content.put(new JSONObject().put("type", "text").put("text", prompt));
-        String imageData = "data:image/jpeg;base64," + android.util.Base64.encodeToString(jpeg, android.util.Base64.NO_WRAP);
-        content.put(new JSONObject().put("type", "image_url").put("image_url", imageData));
-        JSONArray messages = new JSONArray();
-        messages.put(new JSONObject().put("role", "system").put("content", system(cfg)));
-        messages.put(new JSONObject().put("role", "user").put("content", content));
-        // Choix explicite du modèle multimodal Mistral destiné à l’analyse des photos.
-        String selectedVisionModel = cfg.get("vision_model", "ministral-14b-2512").trim();
-        if (selectedVisionModel.isEmpty()) selectedVisionModel = "ministral-14b-2512";
-        JSONObject body = new JSONObject().put("model", selectedVisionModel)
-            .put("messages", messages).put("max_tokens", 1000).put("stream", false);
-        JSONObject response;
-        try { response = post("https://api.mistral.ai/v1/chat/completions", key, body); }
-        catch (IOException ex) {
-            String info = ex.getMessage() == null ? "" : ex.getMessage();
-            if (info.startsWith("API HTTP 401") || info.startsWith("API HTTP 403"))
-                throw new IOException("Mistral Vision : clé API invalide ou accès refusé.", ex);
-            if (info.startsWith("API HTTP 429"))
-                throw new IOException("Mistral Vision : limite de débit ou modèle non inclus dans votre offre (429). Testez ministral-14b-2512.", ex);
-            if (info.startsWith("API HTTP 400") || info.startsWith("API HTTP 404"))
-                throw new IOException("Mistral Vision : image rejetée ou modèle non disponible pour ce compte. " + info, ex);
-            throw ex;
-        }
-        JSONArray choices = response.optJSONArray("choices");
-        if (choices == null || choices.length() == 0) throw new IOException("Analyse de l'image vide.");
-        JSONObject message = choices.optJSONObject(0).optJSONObject("message");
-        if (message == null) throw new IOException("Réponse image non reconnue.");
-        Object contentResult = message.opt("content");
-        String answer = "";
-        if (contentResult instanceof String) answer = ((String) contentResult).trim();
-        else if (contentResult instanceof JSONArray) {
-            JSONArray parts = (JSONArray) contentResult;
-            StringBuilder builder = new StringBuilder();
-            for (int i = 0; i < parts.length(); i++) {
-                JSONObject part = parts.optJSONObject(i);
-                if (part != null) builder.append(part.optString("text", ""));
-            }
-            answer = builder.toString().trim();
-        }
-        if (answer.isEmpty()) throw new IOException("Mistral Vision : aucune description générée.");
-        return answer;
-    }
-    private static String system(SecurePrefs cfg) {
+        private static String system(SecurePrefs cfg) {
         return "Tu es F.R.I.D.A.Y., assistant vocal français précis et concis. Réponds naturellement pour une écoute audio. " +
                "Ne prétends pas avoir navigué sur Internet sans résultat réel. " +
                "Ne donne aucun établissement, adresse, horaire ou distance sans source vérifiable. " +
@@ -141,69 +88,7 @@ public final class NativeAI {
                    "Ne divulgue pas de raisonnement interne détaillé. " : "") +
                PersonalMemory.context(cfg);
     }
-    private static String mistralAnswer(SecurePrefs cfg, String key, String question, List<JSONObject> history) throws Exception {
-        boolean surroundings = question.contains("RECHERCHE_ALENTOURS_WEB");
-        String policy = cfg.get("web_mode", "1".equals(cfg.get("web", "1")) ? "always" : "off");
-        String activeModel = cfg.get("mistral_model", FALLBACK_MODEL).trim();
-        if (activeModel.isEmpty()) activeModel = FALLBACK_MODEL;
-
-        // Les modèles « ministral » ne prennent pas en charge les connecteurs (web_search) :
-        // l'API Conversations répond alors « HTTP 400 ... does not support builtin connectors ».
-        boolean connectorCapable = !activeModel.startsWith("ministral");
-        boolean webWanted = WebPolicy.shouldSearch(policy, surroundings, WebIntent.needsWeb(question));
-        boolean web = webWanted && connectorCapable;
-
-        if (surroundings && !web) {
-            return "Recherche des alentours indisponible : l'outil Web Mistral n'est pas utilisable avec le modèle « "
-                    + activeModel + " ».";
-        }
-
-        String answer;
-        if (web) {
-            try {
-                JSONObject body = new JSONObject();
-                body.put("model", activeModel);
-                body.put("instructions", system(cfg) +
-                    " L'outil Web est autorisé : exploite les résultats réels des recherches lorsque la question le justifie. " +
-                    "Pour les lieux proches, utilise les coordonnées et l'adresse estimée comme indices, vérifie les sources et ne présente pas de distance inventée. " +
-                    "N'affirme pas avoir effectué une recherche sans références vérifiables.");
-                JSONArray inputs = new JSONArray();
-                for (JSONObject old : compactHistory(history)) inputs.put(old);
-                inputs.put(new JSONObject().put("role", "user").put("content", question));
-                body.put("inputs", inputs);
-                body.put("tools", new JSONArray().put(new JSONObject().put("type", "web_search")));
-                body.put("store", false);
-                body.put("stream", false);
-                JSONObject response = post("https://api.mistral.ai/v1/conversations", key, body);
-                String extracted = parseConversation(response);
-                if (!extracted.isEmpty()) return extracted;
-                throw new IOException("Réponse Web sans texte");
-            } catch (IOException webFailure) {
-                // Repli uniquement si l'outil Web est refusé par le serveur / le compte / le modèle.
-                String msg = webFailure.getMessage() == null ? "" : webFailure.getMessage();
-                if (msg.startsWith("API HTTP 400") || msg.startsWith("API HTTP 404")
-                        || msg.startsWith("API HTTP 422") || msg.startsWith("API HTTP 429")
-                        || msg.startsWith("API HTTP 500") || msg.startsWith("API HTTP 501")) {
-                    if (surroundings) {
-                        return "Recherche des alentours indisponible : l'outil Web Mistral n'est pas accessible "
-                                + "avec ce compte/modèle (" + msg + ").";
-                    }
-                    answer = chatMistral(cfg, key, question, history);
-                    return answer + "\n\nNote : recherche Web indisponible pour cette réponse (" + msg + ").";
-                }
-                throw webFailure;
-            }
-        }
-
-        answer = chatMistral(cfg, key, question, history);
-        if (webWanted && !connectorCapable && WebIntent.needsWeb(question)) {
-            answer += "\n\nNote : la recherche Web n'est pas prise en charge par le modèle « "
-                    + activeModel + " » ; réponse donnée sans consultation d'Internet.";
-        }
-        return answer;
-    }
-
-    /**
+        /**
      * Fournisseur « compatible OpenAI » : DeepSeek, Ollama, LM Studio, vLLM…
      * Endpoint attendu : <baseUrl>/chat/completions
      */
@@ -244,63 +129,7 @@ public final class NativeAI {
     private static final String FALLBACK_MODEL = "ministral-8b-latest";
 
     /** Le modèle est-il refusé par l'offre / inexistant (400, 404, 429) ? */
-    private static boolean modelRejected(Exception e) {
-        String m = e.getMessage() == null ? "" : e.getMessage();
-        return m.startsWith("API HTTP 400") || m.startsWith("API HTTP 404")
-                || m.startsWith("API HTTP 422") || m.startsWith("API HTTP 429");
-    }
-
-    private static String chatMistral(SecurePrefs cfg, String key, String q, List<JSONObject> history) throws Exception {
-        String model = cfg.get("mistral_model", FALLBACK_MODEL).trim();
-        if (model.isEmpty()) model = FALLBACK_MODEL;
-        try {
-            return chat(cfg, key, model, q, history);
-        } catch (IOException e) {
-            if (!FALLBACK_MODEL.equals(model) && modelRejected(e)) {
-                // Repli automatique : l'offre du compte refuse le modèle configuré.
-                try {
-                    String reply = chat(cfg, key, FALLBACK_MODEL, q, history);
-                    cfg.put("mistral_model", FALLBACK_MODEL);
-                    return reply + "\n\nNote : le modèle \"" + model
-                            + "\" est refusé par votre offre. Repli automatique sur \"" + FALLBACK_MODEL + "\".";
-                } catch (IOException e2) {
-                    throw new IOException("Mistral (" + model + " puis " + FALLBACK_MODEL + ") : "
-                            + (e2.getMessage() == null ? "erreur inconnue" : e2.getMessage()), e2);
-                }
-            }
-            throw new IOException("Mistral (" + model + ") : "
-                    + (e.getMessage() == null ? "erreur inconnue" : e.getMessage()), e);
-        }
-    }
-    private static String chat(SecurePrefs cfg, String key, String model, String question, List<JSONObject> history) throws Exception {
-        JSONArray messages = new JSONArray();
-        messages.put(new JSONObject().put("role", "system").put("content", system(cfg)));
-        for (JSONObject old : compactHistory(history)) messages.put(old);
-        messages.put(new JSONObject().put("role", "user").put("content", question));
-        JSONObject payload = new JSONObject();
-        payload.put("model", model);
-        payload.put("messages", messages);
-        boolean deep = "1".equals(cfg.get("deep_reasoning", "0"));
-        payload.put("max_tokens", deep ? 2800 : 1600);
-        payload.put("temperature", deep ? .25 : .45);
-        if (deep && "mistral-small-latest".equals(model)) payload.put("reasoning_effort", "high");
-        payload.put("stream", false);
-        JSONObject response = post("https://api.mistral.ai/v1/chat/completions", key, payload);
-        JSONArray choices = response.optJSONArray("choices");
-        if (choices == null || choices.length() == 0) throw new IOException("Réponse API vide.");
-        JSONObject msg = choices.getJSONObject(0).optJSONObject("message");
-        if (msg == null) throw new IOException("Réponse API non reconnue.");
-        Object content = msg.opt("content");
-        if (content instanceof String) return (String) content;
-        if (content instanceof JSONArray) {
-            StringBuilder out = new StringBuilder();
-            JSONArray chunks = (JSONArray) content;
-            for (int i=0; i<chunks.length(); i++) out.append(chunks.optJSONObject(i) != null ? chunks.optJSONObject(i).optString("text", "") : "");
-            return out.toString();
-        }
-        throw new IOException("Contenu API vide.");
-    }
-    /** Borne le contexte envoyé : moins de latence et limite les réponses géantes en mémoire. */
+                /** Borne le contexte envoyé : moins de latence et limite les réponses géantes en mémoire. */
     private static List<JSONObject> compactHistory(List<JSONObject> history) throws Exception {
         List<JSONObject> selected = new ArrayList<>();
         if (history == null || history.isEmpty()) return selected;
@@ -323,42 +152,7 @@ public final class NativeAI {
         for (int i=reversed.size()-1;i>=0;i--) selected.add(reversed.get(i));
         return selected;
     }
-    private static String parseConversation(JSONObject response) {
-        JSONArray outputs = response.optJSONArray("outputs");
-        if (outputs == null) return "";
-        StringBuilder text = new StringBuilder();
-        StringBuilder sources = new StringBuilder();
-        boolean webUsed = false;
-        for (int i=0; i<outputs.length(); i++) {
-            JSONObject output = outputs.optJSONObject(i);
-            if (output == null) continue;
-            if ("tool.execution".equals(output.optString("type")) &&
-                output.optString("name", "").startsWith("web_search")) webUsed = true;
-            if (!"message.output".equals(output.optString("type", "message.output"))) continue;
-            JSONArray chunks = output.optJSONArray("content");
-            if (chunks == null) {
-                text.append(output.optString("content", ""));
-                continue;
-            }
-            for (int j=0; j<chunks.length(); j++) {
-                JSONObject chunk = chunks.optJSONObject(j);
-                if (chunk == null) continue;
-                String kind = chunk.optString("type");
-                if (kind.equals("text") || kind.equals("text_chunk") || kind.isEmpty()) text.append(chunk.optString("text", ""));
-                if (kind.equals("tool_reference") || kind.equals("citation")) {
-                    String url = chunk.optString("url", "");
-                    if (url.startsWith("https://") && sources.length() < 1000) sources.append("\n").append(url);
-                }
-            }
-        }
-        String result = text.toString().trim();
-        if (result.isEmpty()) return "";
-        if (sources.length() > 0) result += "\nSources :" + sources;
-        else if (!webUsed) result += "\n[Recherche Internet non exécutée lors de cette réponse.]";
-        else result += "\n[Recherche Web exécutée, mais aucune URL de source fournie.]";
-        return result;
-    }
-    private static JSONObject post(String url, String token, JSONObject body) throws Exception {
+        private static JSONObject post(String url, String token, JSONObject body) throws Exception {
         if (token.trim().isEmpty()) throw new IOException("Clé API absente.");
         HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
         CancelToken cancellation = CANCEL.get();

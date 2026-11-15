@@ -20,13 +20,9 @@ trap 'rm -rf "$TMP_TEST"' EXIT
 javac -encoding UTF-8 -d "$TMP_TEST" \
   app/src/main/java/fr/friday/assistant/VoiceText.java \
   app/src/main/java/fr/friday/assistant/BargeInPolicy.java \
-  app/src/main/java/fr/friday/assistant/VoiceClonePolicy.java \
-  app/src/main/java/fr/friday/assistant/VoiceCloneActivation.java \
-  app/src/main/java/fr/friday/assistant/WebIntent.java \
   app/src/main/java/fr/friday/assistant/LocationIntent.java \
-  app/src/main/java/fr/friday/assistant/NearbyIntent.java \
   app/src/main/java/fr/friday/assistant/MemoryIntent.java \
   app/src/main/java/fr/friday/assistant/FridayVersionPolicy.java \
-  tests/VoiceTextTest.java tests/BargeInPolicyTest.java tests/WebIntentTest.java tests/NearbyIntentTest.java tests/MemoryIntentTest.java tests/FridayVersionPolicyTest.java tests/VoiceClonePolicyTest.java tests/VoiceCloneActivationTest.java
-for name in VoiceTextTest BargeInPolicyTest WebIntentTest NearbyIntentTest MemoryIntentTest fr.friday.assistant.FridayVersionPolicyTest VoiceClonePolicyTest VoiceCloneActivationTest; do java -cp "$TMP_TEST" "$name"; done
-echo 'Tests F.R.I.D.A.Y. 2.2.0 (Mistral seul) réussis. APK / matériel à valider.'
+  tests/VoiceTextTest.java tests/BargeInPolicyTest.java tests/MemoryIntentTest.java tests/FridayVersionPolicyTest.java
+for name in VoiceTextTest BargeInPolicyTest MemoryIntentTest fr.friday.assistant.FridayVersionPolicyTest; do java -cp "$TMP_TEST" "$name"; done
+echo 'Tests F.R.I.D.A.Y. réussis (Java, Python, Rust, JS).'

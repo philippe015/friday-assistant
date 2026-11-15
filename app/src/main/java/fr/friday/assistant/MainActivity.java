@@ -33,19 +33,16 @@ import java.util.Locale;
 public class MainActivity extends Activity {
     private SecurePrefs prefs;
     private TextView status;
-    private EditText mistralKey, mistralModel, visionModel;
     private Spinner providerSpinner;
     private EditText openaiUrl, openaiModel, openaiKey;
     private CheckBox voiceEnabled, locationEnabled, locationShare, placeNameEnabled;
-    private CheckBox memoryEnabled, deepReasoning, clonedVoiceEnabled, voiceConsent;
+    private CheckBox memoryEnabled;
     private TextView voiceSampleStatus;
     private volatile boolean voiceRecording = false;
     private volatile boolean voicePreview = false;
     private final AtomicBoolean hudCloneSpeaking = new AtomicBoolean(false);
-    private volatile MistralVoice.Playback hudPlayback;
     private boolean recordAfterMicPermission = false;
     private EditText memoryEditor;
-    private Spinner webMode;
     private EditText silenceInput, followupInput, ttsInput;
     private CheckBox bargeEnabled;
     private LinearLayout config;
@@ -60,12 +57,8 @@ public class MainActivity extends Activity {
     private static final int REQ_LOCATION = 19;
     private static final int REQ_PHOTO = 82;
     private static final int REQ_VOICE_SAMPLE = 83;
-    private volatile String visionState = "";
     private volatile String cachedLocation = "";
-    private volatile byte[] pendingJpeg;
     private File captureFile;
-    private volatile boolean visionRequestInFlight = false;
-    private volatile String pendingVisionQuestion = "";
     private TextToSpeech webVoice;
     private volatile boolean webVoiceReady = false;
 
@@ -74,17 +67,8 @@ public class MainActivity extends Activity {
         getWindow().setStatusBarColor(Color.rgb(3, 16, 26));
         getWindow().setNavigationBarColor(Color.rgb(3, 16, 26));
         prefs = new SecurePrefs(this);
-        // Migration des modèles : les anciens noms (mistral-small/medium) renvoient 429 sur les offres actuelles.
-        String storedChat = prefs.get("mistral_model", "");
-        if (storedChat.startsWith("mistral-small") || storedChat.startsWith("mistral-medium")) {
-            prefs.put("mistral_model", "ministral-8b-latest");
-        }
-        String storedVision = prefs.get("vision_model", "");
-        if (storedVision.contains("mistral-small")) {
-            prefs.put("vision_model", "ministral-14b-2512");
-        }
         // Migration : supprimer l'ancienne clé Agnès stockée sur les installations précédentes.
-        try { prefs.setSecret("agnes", ""); prefs.put("mode", "mistral"); prefs.put("agnes_model", ""); } catch (Exception ignored) {}
+        try { prefs.setSecret("agnes", ""); prefs.setSecret("mistral", ""); prefs.put("mode", "deepseek"); prefs.put("agnes_model", ""); } catch (Exception ignored) {}
         // Supprime une éventuelle ancienne clé Google Places, désormais inutilisée.
         try { prefs.setSecret("places", ""); } catch (Exception ignored) {}
         buildUi();
@@ -155,23 +139,6 @@ public class MainActivity extends Activity {
         outer.addView(configScroll, new LinearLayout.LayoutParams(-1, dp(340)));
         config.addView(label("MOTEUR VOCAL LOCAL · français Vosk (~41 Mo à télécharger une fois)"));
         config.addView(button(ModelInstaller.installed(this) ? "✓ Modèle installé" : "↓ Télécharger le modèle français", this::installModel));
-        config.addView(label("INTELLIGENCE ARTIFICIELLE UNIQUE · MISTRAL"));
-        config.addView(label("Clé Mistral (laissez vide pour conserver l'ancienne)"));
-        mistralKey = field(prefs.hasSecret("mistral") ? "Clé Mistral déjà enregistrée" : "Clé Mistral manquante", true);
-        config.addView(mistralKey);
-        String keyState = prefs.hasSecret("mistral")
-                ? "✔ Clé Mistral : enregistrée"
-                : "✘ Clé Mistral : absente — collez-la ci-dessus puis appuyez sur Enregistrer";
-        if (!SecurePrefs.LAST_ERROR.isEmpty()) keyState += "\n⚠ " + SecurePrefs.LAST_ERROR;
-        config.addView(label(keyState));
-        config.addView(label("Modèle Mistral"));
-        mistralModel = field("ministral-8b-latest", false);
-        mistralModel.setText(prefs.get("mistral_model", "ministral-8b-latest")); config.addView(mistralModel);
-        config.addView(label("MODÈLE D'ANALYSE VISUELLE MISTRAL · nécessite la capacité vision"));
-        visionModel = field("ministral-14b-2512", false);
-        visionModel.setText(prefs.get("vision_model", "ministral-14b-2512"));
-        config.addView(visionModel);
-
         config.addView(label("MOTEUR IA · DEEPSEEK (unique fournisseur)"));
         openaiUrl = field("https://api.deepseek.com/v1", false);
         openaiUrl.setText(prefs.get("openai_url", "https://api.deepseek.com/v1"));
@@ -188,29 +155,9 @@ public class MainActivity extends Activity {
         config.addView(label(openaiState));
         config.addView(button("🌐 Se connecter / créer ma clé sur platform.deepseek.com", this::openDeepSeekPage));
 
-        config.addView(label("INTERNET · recherche Web officielle de Mistral (selon forfait, quotas et modèle)"));
-        webMode = new Spinner(this);
-        String[] webChoices = {"Web étendu · accessible à chaque question", "Web automatique · si utile", "Sans recherche Web"};
-        ArrayAdapter<String> webAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, webChoices);
-        webAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        webMode.setAdapter(webAdapter);
-        String webCurrent = prefs.get("web_mode", "1".equals(prefs.get("web", "1")) ? "always" : "off");
-        webMode.setSelection("off".equals(webCurrent) ? 2 : "auto".equals(webCurrent) ? 1 : 0);
-        config.addView(webMode);
-        config.addView(label("La recherche Web Mistral consulte des sources publiques ; elle n’accède pas aux sites privés sans autorisation."));
-        config.addView(label("INTELLIGENCE · analyse approfondie"));
-        deepReasoning = new CheckBox(this);
-        deepReasoning.setText("Raisonnement approfondi (réponses plus détaillées ; potentiellement plus lentes et coûteuses)");
-        deepReasoning.setTextColor(Color.WHITE);
-        deepReasoning.setChecked("1".equals(prefs.get("deep_reasoning", "0")));
-        config.addView(deepReasoning);
-        config.addView(button("Choisir Mistral Medium (modèle plus puissant)", () -> {
-            mistralModel.setText("mistral-medium-latest");
-            Toast.makeText(this, "Enregistrez les réglages pour appliquer le modèle", Toast.LENGTH_LONG).show();
-        }));
         config.addView(label("MÉMOIRE PERSONNELLE · uniquement sur demande explicite"));
         memoryEnabled = new CheckBox(this);
-        memoryEnabled.setText("Activer ma mémoire chiffrée (les notes seront transmises à Mistral avec les questions)");
+        memoryEnabled.setText("Activer ma mémoire chiffrée (les notes seront transmises à DeepSeek avec les questions)");
         memoryEnabled.setTextColor(Color.WHITE);
         memoryEnabled.setChecked("1".equals(prefs.get("memory_enabled", "0")));
         config.addView(memoryEnabled);
@@ -259,30 +206,6 @@ public class MainActivity extends Activity {
         voiceEnabled.setText("Répondre à voix haute"); voiceEnabled.setTextColor(Color.WHITE);
         voiceEnabled.setChecked("1".equals(prefs.get("voice_enabled", "1")));
         config.addView(voiceEnabled);
-        config.addView(label("VOIX CLONÉE · API Mistral Voxtral TTS (facultatif, peut être facturé)"));
-        config.addView(label("Enregistrez votre propre voix pendant 12 secondes dans une pièce calme. " +
-            "Le fichier reste dans l'espace privé du téléphone ; il sera envoyé à Mistral lors de chaque synthèse activée. " +
-            "Aucun clonage sans autorisation de la personne enregistrée."));
-        voiceConsent = new CheckBox(this);
-        voiceConsent.setText("Je confirme que cette voix est la mienne ou que j'ai l'accord explicite de la personne.");
-        voiceConsent.setTextColor(Color.WHITE);
-        voiceConsent.setChecked("1".equals(prefs.get("clone_consent", "0")));
-        config.addView(voiceConsent);
-        clonedVoiceEnabled = new CheckBox(this);
-        clonedVoiceEnabled.setText("Utiliser la voix clonée pour les réponses (Internet et clé Mistral requis)");
-        clonedVoiceEnabled.setTextColor(Color.WHITE);
-        clonedVoiceEnabled.setChecked("1".equals(prefs.get("clone_enabled", "0")) && VoiceSampleRecorder.exists(this));
-        config.addView(clonedVoiceEnabled);
-        voiceSampleStatus = label("");
-        config.addView(voiceSampleStatus);
-        refreshVoiceSampleStatus();
-        config.addView(button("● Enregistrer mon échantillon vocal (12 s)", this::recordMyVoice));
-        config.addView(button("✓ Activer mon échantillon déjà enregistré", this::activateRecordedVoice));
-        config.addView(button("▶ Tester ma voix clonée", this::previewClonedVoice));
-        config.addView(button("Supprimer définitivement mon échantillon", this::deleteVoiceSample));
-        config.addView(label("La lecture Android standard sert de repli si Mistral TTS est indisponible. " +
-            "L'échantillon n'est pas enregistré comme voix permanente dans l'espace Mistral. " +
-            "La synthèse personnalisée peut ajouter un délai et un coût par réponse."));
         config.addView(label("LOCALISATION · permission Android facultative"));
         locationEnabled = new CheckBox(this);
         locationEnabled.setText("Activer la position uniquement sur demande vocale");
@@ -290,7 +213,7 @@ public class MainActivity extends Activity {
         locationEnabled.setChecked("1".equals(prefs.get("location_enabled", "0")));
         config.addView(locationEnabled);
         locationShare = new CheckBox(this);
-        locationShare.setText("Autoriser l'envoi ponctuel de mes coordonnées GPS à Mistral pour les questions locales (précision élevée)");
+        locationShare.setText("Autoriser l'envoi ponctuel de mes coordonnées GPS à DeepSeek pour les questions locales");
         locationShare.setTextColor(Color.WHITE);
         locationShare.setChecked("1".equals(prefs.get("location_share", "0")));
         config.addView(locationShare);
@@ -301,14 +224,8 @@ public class MainActivity extends Activity {
         config.addView(placeNameEnabled);
         config.addView(label("Aucune clé Google : ce géocodeur est une fonction d'Android, dont le fournisseur peut accéder à Internet. Désactivé par défaut."));
         config.addView(label("Aucun suivi GPS permanent : mesure à la demande (jusqu'à 16 s) et objectif 3 m non garanti. " +
-            "La précision effectivement mesurée est affichée. Si le partage IA est autorisé, les coordonnées précises de cette question sont transmises à l’API Mistral."));
+            "La précision effectivement mesurée est affichée. Si le partage IA est autorisé, les coordonnées précises de cette question sont transmises à l’API DeepSeek."));
         config.addView(button("◎ Tester précision GPS · cible 3 m", this::showGpsAccuracy));
-        config.addView(label("ANALYSE DES ALENTOURS · sans API Google : recherche Web de Mistral uniquement. " +
-            "Ne garantit ni liste exhaustive ni distances exactes ; exigez des sources pour les lieux cités."));
-        config.addView(button("◎ Où suis-je : ville et rue ?", () -> sendQuestion("Friday, où suis-je exactement ?")));
-        config.addView(button("◈ Analyser les lieux autour de moi", () -> sendQuestion("Quels lieux et services se trouvent autour de moi ?")));
-        config.addView(button("◈ Pharmacies proches", () -> sendQuestion("Cherche les pharmacies autour de moi")));
-        config.addView(button("◈ Restaurants proches", () -> sendQuestion("Cherche les restaurants autour de moi")));
         config.addView(button("Enregistrer les réglages", this::save));
         config.addView(label("PERSONNALITÉ · prompt sur plusieurs lignes · profils chiffrés"));
         config.addView(button("✧ Modifier la personnalité de F.R.I.D.A.Y.", () -> {
@@ -325,7 +242,7 @@ public class MainActivity extends Activity {
             startActivity(intent);
         }));
         config.addView(label("L'écoute native continue avec écran allumé ou verrouillé après un démarrage volontaire depuis l'application visible. Un redémarrage du service depuis l'application est nécessaire après tout changement de permission de localisation. La notification permet d'arrêter le micro."));
-        config.addView(label("La reconnaissance vocale est locale ; seule la question transcrite est envoyée à l’API Mistral configurée. Les clés API natives sont chiffrées Android Keystore."));
+        config.addView(label("La reconnaissance vocale est locale ; seule la question transcrite est envoyée à l’API DeepSeek configurée. Les clés API natives sont chiffrées Android Keystore."));
 
         hud = new WebView(this);
         hud.setBackgroundColor(Color.rgb(5,17,28));
@@ -357,13 +274,7 @@ public class MainActivity extends Activity {
     }
     private void save() {
         try {
-            String a = mistralKey.getText().toString().trim();
-            boolean keyGiven = !a.isEmpty();
-            if (keyGiven) prefs.setSecret("mistral", a);
-            prefs.put("mode", "mistral");
-            prefs.put("mistral_model", mistralModel.getText().toString().trim());
-            String selectedVisionModel = visionModel.getText().toString().trim();
-            prefs.put("vision_model", selectedVisionModel.isEmpty() ? "ministral-14b-2512" : selectedVisionModel);
+            prefs.put("mode", "deepseek");
             prefs.put("provider", "openai");
             String deepseekUrl = openaiUrl.getText().toString().trim();
             prefs.put("openai_url", deepseekUrl.isEmpty() ? "https://api.deepseek.com/v1" : deepseekUrl);
@@ -371,150 +282,26 @@ public class MainActivity extends Activity {
             String openaiGiven = openaiKey.getText().toString().trim();
             if (!openaiGiven.isEmpty()) prefs.setSecret("openai", openaiGiven);
             openaiKey.setText("");
-            String selectedWebMode = webMode.getSelectedItemPosition() == 2 ? "off" :
-                webMode.getSelectedItemPosition() == 1 ? "auto" : "always";
-            prefs.put("web_mode", selectedWebMode);
-            prefs.put("deep_reasoning", deepReasoning.isChecked() ? "1" : "0");
             prefs.put("memory_enabled", memoryEnabled.isChecked() ? "1" : "0");
-            prefs.put("web", WebPolicy.enabled(selectedWebMode) ? "1" : "0");
             prefs.put("silence_ms", bounded(silenceInput, 2100, 900, 6000));
             prefs.put("followup_sec", bounded(followupInput, 75, 15, 180));
             prefs.put("barge_in_enabled", bargeEnabled.isChecked() ? "1" : "0");
             prefs.put("tts_speed", bounded(ttsInput, 100, 70, 150));
-            if (clonedVoiceEnabled.isChecked() && !VoiceClonePolicy.hasConsent(voiceConsent.isChecked(), VoiceSampleRecorder.exists(this))) {
-                clonedVoiceEnabled.setChecked(false);
-                prefs.put("clone_enabled", "0");
-                status.setText("Voix clonée non activée : cochez le consentement et enregistrez votre voix.");
-                return;
-            }
-            if (clonedVoiceEnabled.isChecked()) {
-                // Une voix clonée ne sert à rien si les réponses vocales générales sont coupées.
-                voiceEnabled.setChecked(true);
-                VoiceCloneActivation.enable(prefs::put, voiceConsent.isChecked(), VoiceSampleRecorder.exists(this));
-            } else {
-                prefs.put("clone_consent", voiceConsent.isChecked() ? "1" : "0");
-                prefs.put("clone_enabled", "0");
-                prefs.put("voice_enabled", voiceEnabled.isChecked() ? "1" : "0");
-            }
-            refreshVoiceSampleStatus();
-            refreshVoiceModeOnHud();
+            prefs.put("voice_enabled", voiceEnabled.isChecked() ? "1" : "0");
             prefs.put("location_enabled", locationEnabled.isChecked() ? "1" : "0");
             prefs.put("location_share", locationEnabled.isChecked() && locationShare.isChecked() ? "1" : "0");
             prefs.put("address_lookup", locationEnabled.isChecked() && placeNameEnabled.isChecked() ? "1" : "0");
-            mistralKey.setText("");
-            String keyInfo = prefs.hasSecret("mistral")
-                    ? (SecurePrefs.LAST_ERROR.isEmpty() ? "Clé Mistral enregistrée." : "Clé enregistrée. ⚠ " + SecurePrefs.LAST_ERROR)
-                    : "⚠ Aucune clé Mistral enregistrée : les réponses seront refusées.";
-            status.setText(keyInfo + " " + (clonedVoiceEnabled.isChecked() ?
-                "Réglages enregistrés : VOIX CLONÉE ACTIVE. Testez-la puis redémarrez l'écoute." :
-                "Réglages enregistrés. Arrêtez puis redémarrez le service pour appliquer les permissions."));
+            String keyInfo = prefs.hasSecret("openai")
+                    ? (SecurePrefs.LAST_ERROR.isEmpty() ? "Clé DeepSeek enregistrée." : "Clé enregistrée. ⚠ " + SecurePrefs.LAST_ERROR)
+                    : "⚠ Aucune clé DeepSeek enregistrée : les réponses seront refusées.";
+            status.setText(keyInfo + " Réglages enregistrés. Arrêtez puis redémarrez le service pour appliquer les permissions.");
             if (locationEnabled.isChecked() && !FridayLocation.hasPermission(this)) requestLocationAccess();
             Toast.makeText(this,"Réglages natifs enregistrés",Toast.LENGTH_SHORT).show();
         } catch (Exception ex) { status.setText("Enregistrement impossible : " + ex.getMessage()); }
     }
-    private void recordMyVoice() {
-        if (voiceRecording) { status.setText("Enregistrement déjà en cours."); return; }
-        if (!voiceConsent.isChecked()) {
-            new AlertDialog.Builder(this).setTitle("Autorisation nécessaire")
-                .setMessage("Enregistrez uniquement votre voix ou une voix avec l'accord explicite de la personne.")
-                .setPositiveButton("Compris", null).show();
-            return;
-        }
-        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            recordAfterMicPermission = true;
-            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_VOICE_SAMPLE);
-            return;
-        }
-        // Ne jamais enregistrer la référence avec Vosk actif dans la même application.
-        if (FridayService.isActive()) stopListening();
-        voiceRecording = true;
-        status.setText("Enregistrement vocal : 12 secondes. Parlez naturellement, sans musique.");
-        new Thread(() -> {
-            try {
-                Thread.sleep(850);
-                if (FridayService.isActive()) throw new IOException("Arrêtez d'abord l'écoute F.R.I.D.A.Y.");
-                VoiceSampleRecorder.capture(getApplicationContext(), VoiceClonePolicy.SECONDS);
-                // L'activation devient effective dès la fin de la capture, sans bouton Enregistrer.
-                runOnUiThread(this::activateRecordedVoice);
-            } catch (Exception e) {
-                runOnUiThread(() -> status.setText("Échantillon vocal non enregistré : " + e.getMessage()));
-            } finally { voiceRecording = false; }
-        }, "friday-voice-capture").start();
-    }
-    /** Permet aussi de réactiver une référence enregistrée par la v2.1.8 sans la refaire. */
-    private void activateRecordedVoice() {
-        try {
-            VoiceCloneActivation.enable(prefs::put,
-                voiceConsent.isChecked(), VoiceSampleRecorder.exists(this));
-            clonedVoiceEnabled.setChecked(true);
-            voiceEnabled.setChecked(true);
-            refreshVoiceSampleStatus();
-            refreshVoiceModeOnHud();
-            status.setText("Voix clonée ACTIVÉE et enregistrée. " +
-                "Appuyez sur « Tester ma voix clonée » avec l'écoute arrêtée.");
-        } catch (Exception ex) {
-            refreshVoiceSampleStatus();
-            status.setText("Activation impossible : " + ex.getMessage());
-        }
-    }
-    private void deleteVoiceSample() {
-        new AlertDialog.Builder(this).setTitle("Supprimer ma référence vocale ?")
-            .setMessage("L'échantillon enregistré dans le téléphone sera supprimé. Aucune voix n'a été créée de manière permanente dans Mistral.")
-            .setNegativeButton("Annuler", null)
-            .setPositiveButton("Supprimer", (dialog, which) -> {
-                if (voiceRecording || voicePreview) {
-                    status.setText("Attendez la fin de l'enregistrement ou de la lecture avant de supprimer."); return;
-                }
-                prefs.put("clone_enabled", "0");
-                prefs.put("clone_consent", "0");
-                clonedVoiceEnabled.setChecked(false);
-                voiceConsent.setChecked(false);
-                boolean erased = VoiceSampleRecorder.erase(this);
-                refreshVoiceSampleStatus();
-                refreshVoiceModeOnHud();
-                status.setText(erased ? "Référence supprimée. Voix Android rétablie." : "Impossible de supprimer la référence.");
-            }).show();
-    }
-    private void previewClonedVoice() {
-        if (voicePreview || voiceRecording) return;
-        if (!voiceConsent.isChecked() || !VoiceSampleRecorder.exists(this)) {
-            status.setText("Enregistrez votre voix et cochez la confirmation d'autorisation."); return;
-        }
-        if (!MistralVoice.enabled(this, prefs)) {
-            status.setText("La voix n'est pas activée. Enregistrez un échantillon ou activez la case dans les réglages."); return;
-        }
-        if (FridayService.isActive()) {
-            status.setText("Arrêtez l'écoute F.R.I.D.A.Y. avant de tester la voix."); return;
-        }
-        voicePreview = true;
-        status.setText("Test Mistral Voxtral : génération de la voix clonée en cours…");
-        new Thread(() -> {
-            try {
-                MistralVoice.speak(getApplicationContext(), prefs,
-                    "Bonjour, je suis Friday. Cette réponse utilise votre voix personnalisée.", () -> true);
-                runOnUiThread(() -> status.setText("Test de voix clonée terminé."));
-            } catch (Exception ex) {
-                runOnUiThread(() -> status.setText("Test voix clonée impossible : " + ex.getMessage()));
-            } finally { voicePreview = false; }
-        }, "friday-voice-preview").start();
-    }
-
-    /** Affiche le statut enregistré, pas seulement l'état visuel d'une case. */
-    private void refreshVoiceSampleStatus() {
-        if (voiceSampleStatus == null) return;
-        boolean present = VoiceSampleRecorder.exists(this);
-        boolean active = MistralVoice.enabled(this, prefs);
-        voiceSampleStatus.setText("Échantillon : " + (present ? "ENREGISTRÉ" : "ABSENT") +
-            "  |  Voix clonée : " + (active ? "ACTIVÉE" : "DÉSACTIVÉE") +
-            ". Arrêtez l'écoute des autres éditions avant une nouvelle capture.");
-    }
-    private void refreshVoiceModeOnHud() {
-        if (pageReady && hud != null) {
-            hud.evaluateJavascript("window.fridayRefreshNative&&window.fridayRefreshNative();", null);
-        }
-    }
-
-    private void saveMemory() {
+        /** Permet aussi de réactiver une référence enregistrée par la v2.1.8 sans la refaire. */
+                /** Affiche le statut enregistré, pas seulement l'état visuel d'une case. */
+            private void saveMemory() {
         try {
             int count = PersonalMemory.replaceFromEditor(prefs, memoryEditor.getText().toString());
             status.setText("Mémoire chiffrée : " + count + " notes enregistrées. Activez la case mémoire pour les utiliser.");
@@ -678,8 +465,6 @@ public class MainActivity extends Activity {
     }
     private void interruptSpeaking() {
         hudCloneSpeaking.set(false);
-        MistralVoice.Playback playback = hudPlayback;
-        if (playback != null) playback.cancel();
         if (webVoice != null) { try { webVoice.stop(); } catch (Exception ignored) { } }
         startService(new Intent(this, FridayService.class).setAction(FridayService.ACTION_INTERRUPT));
         status.setText("Réponse interrompue, micro toujours actif. Posez votre question.");
@@ -694,10 +479,6 @@ public class MainActivity extends Activity {
             if (grants.length > 0 && grants[0] == PackageManager.PERMISSION_GRANTED && promptStartAfterPermission) {
                 promptStartAfterPermission = false; startListening();
             } else { promptStartAfterPermission = false; status.setText("Microphone refusé dans les autorisations Android."); }
-        } else if (requestCode == REQ_VOICE_SAMPLE) {
-            if (grants.length > 0 && grants[0] == PackageManager.PERMISSION_GRANTED && recordAfterMicPermission) {
-                recordAfterMicPermission = false; recordMyVoice();
-            } else { recordAfterMicPermission = false; status.setText("Microphone refusé pour la référence vocale."); }
         } else if (requestCode == REQ_LOCATION) {
             if (FridayLocation.hasPermission(this)) {
                 locationEnabled.setChecked(true);
@@ -718,8 +499,6 @@ public class MainActivity extends Activity {
                 if (kind == null || text == null) return;
                 if (kind.equals("interrupted")) {
                     hudCloneSpeaking.set(false);
-                    MistralVoice.Playback playback = hudPlayback;
-                    if (playback != null) playback.cancel();
                     if (webVoice != null) { try { webVoice.stop(); } catch (Exception ignored) { } }
                 }
                 if (kind.equals("status") || kind.equals("error") || kind.equals("tts") || kind.equals("mic_conflict") || kind.equals("interrupted")) status.setText(text);
@@ -756,165 +535,15 @@ public class MainActivity extends Activity {
         }
     }
     /** Photo pleine définition dans le cache privé, partagée ponctuellement avec la caméra. */
-    private void capturePhoto(String question) {
-        if (visionRequestInFlight || "1".equals(visionState)) {
-            visionState = "4|Une capture ou analyse est déjà en cours.";
-            return;
-        }
-        pendingVisionQuestion = question == null ? "" : question.trim();
-        pendingJpeg = null;
-        cleanupPhoto();
-        try {
-            File dir = new File(getCacheDir(), "vision");
-            if (!dir.exists() && !dir.mkdirs()) throw new IOException("Impossible de créer le dossier photo temporaire.");
-            captureFile = File.createTempFile("friday_capture_", ".jpg", dir);
-            Uri photoUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", captureFile);
-            Intent camera = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-            camera.putExtra(MediaStore.EXTRA_OUTPUT, photoUri);
-            camera.setClipData(ClipData.newRawUri("photo", photoUri));
-            camera.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-            visionState = "1";
-            startActivityForResult(camera, REQ_PHOTO);
-        } catch (Exception ex) {
-            cleanupPhoto();
-            visionState = "4|Appareil photo indisponible : " + safeError(ex);
-        }
-    }
-
-    private void cleanupPhoto() {
-        File f = captureFile;
-        captureFile = null;
-        if (f != null && f.exists()) f.delete();
-    }
-
-    /** Évite le chargement de plusieurs dizaines de Mo depuis le capteur photo. */
-    private static byte[] normalizeJpeg(File file, Bitmap fallback) throws Exception {
-        Bitmap bitmap = null;
-        if (file != null && file.exists() && file.length() > 0) {
-            BitmapFactory.Options bounds = new BitmapFactory.Options();
-            bounds.inJustDecodeBounds = true;
-            BitmapFactory.decodeFile(file.getAbsolutePath(), bounds);
-            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw new IOException("Photo illisible (JPEG absent ou corrompu).");
-            int sample = 1;
-            while (Math.max(bounds.outWidth / sample, bounds.outHeight / sample) > 2000) sample *= 2;
-            BitmapFactory.Options options = new BitmapFactory.Options();
-            options.inSampleSize = sample;
-            bitmap = BitmapFactory.decodeFile(file.getAbsolutePath(), options);
-            if (bitmap == null) throw new IOException("Décodage de la photo impossible.");
-            int orientation = new ExifInterface(file.getAbsolutePath()).getAttributeInt(
-                    ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
-            int angle = orientation == ExifInterface.ORIENTATION_ROTATE_90 ? 90 :
-                        orientation == ExifInterface.ORIENTATION_ROTATE_180 ? 180 :
-                        orientation == ExifInterface.ORIENTATION_ROTATE_270 ? 270 : 0;
-            if (angle != 0) {
-                Matrix matrix = new Matrix(); matrix.postRotate(angle);
-                Bitmap rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
-                if (rotated != bitmap) { bitmap.recycle(); bitmap = rotated; }
-            }
-        } else if (fallback != null) bitmap = fallback;
-        if (bitmap == null) throw new IOException("La caméra n'a retourné aucune photo exploitable.");
-        try {
-            // Rééchantillonnage final : pas plus de 1800 px côté long.
-            int longest = Math.max(bitmap.getWidth(), bitmap.getHeight());
-            if (longest > 1800) {
-                float ratio = 1800f / longest;
-                Bitmap scaled = Bitmap.createScaledBitmap(bitmap,
-                        Math.max(1, Math.round(bitmap.getWidth() * ratio)),
-                        Math.max(1, Math.round(bitmap.getHeight() * ratio)), true);
-                if (scaled != bitmap) { if (bitmap != fallback) bitmap.recycle(); bitmap = scaled; }
-            }
-            for (int quality : new int[]{85, 75, 60, 45}) {
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                if (!bitmap.compress(Bitmap.CompressFormat.JPEG, quality, out))
-                    throw new IOException("Compression JPEG impossible.");
-                byte[] bytes = out.toByteArray();
-                if (bytes.length > 0 && bytes.length <= 1_800_000) return bytes;
-            }
-            throw new IOException("Photo encore trop volumineuse. Rapprochez-vous et réessayez.");
-        } finally {
-            if (bitmap != fallback && !bitmap.isRecycled()) bitmap.recycle();
-        }
-    }
-
-    private static String safeError(Exception ex) {
+            /** Évite le chargement de plusieurs dizaines de Mo depuis le capteur photo. */
+        private static String safeError(Exception ex) {
         String message = ex.getMessage();
         return message == null || message.trim().isEmpty() ? ex.getClass().getSimpleName() : message;
     }
 
-    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != REQ_PHOTO) return;
-        File file = captureFile;
-        captureFile = null;
-        if (resultCode != RESULT_OK) {
-            if (file != null) file.delete();
-            visionState = "4|Capture annulée.";
-            return;
-        }
-        visionState = "2";
-        new Thread(() -> {
-            try {
-                Bitmap thumbnail = null;
-                if (data != null && data.getExtras() != null) {
-                    Object extra = data.getExtras().get("data");
-                    if (extra instanceof Bitmap) thumbnail = (Bitmap) extra;
-                }
-                pendingJpeg = normalizeJpeg(file, thumbnail);
-                visionState = "5";
-                if (!pendingVisionQuestion.isEmpty()) analyzePhoto(pendingVisionQuestion);
-            } catch (Exception ex) {
-                visionState = "4|Lecture de la photo : " + safeError(ex);
-            } finally {
-                if (file != null && file.exists()) file.delete();
-            }
-        }, "friday-photo-decode").start();
-    }
-
-    private void analyzePhoto(String question) {
-        if (visionRequestInFlight) return;
-        byte[] image = pendingJpeg;
-        if (image == null || image.length == 0) {
-            visionState = "4|Photo indisponible. Prenez une nouvelle photo.";
-            return;
-        }
-        visionRequestInFlight = true;
-        pendingJpeg = null;
-        visionState = "2";
-        new Thread(() -> {
-            try { visionState = "3|" + NativeAI.visionAnswer(prefs, image, question); }
-            catch (Exception ex) { visionState = "4|" + safeError(ex); }
-            finally { visionRequestInFlight = false; }
-        }, "friday-vision").start();
-    }
-    private void cancelVision() {
-        // N'arrête pas une requête HTTP déjà transmise ; efface la photo en attente.
-        if (!visionRequestInFlight) {
-            pendingJpeg = null;
-            pendingVisionQuestion = "";
-            cleanupPhoto();
-            visionState = "";
-        }
-    }
-    private void playWebVoice(String text) {
+                private void playWebVoice(String text) {
         if (text == null || text.trim().isEmpty()) return;
-        final String spoken = text.length()>5000 ? text.substring(0,5000) : text;
-        if (MistralVoice.enabled(this, prefs)) {
-            if (!hudCloneSpeaking.compareAndSet(false, true)) return; // une seule lecture à la fois
-            new Thread(() -> {
-                MistralVoice.Playback currentPlayback = new MistralVoice.Playback();
-                hudPlayback = currentPlayback;
-                try { MistralVoice.speak(getApplicationContext(), prefs, spoken, hudCloneSpeaking::get, currentPlayback); }
-                catch (Exception e) { if (hudCloneSpeaking.get()) runOnUiThread(() -> {
-                    status.setText("Voix clonée indisponible : " + e.getMessage() + " · voix Android utilisée.");
-                    playWebVoiceAndroid(spoken);
-                }); }
-                finally {
-                    if (hudPlayback == currentPlayback) hudPlayback = null;
-                    hudCloneSpeaking.set(false);
-                }
-            }, "friday-hud-cloned-voice").start();
-            return;
-        }
+        final String spoken = text.length() > 5000 ? text.substring(0, 5000) : text;
         playWebVoiceAndroid(spoken);
     }
     private void playWebVoiceAndroid(String spoken) {
@@ -972,34 +601,16 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void interrupt() { runOnUiThread(MainActivity.this::interruptSpeaking); }
         @JavascriptInterface public void configure() { runOnUiThread(() -> configScroll.setVisibility(View.VISIBLE)); }
         @JavascriptInterface public boolean isListening() { return FridayService.isActive(); }
-        @JavascriptInterface public boolean voiceCloneActive() { return MistralVoice.enabled(MainActivity.this, prefs); }
         @JavascriptInterface public boolean isMicSilenced() { return FridayService.isMicSilenced(); }
         @JavascriptInterface public String currentVersion() { return FridayVersionGuard.thisVersion(MainActivity.this); }
         @JavascriptInterface public int otherVersionsCount() { return FridayVersionGuard.installed(MainActivity.this).size(); }
         @JavascriptInterface public void manageVersions() { runOnUiThread(() -> FridayVersionGuard.showManager(MainActivity.this)); }
-        @JavascriptInterface public boolean visionAvailable() { return getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY); }
-        @JavascriptInterface public void vision(String question) { runOnUiThread(() -> capturePhoto(question)); }
-        @JavascriptInterface public void visionAsk(String question) { runOnUiThread(() -> analyzePhoto(question)); }
-        @JavascriptInterface public synchronized String visionPoll() {
-            String current = visionState;
-            if (current.startsWith("3|") || current.startsWith("4|")) visionState = "";
-            return current;
-        }
-        @JavascriptInterface public void visionCancel() { runOnUiThread(MainActivity.this::cancelVision); }
         @JavascriptInterface public void gpsCheck() { runOnUiThread(MainActivity.this::showGpsAccuracy); }
-        @JavascriptInterface public void nearbyAnalyze() {
-            runOnUiThread(() -> sendQuestion("Quels lieux et services se trouvent autour de moi ?"));
-        }
-        @JavascriptInterface public String webPolicy() {
-            return prefs.get("web_mode", "1".equals(prefs.get("web", "1")) ? "always" : "off");
-        }
         @JavascriptInterface public String locationText() { return cachedLocation; }
         @JavascriptInterface public void locationRefresh() { runOnUiThread(MainActivity.this::refreshLocation); }
         @JavascriptInterface public void speakNative(String text) { runOnUiThread(() -> playWebVoice(text)); }
         @JavascriptInterface public void stopSpeakingNative() {
             runOnUiThread(() -> { hudCloneSpeaking.set(false);
-                MistralVoice.Playback playback = hudPlayback;
-                if (playback != null) playback.cancel();
                 if (webVoice != null) webVoice.stop(); });
         }
         @JavascriptInterface public boolean locationEnabled() {
@@ -1008,8 +619,6 @@ public class MainActivity extends Activity {
     }
     @Override public void onDestroy() {
         hudCloneSpeaking.set(false);
-        if (hudPlayback != null) hudPlayback.cancel();
-        cleanupPhoto();
         if (events != null) unregisterReceiver(events);
         if (testTts != null) { try { testTts.shutdown(); } catch (Exception ignored) {} testTts = null; }
         if (webVoice != null) { try { webVoice.shutdown(); } catch (Exception ignored) {} webVoice = null; }
