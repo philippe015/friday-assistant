@@ -16,9 +16,16 @@ public final class NativeAI {
     public static final class CancelToken {
         private volatile boolean cancelled;
         private volatile HttpURLConnection connection;
-        public synchronized void cancel() {
+        public void cancel() {
+            // IMPORTANT : débrancher HTTP peut bloquer sur certains téléphones.
+            // Ne jamais retenir le thread micro ou retarder tts.stop() pour le réseau.
             cancelled = true;
-            if (connection != null) connection.disconnect();
+            HttpURLConnection pending = connection;
+            if (pending != null) {
+                Thread close = new Thread(pending::disconnect, "friday-cancel-http");
+                close.setDaemon(true);
+                close.start();
+            }
         }
         synchronized void bind(HttpURLConnection c) throws IOException {
             if (cancelled) { c.disconnect(); throw new IOException("Requête interrompue."); }
