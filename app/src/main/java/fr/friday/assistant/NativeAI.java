@@ -81,8 +81,8 @@ public final class NativeAI {
         messages.put(new JSONObject().put("role", "system").put("content", system(cfg)));
         messages.put(new JSONObject().put("role", "user").put("content", content));
         // Choix explicite du modèle multimodal Mistral destiné à l’analyse des photos.
-        String selectedVisionModel = cfg.get("vision_model", "mistral-small-2506").trim();
-        if (selectedVisionModel.isEmpty()) selectedVisionModel = "mistral-small-2506";
+        String selectedVisionModel = cfg.get("vision_model", "ministral-14b-2512").trim();
+        if (selectedVisionModel.isEmpty()) selectedVisionModel = "ministral-14b-2512";
         JSONObject body = new JSONObject().put("model", selectedVisionModel)
             .put("messages", messages).put("max_tokens", 1000).put("stream", false);
         JSONObject response;
@@ -92,7 +92,7 @@ public final class NativeAI {
             if (info.startsWith("API HTTP 401") || info.startsWith("API HTTP 403"))
                 throw new IOException("Mistral Vision : clé API invalide ou accès refusé.", ex);
             if (info.startsWith("API HTTP 429"))
-                throw new IOException("Mistral Vision : quota ou limite de requêtes atteint.", ex);
+                throw new IOException("Mistral Vision : limite de débit ou modèle non inclus dans votre offre (429). Testez ministral-14b-2512.", ex);
             if (info.startsWith("API HTTP 400") || info.startsWith("API HTTP 404"))
                 throw new IOException("Mistral Vision : image rejetée ou modèle non disponible pour ce compte. " + info, ex);
             throw ex;
@@ -144,7 +144,7 @@ public final class NativeAI {
         if (web) {
             try {
                 JSONObject body = new JSONObject();
-                body.put("model", cfg.get("mistral_model", "mistral-small-latest"));
+                body.put("model", cfg.get("mistral_model", "ministral-8b-latest"));
                 body.put("instructions", system(cfg) +
                     " L'outil Web est autorisé : exploite les résultats réels des recherches lorsque la question le justifie. " +
                     "Pour les lieux proches, utilise les coordonnées et l'adresse estimée comme indices, vérifie les sources et ne présente pas de distance inventée. " +
@@ -156,7 +156,7 @@ public final class NativeAI {
                 body.put("tools", new JSONArray().put(new JSONObject().put("type", "web_search")));
                 // Le raisonnement ajustable est disponible sur Mistral Small (selon l'accès API).
                 if ("1".equals(cfg.get("deep_reasoning", "0")) &&
-                    "mistral-small-latest".equals(cfg.get("mistral_model", "mistral-small-latest"))) {
+                    "mistral-small-latest".equals(cfg.get("mistral_model", "ministral-8b-latest"))) {
                     body.put("completion_args", new JSONObject().put("reasoning_effort", "high"));
                 }
                 body.put("store", false);
@@ -182,7 +182,7 @@ public final class NativeAI {
     }
     private static String chatMistral(SecurePrefs cfg, String key, String q, List<JSONObject> history) throws Exception {
         return chat(cfg, key,
-                cfg.get("mistral_model", "mistral-small-latest"), q, history);
+                cfg.get("mistral_model", "ministral-8b-latest"), q, history);
     }
     private static String chat(SecurePrefs cfg, String key, String model, String question, List<JSONObject> history) throws Exception {
         JSONArray messages = new JSONArray();

@@ -3,6 +3,15 @@
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 versionnage [SemVer](https://semver.org/lang/fr/).
 
+## [2.2.1] — 2026-11-15
+
+### Corrigé
+- **Modèles Mistral par défaut** : `mistral-small-latest` renvoie `429 Rate limit exceeded`
+  sur les offres actuelles. Le chat utilise désormais `ministral-8b-latest`
+  (fonctionne aussi avec `ministral-14b-2512`).
+- **Modèle vision** : `mistral-small-2506` n'existe plus → `ministral-14b-2512` (multimodal).
+- Message d'erreur 429 explicite (limite de débit **ou** modèle hors offre).
+
 ## [2.2.0] — 2026-11-14
 
 ### Ajouté
