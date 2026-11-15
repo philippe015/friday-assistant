@@ -52,8 +52,11 @@ class PersonaGpsRegression(unittest.TestCase):
 
     def test_version(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 56", gradle)
-        self.assertIn("versionName '3.4.1'", gradle)
+        import re
+        self.assertGreaterEqual(int(re.search(r"versionCode (\d+)", gradle).group(1)), 56)
+        version = re.search(r"versionName '(\d+)\.(\d+)\.(\d+)'", gradle)
+        self.assertIsNotNone(version)
+        self.assertGreaterEqual(tuple(map(int, version.groups())), (3, 4, 1))
 
 if __name__ == "__main__":
     unittest.main()

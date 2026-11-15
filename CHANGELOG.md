@@ -1,3 +1,11 @@
+## [3.5.0] — Fiabilité Mistral et diagnostics
+
+- Reprises HTTP bornées (429 et 500/502/503/504) avec Retry-After, backoff et arrêt lors des interruptions. Jamais de répétition des requêtes 4xx définitives.
+- Liste des modèles Mistral mise en cache pendant une heure, sélection explicite, remise à zéro du test Web lors du changement de modèle.
+- État Web plus détaillé : sources réelles, outil exécuté sans source ou service indisponible. Clés et coordonnées non journalisées.
+- Identité du profil et autorisations GPS de la v3.4.1 préservées ; tests Java réseau supplémentaires.
+- La recherche Web et les positions réelles exigent toujours des essais sur téléphone avec le compte Mistral ; APK CI ≠ preuve d'accès réel.
+
 # Changelog
 
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),

@@ -353,10 +353,14 @@ public final class NativeAI {
                 String input = question;
                 if (WebSearch.isFollowUp(question) && !previous.isEmpty())
                     input += "\n[Question précédente pour comprendre la relance : " + previous + "]";
-                return conversation(cfg, key, model, input, history).answer;
+                WebReply found = conversation(cfg, key, model, input, history);
+                cfg.put("web_last_status", found.references > 0 ? "Sources vérifiées"
+                        : found.executed ? "Outil exécuté, aucune URL" : "Recherche non confirmée");
+                return found.answer;
             } catch (Exception error) {
                 CancelToken cancellation = CANCEL.get();
                 if (cancellation != null) cancellation.check();
+                cfg.put("web_last_status", "Indisponible : " + webFailure(error));
                 webWarning = "Recherche Web Mistral indisponible : " + webFailure(error)
                         + ". Réponse générée sans vérification Internet.";
             }
@@ -396,7 +400,39 @@ public final class NativeAI {
         for (int i=reversed.size()-1;i>=0;i--) selected.add(reversed.get(i));
         return selected;
     }
-        private static JSONObject post(String url, String token, JSONObject body) throws Exception {
+    private static JSONObject post(String url, String token, JSONObject body) throws Exception {
+        for (int attempt = 1; attempt <= HttpRetryPolicy.MAX_ATTEMPTS; attempt++) {
+            CancelToken cancellation = CANCEL.get();
+            if (cancellation != null) cancellation.check();
+            try {
+                return postOnce(url, token, body);
+            } catch (HttpStatusFailure failure) {
+                if (attempt == HttpRetryPolicy.MAX_ATTEMPTS ||
+                        !HttpRetryPolicy.retryable(failure.status)) throw failure;
+                long delay = HttpRetryPolicy.delayMs(attempt, failure.retryAfter,
+                        System.currentTimeMillis());
+                long until = System.nanoTime() + delay * 1_000_000L;
+                while (System.nanoTime() < until) {
+                    if (cancellation != null) cancellation.check();
+                    Thread.sleep(Math.min(80L, Math.max(1L,
+                            (until - System.nanoTime()) / 1_000_000L)));
+                }
+            }
+        }
+        throw new IOException("Nombre maximal de tentatives réseau dépassé.");
+    }
+
+    private static final class HttpStatusFailure extends IOException {
+        final int status;
+        final String retryAfter;
+        HttpStatusFailure(int status, String detail, String retryAfter) {
+            super("API HTTP " + status + " : " + detail);
+            this.status = status;
+            this.retryAfter = retryAfter;
+        }
+    }
+
+    private static JSONObject postOnce(String url, String token, JSONObject body) throws Exception {
         if (token.trim().isEmpty()) throw new IOException("Clé API absente.");
         HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
         CancelToken cancellation = CANCEL.get();
@@ -428,7 +464,7 @@ public final class NativeAI {
             String raw = data.toString(StandardCharsets.UTF_8.name());
             if (status < 200 || status >= 300) {
                 String detail = raw.length() > 280 ? raw.substring(0,280) : raw;
-                throw new IOException("API HTTP " + status + " : " + detail);
+                throw new HttpStatusFailure(status, detail, conn.getHeaderField("Retry-After"));
             }
             return new JSONObject(raw);
         } finally {
