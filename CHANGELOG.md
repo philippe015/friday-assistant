@@ -3,6 +3,22 @@
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 versionnage [SemVer](https://semver.org/lang/fr/).
 
+## [3.2.2] — 2026-11-15
+
+### Amélioré
+- **Recherche Web intelligente** : les questions factuelles, les demandes de recherche explicites et les relances contextuelles déclenchent l'API de recherche DeepSeek, si elle est activée.
+- **Lecture des liens** : un lien HTTP(S) fourni par l'utilisateur peut être lu grâce à l'API officielle DeepSeek Fetch (lecture ponctuelle).
+- **Meilleure compréhension des relances** : « Et à Lyon ? » reprend le sujet de la question précédente pour la recherche, avec contexte conversationnel conservé pour le modèle.
+- **Fiabilité des réponses** : lorsque la recherche échoue ou ne retourne aucune source, FRIDAY l'indique au lieu de prétendre avoir consulté le Web.
+- **Réglages natifs** : bouton « Activer et tester la recherche Web », test réel de l'API, avertissement de facturation éventuelle.
+- **Performances** : les modèles disponibles ne sont plus recherchés systématiquement à chaque question, mais avec un cache de 24 h.
+- **Tests** : couverture Java des requêtes factuelles, recherches explicites, liens et relances, et validation du build Android en CI.
+
+### Limites
+- Les recherches et les lectures de pages requièrent une **clé DeepSeek valide**, du réseau et un compte autorisé à utiliser les API Search/Fetch. Les appels peuvent être facturés.
+- FRIDAY ne contourne pas les sites privés, comptes protégés ou politiques d'accès.
+- Les résultats de recherche ne garantissent pas à eux seuls l'exactitude d'une information.
+
 ## [3.2.1] — 2026-11-15
 
 ### Corrigé
