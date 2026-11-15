@@ -34,6 +34,7 @@ public class MainActivity extends Activity {
     private SecurePrefs prefs;
     private TextView status;
     private TextView lastErrorLabel;
+    private TextView openaiKeyState;
     private Spinner providerSpinner;
     private EditText openaiUrl, openaiModel, openaiKey;
     private CheckBox voiceEnabled, locationEnabled, locationShare, placeNameEnabled;
@@ -158,10 +159,11 @@ public class MainActivity extends Activity {
         config.addView(label("Clé API DeepSeek (laissez vide pour conserver)"));
         openaiKey = field(prefs.hasSecret("openai") ? "Clé déjà enregistrée" : "Clé manquante", true);
         config.addView(openaiKey);
-        String openaiState = prefs.hasSecret("openai")
+        openaiKeyState = label(prefs.hasSecret("openai")
                 ? "✔ Clé DeepSeek : enregistrée"
-                : "✘ Clé DeepSeek : absente — utilisez le bouton ci-dessous";
-        config.addView(label(openaiState));
+                : "✘ Clé DeepSeek : absente — collez la clé puis appuyez sur « Enregistrer la clé »");
+        config.addView(openaiKeyState);
+        config.addView(button("💾 Enregistrer la clé DeepSeek", this::saveKeyOnly));
         config.addView(button("🌐 Se connecter / créer ma clé sur platform.deepseek.com", this::openDeepSeekPage));
         config.addView(button("🔍 Détecter les modèles disponibles", this::detectModels));
 
@@ -335,7 +337,31 @@ public class MainActivity extends Activity {
         input.setText(String.valueOf(value));
         return String.valueOf(value);
     }
+    /** Enregistre la clé telle qu'elle est saisie, sans toucher au reste des réglages. */
+    private void saveKeyOnly() {
+        String typed = openaiKey == null ? "" : openaiKey.getText().toString().trim();
+        if (typed.isEmpty()) {
+            openaiKeyState.setText(prefs.hasSecret("openai")
+                    ? "✔ Clé déjà enregistrée (champ vide : la clé existante est conservée)"
+                    : "✘ Aucune clé : collez la clé DeepSeek (elle commence par « sk- »)");
+            return;
+        }
+        prefs.setSecret("openai", typed);
+        openaiKey.setText("");
+        boolean ok = prefs.hasSecret("openai");
+        openaiKeyState.setText(ok
+                ? "✔ Clé DeepSeek enregistrée" + (SecurePrefs.LAST_ERROR.isEmpty() ? "" : " — ⚠ " + SecurePrefs.LAST_ERROR)
+                : "✘ Échec de l'enregistrement de la clé");
+        status.setText(ok ? "Clé DeepSeek enregistrée. Vous pouvez détecter les modèles." : "Clé non enregistrée.");
+        Toast.makeText(this, ok ? "Clé DeepSeek enregistrée" : "Clé non enregistrée", Toast.LENGTH_SHORT).show();
+    }
+
     private void detectModels() {
+        // La clé saisie mais non encore enregistrée est prise en compte immédiatement.
+        if (openaiKey != null) {
+            String typed = openaiKey.getText().toString().trim();
+            if (!typed.isEmpty()) { prefs.setSecret("openai", typed); openaiKey.setText(""); }
+        }
         final String key = prefs.secret("openai");
         if (key.isEmpty()) { status.setText("Enregistrez d'abord la clé DeepSeek."); return; }
         status.setText("Interrogation de la liste des modèles…");
