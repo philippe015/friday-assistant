@@ -1,3 +1,9 @@
+## Correctif d'interruption v3.7.2
+
+**Deux décodeurs vocaux** sont désormais utilisés pendant une réponse : le Vosk libre pour les questions et un décodeur Vosk limité aux commandes « stop », « arrête », « attends » et « j'ai une précision ». Le second reste inactif hors réponse pour limiter la consommation. Son état apparaît dans le cockpit sous **Interruption vocale**. Le bouton Interrompre fonctionne même si Android coupe le microphone.
+
+Il s'agit d'une amélioration de reconnaissance nécessitant **des tests sur téléphone**, pas d'une garantie matérielle que la voix sera captée au haut-parleur.
+
 # 🤖 F.R.I.D.A.Y. — Assistant personnel Android
 
 **F.R.I.D.A.Y.** est un assistant vocal et conversationnel **application Android native** : cockpit **HUD** holographique (WebView), backend **Python embarqué**, détection de mot-clé en **Rust**, reconnaissance vocale **hors-ligne (Vosk)** et IA **Mistral**.

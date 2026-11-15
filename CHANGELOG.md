@@ -1,3 +1,12 @@
+## [3.7.2] — Décodeur STOP vocal indépendant (correctif expérimental)
+
+- Diagnostic : constat d'architecture de v3.7.1, où un seul décodeur Vosk devait simultanément transcrire la question et identifier les commandes courtes malgré l'audio du haut-parleur.
+- Nouveau décodeur Vosk **réservé** aux commandes courtes « STOP », « Friday stop », « attends », « j'ai une précision ». Il n'est actif que pendant une réponse, traite le même flux micro PCM local, reconnaît les segments partiels et exige deux observations identiques pour éviter certains faux positifs.
+- Le TTS Android est toujours interrompu directement ; connexion HTTP Mistral annulée ; le décodeur général est réinitialisé après une commande reconnue.
+- Cockpit : nouvelle télémétrie « Interruption vocale » affichant le décodeur activé, non compatible, ou le microphone rendu muet par Android. Les commandes détectées apparaissent dans le diagnostic sans enregistrer de données audio.
+- Aucun changement de fournisseur IA : Mistral seul. GPS et profils chiffrés conservés.
+- Limitation réelle : si Android rend le microphone indisponible ou si la voix du haut-parleur empêche la compréhension, une commande vocale ne peut pas être garantie. Le bouton Interrompre demeure le recours sûr ; essais réels sur téléphone indispensables.
+
 ## [3.7.1] — Corrections des interruptions vocales
 
 - **« stop » sans « Friday »** : commande courte acceptée pendant une réponse orale. « arrête », « silence », « attends » et « pause » sont également reconnues ; en dehors d'une réponse, le mot-clé reste requis pour les nouvelles demandes.

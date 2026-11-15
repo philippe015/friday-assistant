@@ -25,9 +25,10 @@ javac -encoding UTF-8 -d "$TMP_TEST" \
   app/src/main/java/fr/friday/assistant/AssistantIdentity.java \
   app/src/main/java/fr/friday/assistant/WebSearch.java \
   app/src/main/java/fr/friday/assistant/BargeInPolicy.java \
+  app/src/main/java/fr/friday/assistant/VoiceStopSpotter.java \
   app/src/main/java/fr/friday/assistant/LocationIntent.java \
   app/src/main/java/fr/friday/assistant/MemoryIntent.java \
   app/src/main/java/fr/friday/assistant/FridayVersionPolicy.java \
-  tests/VoiceVocabularyTest.java tests/SpeechSentenceBufferTest.java tests/HttpRetryPolicyTest.java tests/AssistantIdentityTest.java tests/WebSearchTest.java tests/VoiceTextTest.java tests/BargeInPolicyTest.java tests/LocationIntentTest.java tests/MemoryIntentTest.java tests/FridayVersionPolicyTest.java
-for name in VoiceVocabularyTest SpeechSentenceBufferTest HttpRetryPolicyTest AssistantIdentityTest WebSearchTest VoiceTextTest BargeInPolicyTest fr.friday.assistant.LocationIntentTest MemoryIntentTest fr.friday.assistant.FridayVersionPolicyTest; do java -cp "$TMP_TEST" "$name"; done
+  tests/VoiceStopSpotterTest.java tests/VoiceVocabularyTest.java tests/SpeechSentenceBufferTest.java tests/HttpRetryPolicyTest.java tests/AssistantIdentityTest.java tests/WebSearchTest.java tests/VoiceTextTest.java tests/BargeInPolicyTest.java tests/LocationIntentTest.java tests/MemoryIntentTest.java tests/FridayVersionPolicyTest.java
+for name in VoiceStopSpotterTest VoiceVocabularyTest SpeechSentenceBufferTest HttpRetryPolicyTest AssistantIdentityTest WebSearchTest VoiceTextTest BargeInPolicyTest fr.friday.assistant.LocationIntentTest MemoryIntentTest fr.friday.assistant.FridayVersionPolicyTest; do java -cp "$TMP_TEST" "$name"; done
 echo 'Tests F.R.I.D.A.Y. réussis (Java, Python, Rust, JS).'

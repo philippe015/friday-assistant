@@ -53,8 +53,13 @@ class VoiceInterruptionRegression(unittest.TestCase):
 
     def test_version_is_371(self):
         gradle = (ROOT / "app/build.gradle").read_text()
-        self.assertIn("versionCode 60", gradle)
-        self.assertIn("versionName '3.7.1'", gradle)
+        import re
+        code = re.search(r"versionCode (\d+)", gradle)
+        self.assertIsNotNone(code)
+        self.assertGreaterEqual(int(code.group(1)), 60)
+        version = re.search(r"versionName '(\d+)\.(\d+)\.(\d+)'", gradle)
+        self.assertIsNotNone(version)
+        self.assertGreaterEqual(tuple(map(int, version.groups())), (3, 7, 1))
 
 if __name__ == "__main__":
     unittest.main()
