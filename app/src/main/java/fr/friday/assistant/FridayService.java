@@ -39,6 +39,7 @@ public class FridayService extends Service {
     private static final int NOTIFICATION_ID = 9717;
     private static volatile boolean active = false;
     private static volatile boolean micSilenced = false;
+    private static volatile String interruptDiagnostics = "Micro non démarré";
     private static volatile boolean foregroundLocationEnabled = false;
     private volatile boolean running = false;
     private volatile boolean oneShotTriggered = false;
@@ -74,6 +75,7 @@ public class FridayService extends Service {
 
     public static boolean isActive() { return active; }
     public static boolean isMicSilenced() { return micSilenced; }
+    public static String interruptionDiagnostics() { return interruptDiagnostics; }
     public static boolean locationForegroundEnabled() {
         return foregroundLocationEnabled;
     }
@@ -161,6 +163,7 @@ public class FridayService extends Service {
         oneShotTriggered = false;
         active = true;
         micSilenced = false;
+        interruptDiagnostics = "Initialisation du décodeur d'interruption";
         silenceMs = settingInt("silence_ms", 2100, 900, 6000);
         followupMs = settingInt("followup_sec", 75, 15, 180) * 1000L;
         PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
@@ -247,6 +250,9 @@ public class FridayService extends Service {
             while (running && !oneShotTriggered) {
                 AudioRecord ar = null;
                 Recognizer recognizer = null;
+                Recognizer stopRecognizer = null;
+                VoiceStopSpotter stopSpotter = new VoiceStopSpotter();
+                boolean stopRecognizerUnavailable = false;
                 try {
                     int minimum = AudioRecord.getMinBufferSize(16000, AudioFormat.CHANNEL_IN_MONO,
                         AudioFormat.ENCODING_PCM_16BIT);
@@ -296,6 +302,9 @@ public class FridayService extends Service {
                     }
                     recognizer = createRecognizer(model);
                     ar.startRecording();
+                    interruptDiagnostics = bargeEnabled
+                            ? "Micro PCM prêt · décodeur STOP démarre à la réponse"
+                            : "Désactivé dans Réglages · autoriser l'interruption vocale";
                     event("status", "Micro actif pendant les réponses. Anti-écho " +
                         (echoProtection ? "activé." : "non garanti : préférez des écouteurs."));
                     byte[] buffer = new byte[4096];
@@ -339,6 +348,10 @@ public class FridayService extends Service {
                             }
                         }
                         if (silencedByPolicy.get()) {
+                            interruptDiagnostics = "Micro rendu muet par Android · STOP vocal impossible";
+                            if (stopRecognizer != null) {
+                                stopRecognizer.close(); stopRecognizer = null; stopSpotter.reset();
+                            }
                             if (!micSilenced) {
                                 micSilenced = true;
                                 event("mic_conflict", "Android a rendu le micro muet. Vérifiez les applications vocales concurrentes.");
@@ -351,7 +364,60 @@ public class FridayService extends Service {
                         }
                         if (micSilenced) {
                             micSilenced = false;
+                            interruptDiagnostics = "Micro à nouveau accessible";
                             event("status", "Microphone de nouveau accessible. Dites Friday.");
+                        }
+                        // Décodeur court dédié aux commandes d'interruption : le
+                        // décodeur général peut mélanger « stop » avec la voix TTS.
+                        if (currentTurn != null && bargeEnabled && !stopRecognizerUnavailable) {
+                            if (stopRecognizer == null) {
+                                try {
+                                    stopRecognizer = new Recognizer(model, 16000.0f);
+                                    stopRecognizer.setGrammar(VoiceStopSpotter.GRAMMAR);
+                                    interruptDiagnostics = "Décodeur STOP actif · écoute pendant la voix";
+                                    event("barge_diag", interruptDiagnostics);
+                                } catch (Exception | UnsatisfiedLinkError ex) {
+                                    stopRecognizerUnavailable = true;
+                                    if (stopRecognizer != null) {
+                                        stopRecognizer.close();
+                                        stopRecognizer = null;
+                                    }
+                                    interruptDiagnostics = "Décodeur STOP non compatible · Vosk libre seulement";
+                                    event("barge_diag", interruptDiagnostics);
+                                    Log.w("FRIDAY_VOICE", "Grammaire Vosk STOP indisponible", ex);
+                                }
+                            }
+                            if (stopRecognizer != null) {
+                                boolean stopEnd = stopRecognizer.acceptWaveForm(buffer, count);
+                                String command = parse(stopEnd ? stopRecognizer.getResult()
+                                        : stopRecognizer.getPartialResult(),
+                                        stopEnd ? "text" : "partial");
+                                VoiceStopSpotter.Action action = stopSpotter.accept(
+                                        command, spokenText, stopEnd);
+                                if (action != VoiceStopSpotter.Action.NONE) {
+                                    interruptDiagnostics = "Commande reconnue · " + action.name();
+                                    event("barge_diag", interruptDiagnostics);
+                                    if (action == VoiceStopSpotter.Action.STOP_MIC) {
+                                        shutdown();
+                                        break;
+                                    }
+                                    interruptResponse(action == VoiceStopSpotter.Action.CLARIFY
+                                            ? "Réponse coupée · je vous écoute pour votre précision."
+                                            : "Réponse coupée · microphone toujours actif.");
+                                    // L'ancienne réponse ne doit plus polluer le Vosk libre.
+                                    recognizer.close();
+                                    recognizer = createRecognizer(model);
+                                    completed = interim = ""; lastVoice = 0;
+                                    confidenceSum = 0; confidenceCount = 0;
+                                    earlyCancelled = false; sawSpeakerFeedback = false;
+                                    stopRecognizer.close(); stopRecognizer = null;
+                                    stopSpotter.reset();
+                                    continue;
+                                }
+                            }
+                        } else if (stopRecognizer != null) {
+                            stopRecognizer.close(); stopRecognizer = null; stopSpotter.reset();
+                            if (bargeEnabled) interruptDiagnostics = "Micro actif · prêt";
                         }
                         boolean endpoint = recognizer.acceptWaveForm(buffer, count);
                         long now = SystemClock.elapsedRealtime();
@@ -447,6 +513,7 @@ public class FridayService extends Service {
                     }
                     recorder = null;
                     if (recognizer != null) recognizer.close();
+                    if (stopRecognizer != null) stopRecognizer.close();
                 }
             }
         } catch (Exception e) {
@@ -917,6 +984,7 @@ public class FridayService extends Service {
         oneShotTriggered = false;
         active = false;
         micSilenced = false;
+        interruptDiagnostics = "Micro arrêté";
         foregroundLocationEnabled = false;
         textQuestions.clear();
         queuedQuestions.set(0);
