@@ -2,12 +2,12 @@
 
 **F.R.I.D.A.Y.** est un assistant vocal et conversationnel **100 % natif Android** : cockpit **HUD** holographique (WebView), backend **Python embarqué**, détection de mot-clé en **Rust**, reconnaissance vocale **hors-ligne (Vosk)** et IA **DeepSeek**.
 
-> Sources **v2.2.0** — application en développement actif.
-> APK **v2.2.0 release signé** publié par la CI (voir [Releases](../../releases/latest)).
+> Sources **v3.2.2** — application en développement actif.
+> APK **release signé** publié par la CI (voir [Releases](../../releases/latest)).
 
 ---
 
-## ✨ Fonctionnalités (v2.2.0)
+## ✨ Fonctionnalités (v3.2.2)
 
 ### 🎙️ Voix
 - **Écoute interactive** : le microphone ne se coupe plus pendant le calcul DeepSeek ni pendant la lecture TTS (micro et traitement sur deux threads)
@@ -22,7 +22,9 @@
 - Anti-écho : `VOICE_COMMUNICATION` + `AcousticEchoCanceler` / `NoiseSuppressor` (selon matériel)
 
 ### 🧠 Intelligence
-- **DeepSeek Chat Completions** (`https://api.deepseek.com/v1/chat/completions`, compatible OpenAI)
+- **DeepSeek Chat Completions** (`https://api.deepseek.com/chat/completions`)
+- **Recherche Web intelligente** : API DeepSeek Search pour les questions factuelles et les relances, URLs de sources ; DeepSeek Fetch pour lire un lien fourni dans la question. Les appels Web peuvent être facturés.
+- **Réglage Web explicite** : case Recherche Web et bouton pour l'activer et tester réellement l'accès. En cas d'échec, l'application le signale.
 - **Mémoire personnelle locale chiffrée** sur demande
 - **10 profils de personnalité** (16 000 caractères), chiffrés via **Android Keystore**
 - **Cerveau local Python** : heure, date, jour, année — **fonctionne sans réseau**
@@ -50,7 +52,7 @@ app/src/main/java/fr/friday/assistant/   (24 classes Java)
 ├── SecurePrefs.java                    stockage chiffré (Keystore)
 ├── ModelInstaller.java                 installation du modèle Vosk
 ├── RustWake.java                       pont JNI → mot-clé Rust
-├── WebIntent.java / WebPolicy.java     recherche web
+├── WebSearch.java                     recherche web et relances
 ├── FridayVersionGuard.java / FridayVersionPolicy.java
 └── ...
 
