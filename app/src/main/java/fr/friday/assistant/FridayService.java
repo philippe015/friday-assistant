@@ -493,7 +493,7 @@ public class FridayService extends Service {
                 event("status", "Friday à l'écoute : posez votre question.");
                 return;
             }
-        } else if (wakeArmed && now - lastReplyAt <= followupMs &&
+        } else if (wakeArmed && (now - lastReplyAt <= followupMs || now < clarificationUntil) &&
                 now - lastSpeechEndedAt >= 1200L) {
             // Court filtrage pour éviter de réinterpréter la fin du haut-parleur.
             question = heard;
