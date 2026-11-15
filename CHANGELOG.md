@@ -1,3 +1,13 @@
+## [3.7.0] — Vosk spécialisé et écoute ponctuelle
+
+- Nouveau **mode une question** : après une question détectée, arrêt du micro pendant la réponse, puis libération automatique du service et de son wake-lock. Démarrage manuel requis pour la question suivante. Dans ce mode, l'interruption vocale pendant la réponse n'est pas possible ; le bouton Interrompre reste opérationnel.
+- Grammaire Vosk optionnelle configurée dans les réglages, 24 expressions max et `[unk]` pour les mots non listés. La grammaire est expérimentale : elle peut réduire la précision des questions ouvertes. **Désactivée par défaut**.
+- Vocabulaire local enregistré par Android Keystore, sans le transmettre à Mistral comme données de configuration.
+- Cockpit : états Mode d'écoute et Reconnaissance, noms des réponses alignés sur le profil actif.
+- Sélection explicite des modèles Mistral issue de v3.5 préservée ; streaming de v3.6 préservé.
+- Voxtral cloud, modèles Vosk géants et voix clonée **non intégrés** à ce stade (nécessitent étude de coûts, confidentialité et tests réels).
+- Tests de grammaire et de comportement du service ; gains batterie/WER encore non mesurés sur téléphone.
+
 ## [3.6.0] — Streaming conversationnel et TTS progressif
 
 - SSE Mistral Chat Completions : réponses texte reçues par fragments via `stream: true`, gestion des événements `data:`, de `[DONE]` et des fins de flux.

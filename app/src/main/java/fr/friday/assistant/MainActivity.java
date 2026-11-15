@@ -36,7 +36,8 @@ public class MainActivity extends Activity {
     private TextView lastErrorLabel;
     private TextView mistralKeyState;
     private EditText mistralModel, mistralKey;
-    private CheckBox voiceEnabled, streamingEnabled, locationEnabled, locationShare, placeNameEnabled;
+    private CheckBox voiceEnabled, streamingEnabled, oneShotEnabled, voskHintsEnabled,
+            locationEnabled, locationShare, placeNameEnabled;
     private CheckBox memoryEnabled;
     private CheckBox webEnabled;
     private TextView voiceSampleStatus;
@@ -45,7 +46,7 @@ public class MainActivity extends Activity {
     private final AtomicBoolean hudCloneSpeaking = new AtomicBoolean(false);
     private boolean recordAfterMicPermission = false;
     private EditText memoryEditor;
-    private EditText silenceInput, followupInput, ttsInput;
+    private EditText silenceInput, followupInput, ttsInput, voskHintsEditor;
     private CheckBox bargeEnabled;
     private LinearLayout config;
     private ScrollView configScroll;
@@ -235,7 +236,33 @@ public class MainActivity extends Activity {
         config.addView(streamingEnabled);
         config.addView(label("La recherche Web de Mistral peut encore attendre la réponse complète. "
                 + "Désactivez cette option si le réseau coupe les flux SSE."));
-        config.addView(label("LOCALISATION · permission Android facultative"));
+        config.addView(label("ÉCOUTE ET COMPRÉHENSION · Vosk hors ligne"));
+        oneShotEnabled = new CheckBox(this);
+        oneShotEnabled.setText("Mode une question : arrêter automatiquement le micro après la demande");
+        oneShotEnabled.setTextColor(Color.WHITE);
+        oneShotEnabled.setChecked("1".equals(prefs.get("listen_once", "0")));
+        config.addView(oneShotEnabled);
+        config.addView(label("Réduit l'écoute permanente après une demande. Dans ce mode, "
+                + "l'interruption vocale pendant la réponse est désactivée car le micro est coupé ; "
+                + "le bouton Interrompre reste disponible."));
+        voskHintsEnabled = new CheckBox(this);
+        voskHintsEnabled.setText("Vocabulaire Vosk spécialisé (expérimental, sur demande)");
+        voskHintsEnabled.setTextColor(Color.WHITE);
+        voskHintsEnabled.setChecked("1".equals(prefs.get("vosk_hints_enabled", "0")));
+        config.addView(voskHintsEnabled);
+        config.addView(label("Une courte expression par ligne, maximum 24. "
+                + "Une grammaire peut améliorer certaines commandes mais détériorer "
+                + "la dictée libre. [unk] est conservé en secours."));
+        voskHintsEditor = field("Ex. elite dangerous", false);
+        voskHintsEditor.setSingleLine(false);
+        voskHintsEditor.setMinLines(3);
+        voskHintsEditor.setInputType(InputType.TYPE_CLASS_TEXT
+                | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        voskHintsEditor.setFilters(new android.text.InputFilter[]{
+                new android.text.InputFilter.LengthFilter(2100)});
+        voskHintsEditor.setText(prefs.secret("vosk_hints"));
+        config.addView(voskHintsEditor);
+                config.addView(label("LOCALISATION · permission Android facultative"));
         locationEnabled = new CheckBox(this);
         locationEnabled.setText("Activer la position uniquement sur demande vocale");
         locationEnabled.setTextColor(Color.WHITE);
@@ -328,6 +355,11 @@ public class MainActivity extends Activity {
             prefs.put("tts_speed", bounded(ttsInput, 100, 70, 150));
             prefs.put("voice_enabled", voiceEnabled.isChecked() ? "1" : "0");
             prefs.put("stream_enabled", streamingEnabled.isChecked() ? "1" : "0");
+            prefs.put("listen_once", oneShotEnabled.isChecked() ? "1" : "0");
+            prefs.put("vosk_hints_enabled", voskHintsEnabled.isChecked() ? "1" : "0");
+            String hints = voskHintsEditor.getText().toString();
+            if (hints.length() > 2100) throw new IllegalArgumentException("Vocabulaire trop long.");
+            prefs.setSecret("vosk_hints", hints);
             prefs.put("location_enabled", locationEnabled.isChecked() ? "1" : "0");
             prefs.put("location_share", locationEnabled.isChecked() && locationShare.isChecked() ? "1" : "0");
             prefs.put("address_lookup", locationEnabled.isChecked() && placeNameEnabled.isChecked() ? "1" : "0");
@@ -838,6 +870,15 @@ public class MainActivity extends Activity {
     }
     private final class NativeBridge {
         @JavascriptInterface public String activeProfileName() { return PersonalityProfiles.activeName(prefs); }
+        @JavascriptInterface public String listeningMode() {
+            return "1".equals(prefs.get("listen_once", "0"))
+                    ? "Une question" : "Continu";
+        }
+        @JavascriptInterface public String vocabularyMode() {
+            if (!"1".equals(prefs.get("vosk_hints_enabled", "0"))) return "Vosk libre";
+            int lines = VoiceVocabulary.phrases(prefs.secret("vosk_hints")).size();
+            return lines == 0 ? "Vosk libre" : "Vosk · " + lines + " expressions";
+        }
         @JavascriptInterface public String webTelemetry() { return MainActivity.this.webTelemetry(); }
         @JavascriptInterface public String gpsTelemetry() { return MainActivity.this.gpsTelemetry(); }
         @JavascriptInterface public String gpsShareTelemetry() { return MainActivity.this.gpsShareTelemetry(); }

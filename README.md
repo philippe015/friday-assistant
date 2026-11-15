@@ -2,7 +2,7 @@
 
 **F.R.I.D.A.Y.** est un assistant vocal et conversationnel **application Android native** : cockpit **HUD** holographique (WebView), backend **Python embarqué**, détection de mot-clé en **Rust**, reconnaissance vocale **hors-ligne (Vosk)** et IA **Mistral**.
 
-> Sources **v3.4.1** — application en développement actif.
+> Sources **v3.7.0** — application en développement actif.
 > APK **release signé** publié par la CI (voir [Releases](../../releases/latest)).
 
 ---
@@ -18,6 +18,11 @@ Le plan de développement validé est disponible dans **[docs/ROADMAP_MISTRAL.md
 Ces fonctions sont **prévues**, pas encore livrées. L'IA reste **Mistral uniquement** ; le profil actif définit la personnalité et le GPS ne peut être transmis à Mistral qu'avec l'accord ponctuel de l'utilisateur.
 
 ---
+
+## Nouveautés v3.5–v3.7
+- v3.5.0 : fiabilité réseau et modèles Mistral.
+- v3.6.0 : streaming SSE et TTS progressif.
+- v3.7.0 : Vosk spécialisé facultatif et écoute une question.
 
 ## ✨ Fonctionnalités (v3.4.1)
 

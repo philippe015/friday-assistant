@@ -41,6 +41,7 @@ public class FridayService extends Service {
     private static volatile boolean micSilenced = false;
     private static volatile boolean foregroundLocationEnabled = false;
     private volatile boolean running = false;
+    private volatile boolean oneShotTriggered = false;
     private Thread worker;
     private AudioRecord recorder;
     private TextToSpeech tts;
@@ -155,6 +156,7 @@ public class FridayService extends Service {
             stopSelf(); return START_NOT_STICKY;
         }
         running = true;
+        oneShotTriggered = false;
         active = true;
         micSilenced = false;
         silenceMs = settingInt("silence_ms", 2100, 900, 6000);
@@ -216,9 +218,20 @@ public class FridayService extends Service {
         catch (Exception ignored) { return ""; }
     }
     /** Active les scores de confiance Vosk sur chaque nouveau décodeur. */
-    private static Recognizer createRecognizer(Model model) throws Exception {
+    private Recognizer createRecognizer(Model model) throws Exception {
         Recognizer recognizer = new Recognizer(model, 16000.0f);
         recognizer.setWords(true);
+        if ("1".equals(settings.get("vosk_hints_enabled", "0"))) {
+            String grammar = VoiceVocabulary.grammar(settings.secret("vosk_hints"));
+            if (grammar != null) {
+                try { recognizer.setGrammar(grammar); }
+                catch (RuntimeException | UnsatisfiedLinkError ex) {
+                    Log.w("FRIDAY_ASR", "Vocabulaire Vosk non compatible : mode normal conservé", ex);
+                    try { recognizer.setGrammar("[]"); }
+                    catch (Exception ignored) {}
+                }
+            }
+        }
         return recognizer;
     }
 
@@ -229,7 +242,7 @@ public class FridayService extends Service {
             // Ne pas bloquer 15 secondes le micro en attendant le moteur TTS Android.
             new Thread(this::initTts, "friday-tts-setup").start();
             int consecutiveErrors = 0;
-            while (running) {
+            while (running && !oneShotTriggered) {
                 AudioRecord ar = null;
                 Recognizer recognizer = null;
                 try {
@@ -291,6 +304,16 @@ public class FridayService extends Service {
                     boolean earlyCancelled = false;
                     boolean sawSpeakerFeedback = false;
                     while (running) {
+                        if (oneShotTriggered) {
+                            // Mode une question : on coupe le matériel micro pendant
+                            // la réponse, puis on libère le service et le wake-lock.
+                            event("status", "Mode une question : micro coupé, réponse en cours.");
+                            if (ar.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING)
+                                ar.stop();
+                            while (running && currentTurn != null)
+                                Thread.sleep(125L);
+                            break;
+                        }
                         // Une question tapée n'attend pas la fin de l'appel réseau précédent.
                         String typed = textQuestions.poll();
                         if (typed != null) {
@@ -533,6 +556,8 @@ public class FridayService extends Service {
         currentTurn = turn;
         Thread task = new Thread(() -> answerTurn(request, turn), "friday-mistral-response");
         turn.thread = task;
+        if ("1".equals(settings.get("listen_once", "0")))
+            oneShotTriggered = true;
         task.start();
     }
     private void answerTurn(String question, ResponseTurn turn) {
@@ -869,6 +894,7 @@ public class FridayService extends Service {
         speakingNow = false;
         spokenText = "";
         running = false;
+        oneShotTriggered = false;
         active = false;
         micSilenced = false;
         foregroundLocationEnabled = false;
