@@ -17,3 +17,7 @@ release-pass.txt
 # Artefacts APK (distribués via Releases)
 *.apk
 *.aab
+
+# Python
+__pycache__/
+*.pyc
