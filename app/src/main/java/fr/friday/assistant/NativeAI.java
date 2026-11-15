@@ -59,12 +59,18 @@ public final class NativeAI {
     public static String answer(SecurePrefs settings, String question, List<JSONObject> history, String locationContext) throws Exception {
         String local = localAnswer(question);
         if (local != null) return local;
-        String key = settings.secret("mistral");
-        if (key.isEmpty()) throw new IOException("Clé API Mistral absente : Réglages natifs → collez la clé → Enregistrer.");
         String text = question;
         // Partage ponctuel : ce contexte n'est pas conservé dans l'historique de chat.
         if (locationContext != null && !locationContext.isEmpty())
             text += "\n\n[Contexte de localisation autorisé pour cette requête : " + locationContext + "]";
+        if ("openai".equals(settings.get("provider", "mistral"))) {
+            String openKey = settings.secret("openai");
+            if (openKey.isEmpty())
+                throw new IOException("Clé API du fournisseur compatible OpenAI absente : Réglages natifs → Enregistrer.");
+            return openAiAnswer(settings, openKey, text, history);
+        }
+        String key = settings.secret("mistral");
+        if (key.isEmpty()) throw new IOException("Clé API Mistral absente : Réglages natifs → collez la clé → Enregistrer.");
         return mistralAnswer(settings, key, text, history);
     }
     /** Analyse ponctuelle d'une photo capturée volontairement, sans sauvegarde sur serveur local. */
@@ -195,6 +201,43 @@ public final class NativeAI {
                     + activeModel + " » ; réponse donnée sans consultation d'Internet.";
         }
         return answer;
+    }
+
+    /**
+     * Fournisseur « compatible OpenAI » : DeepSeek, Ollama, LM Studio, vLLM…
+     * Endpoint attendu : <baseUrl>/chat/completions
+     */
+    private static String openAiAnswer(SecurePrefs cfg, String key, String question,
+                                       List<JSONObject> history) throws Exception {
+        String baseUrl = cfg.get("openai_url", "https://api.deepseek.com/v1").trim();
+        if (baseUrl.isEmpty()) baseUrl = "https://api.deepseek.com/v1";
+        String model = cfg.get("openai_model", "deepseek-chat").trim();
+        if (model.isEmpty()) model = "deepseek-chat";
+        String url = baseUrl.replaceAll("/+$", "") + "/chat/completions";
+
+        JSONArray messages = new JSONArray();
+        messages.put(new JSONObject().put("role", "system").put("content", system(cfg)));
+        for (JSONObject old : compactHistory(history)) messages.put(old);
+        messages.put(new JSONObject().put("role", "user").put("content", question));
+
+        JSONObject body = new JSONObject();
+        body.put("model", model);
+        body.put("messages", messages);
+        body.put("max_tokens", 1600);
+        body.put("temperature", 0.45);
+        body.put("stream", false);
+        try {
+            JSONObject response = post(url, key, body);
+            JSONArray choices = response.optJSONArray("choices");
+            if (choices == null || choices.length() == 0) throw new IOException("réponse sans « choices »");
+            JSONObject msg = choices.getJSONObject(0).optJSONObject("message");
+            String content = msg == null ? "" : msg.optString("content", "");
+            if (content.trim().isEmpty()) throw new IOException("réponse vide");
+            return content;
+        } catch (IOException e) {
+            throw new IOException("Fournisseur « " + model + " » (" + url + ") : "
+                    + (e.getMessage() == null ? "erreur inconnue" : e.getMessage()), e);
+        }
     }
 
     /** Modèle de repli, disponible sur les offres actuelles (testé : HTTP 200). */

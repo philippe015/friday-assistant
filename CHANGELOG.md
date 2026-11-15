@@ -3,6 +3,19 @@
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 versionnage [SemVer](https://semver.org/lang/fr/).
 
+## [2.3.0] — 2026-11-15
+
+### Ajouté
+- **Fournisseur IA configurable** dans les réglages natifs :
+  - `Mistral AI` (comportement historique)
+  - **`Compatible OpenAI`** : URL de base + modèle + clé — fonctionne avec
+    **DeepSeek**, **Ollama**, **LM Studio**, **vLLM**, etc.
+- La clé du fournisseur OpenAI est chiffrée comme celle de Mistral (`SecurePrefs`).
+
+### Notes
+- La **vision** et la **recherche Web** restent liées à Mistral (connecteurs non pris en charge
+  par les autres fournisseurs). Les questions texte utilisent le fournisseur choisi.
+
 ## [2.2.4] — 2026-11-15
 
 ### Corrigé
