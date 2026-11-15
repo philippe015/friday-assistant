@@ -3,6 +3,22 @@
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 versionnage [SemVer](https://semver.org/lang/fr/).
 
+## [3.3.0] — 2026-11-15
+
+### Fournisseur unique : Mistral AI
+- **Suppression de DeepSeek** des appels réseau, de l'écran des réglages, du cockpit et du service vocal.
+- **Mistral Chat Completions** pour les conversations ordinaires (modèle par défaut `mistral-small-latest`).
+- **Mistral Conversations** et son outil intégré `web_search` pour les questions nécessitant des informations en ligne. Les références Web réellement retournées sont affichées ; en l'absence de références, FRIDAY ne prétend pas avoir consulté une source.
+- **Compréhension contextuelle** des questions posées oralement et des relances courtes avec historique de dialogue.
+- **Migration des préférences** : suppression locale de l'ancienne clé DeepSeek ; les clés Mistral antérieurement présentes sont préservées, mais l'ancienne version peut les avoir effacées.
+- **Réglages Mistral** : clé API Mistral, détection des modèles autorisés par le compte et test explicite de la recherche Web.
+- **Compatibilité Android** : même application et signature release, versionCode 54 pour mise à jour de la v3.2.2.
+
+### Limites
+- La nouvelle version nécessite une **clé API Mistral personnelle** ; la clé DeepSeek ne fonctionne pas avec Mistral.
+- L'outil Web dépend des droits, du quota et de la facturation du compte Mistral. Si une recherche échoue, la réponse est signalée comme non vérifiée sur Internet.
+- Tests de code et de compilation automatisés ; fonctionnement vocal et Web réel à valider sur un appareil Android.
+
 ## [3.2.2] — 2026-11-15
 
 ### Amélioré
