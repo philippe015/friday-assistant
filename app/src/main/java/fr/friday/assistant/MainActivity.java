@@ -34,6 +34,8 @@ public class MainActivity extends Activity {
     private SecurePrefs prefs;
     private TextView status;
     private EditText mistralKey, mistralModel, visionModel;
+    private Spinner providerSpinner;
+    private EditText openaiUrl, openaiModel, openaiKey;
     private CheckBox voiceEnabled, locationEnabled, locationShare, placeNameEnabled;
     private CheckBox memoryEnabled, deepReasoning, clonedVoiceEnabled, voiceConsent;
     private TextView voiceSampleStatus;
@@ -169,6 +171,29 @@ public class MainActivity extends Activity {
         visionModel = field("ministral-14b-2512", false);
         visionModel.setText(prefs.get("vision_model", "ministral-14b-2512"));
         config.addView(visionModel);
+
+        config.addView(label("FOURNISSEUR IA ACTIF"));
+        providerSpinner = new Spinner(this);
+        providerSpinner.setAdapter(new android.widget.ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item,
+                new String[]{"Mistral AI", "Compatible OpenAI (DeepSeek, Ollama…)"}));
+        providerSpinner.setSelection("openai".equals(prefs.get("provider", "mistral")) ? 1 : 0);
+        config.addView(providerSpinner);
+        config.addView(label("Fournisseur compatible OpenAI · URL de base"));
+        openaiUrl = field("https://api.deepseek.com/v1", false);
+        openaiUrl.setText(prefs.get("openai_url", "https://api.deepseek.com/v1"));
+        config.addView(openaiUrl);
+        config.addView(label("Fournisseur compatible OpenAI · modèle"));
+        openaiModel = field("deepseek-chat", false);
+        openaiModel.setText(prefs.get("openai_model", "deepseek-chat"));
+        config.addView(openaiModel);
+        config.addView(label("Fournisseur compatible OpenAI · clé (laissez vide pour conserver)"));
+        openaiKey = field(prefs.hasSecret("openai") ? "Clé déjà enregistrée" : "Clé manquante", true);
+        config.addView(openaiKey);
+        String openaiState = prefs.hasSecret("openai")
+                ? "✔ Clé fournisseur OpenAI : enregistrée"
+                : "✘ Clé fournisseur OpenAI : absente";
+        config.addView(label(openaiState));
         config.addView(label("INTERNET · recherche Web officielle de Mistral (selon forfait, quotas et modèle)"));
         webMode = new Spinner(this);
         String[] webChoices = {"Web étendu · accessible à chaque question", "Web automatique · si utile", "Sans recherche Web"};
@@ -345,6 +370,12 @@ public class MainActivity extends Activity {
             prefs.put("mistral_model", mistralModel.getText().toString().trim());
             String selectedVisionModel = visionModel.getText().toString().trim();
             prefs.put("vision_model", selectedVisionModel.isEmpty() ? "ministral-14b-2512" : selectedVisionModel);
+            prefs.put("provider", providerSpinner.getSelectedItemPosition() == 1 ? "openai" : "mistral");
+            prefs.put("openai_url", openaiUrl.getText().toString().trim());
+            prefs.put("openai_model", openaiModel.getText().toString().trim());
+            String openaiGiven = openaiKey.getText().toString().trim();
+            if (!openaiGiven.isEmpty()) prefs.setSecret("openai", openaiGiven);
+            openaiKey.setText("");
             String selectedWebMode = webMode.getSelectedItemPosition() == 2 ? "off" :
                 webMode.getSelectedItemPosition() == 1 ? "auto" : "always";
             prefs.put("web_mode", selectedWebMode);
