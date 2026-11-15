@@ -45,6 +45,8 @@ public class FridayService extends Service {
     private Thread worker;
     private AudioRecord recorder;
     private TextToSpeech tts;
+    /** Stop et démarrage TTS doivent être atomiques entre les threads réseau et micro. */
+    private final Object ttsControlLock = new Object();
     private PowerManager.WakeLock wakeLock;
     private final ArrayDeque<JSONObject> history = new ArrayDeque<>();
     private volatile long lastReplyAt = 0;
@@ -304,14 +306,10 @@ public class FridayService extends Service {
                     boolean earlyCancelled = false;
                     boolean sawSpeakerFeedback = false;
                     while (running) {
-                        if (oneShotTriggered) {
-                            // Mode une question : on coupe le matériel micro pendant
-                            // la réponse, puis on libère le service et le wake-lock.
-                            event("status", "Mode une question : micro coupé, réponse en cours.");
-                            if (ar.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING)
-                                ar.stop();
-                            while (running && currentTurn != null)
-                                Thread.sleep(125L);
+                        // Une question : écoute active PENDANT la réponse pour permettre
+                        // « stop » et « j'ai une précision ». Fermeture APRÈS la réponse.
+                        if (oneShotTriggered && currentTurn == null) {
+                            event("status", "Mode une question : réponse terminée, micro arrêté.");
                             break;
                         }
                         // Une question tapée n'attend pas la fin de l'appel réseau précédent.
@@ -384,12 +382,16 @@ public class FridayService extends Service {
                             }
                         }
                         String candidate = VoiceText.join(completed, interim);
-                        if (currentTurn != null && !BargeInPolicy.startsWithWake(candidate))
+                        if (currentTurn != null && !BargeInPolicy.startsWithWake(candidate)
+                                && !BargeInPolicy.explicitControlWhileSpeaking(candidate, spokenText))
                             sawSpeakerFeedback = true;
                         if (!earlyCancelled && currentTurn != null && bargeEnabled &&
                                 BargeInPolicy.earlyBarge(candidate, spokenText)) {
                             earlyCancelled = true;
-                            interruptResponse("Interruption détectée. Je vous écoute pour la suite de la question.");
+                            boolean clarification = BargeInPolicy.wantsToAddDetails(candidate);
+                            interruptResponse(clarification
+                                    ? "Réponse coupée. Je vous écoute pour votre précision."
+                                    : "Réponse coupée. Vous pouvez préciser ou poser une autre question.");
                         }
                         int timeout = (currentTurn != null || earlyCancelled ||
                             now < bargePendingUntil) ? Math.min(silenceMs, 1300) : silenceMs;
@@ -405,14 +407,18 @@ public class FridayService extends Service {
                             if (phrase.isEmpty()) phrase = interim;
                             // Vosk fermé/réinitialisé, mais le micro reste ouvert sans interruption.
                             recognizer.close(); recognizer = createRecognizer(model);
-                            boolean dropSpeaker = sawSpeakerFeedback &&
+                            boolean controlPhrase = BargeInPolicy.isBareStopAnswer(phrase)
+                                    || BargeInPolicy.isStopAnswer(phrase)
+                                    || BargeInPolicy.wantsToAddDetails(phrase);
+                            boolean dropSpeaker = sawSpeakerFeedback && !controlPhrase &&
                                 !BargeInPolicy.startsWithWake(phrase) &&
                                 SystemClock.elapsedRealtime() - lastSpeechEndedAt < 3000L;
                             completed = interim = ""; lastVoice = 0;
                             confidenceSum = 0; confidenceCount = 0;
                             earlyCancelled = false; sawSpeakerFeedback = false;
 
-                            boolean unclear = phrase.split("\\s+").length >= 3 && confidence > 0 && confidence < 0.55;
+                            boolean unclear = !controlPhrase && phrase.split("\\s+").length >= 3
+                                    && confidence > 0 && confidence < 0.55;
                             if (!dropSpeaker && !phrase.trim().isEmpty()) {
                                 if (unclear) {
                                     // Transcription douteuse : on montre ce qui a été entendu au lieu d'interroger l'IA.
@@ -460,12 +466,17 @@ public class FridayService extends Service {
         speakingNow = false;
         spokenText = "";
         if (previous != null) previous.cancel();
+        // Ne pas couper le micro en mode « une question » lorsque l'utilisateur
+        // vient d'interrompre : il doit pouvoir formuler sa précision.
+        oneShotTriggered = false;
         // Conserve le sujet même si la réponse a été interrompue avant l'historique.
         if (!latestQuestion.isEmpty()) {
             clarificationAnchor = latestQuestion;
             clarificationUntil = SystemClock.elapsedRealtime() + 60_000L;
         }
-        if (tts != null) { try { tts.stop(); } catch (Exception ignored) { } }
+        synchronized (ttsControlLock) {
+            if (tts != null) { try { tts.stop(); } catch (Exception ignored) { } }
+        }
         wakeArmed = true;
         lastReplyAt = SystemClock.elapsedRealtime();
         bargePendingUntil = lastReplyAt + 15000L;
@@ -511,8 +522,10 @@ public class FridayService extends Service {
             event("status", "Je vous écoute. Précisez votre demande : je conserve le sujet précédent.");
             return;
         }
-        if (BargeInPolicy.isStopAnswer(heard)) {
-            interruptResponse("Réponse stoppée. Je reste à l'écoute.");
+        if (BargeInPolicy.isStopAnswer(heard) ||
+                ((currentTurn != null || now < bargePendingUntil) &&
+                 BargeInPolicy.isBareStopAnswer(heard))) {
+            interruptResponse("Réponse stoppée immédiatement. Je reste à l'écoute.");
             return;
         }
         boolean activated = RustWake.detect(heard);
@@ -857,7 +870,13 @@ public class FridayService extends Service {
                 }
             });
             try {
-                int code = tts.speak(part, TextToSpeech.QUEUE_FLUSH, new Bundle(), utterance);
+                int code;
+                synchronized (ttsControlLock) {
+                    // Protège contre la course entre tts.stop() du micro et
+                    // un nouveau tts.speak() lancé depuis le thread streaming.
+                    if (!live(turn) || tts == null) return false;
+                    code = tts.speak(part, TextToSpeech.QUEUE_FLUSH, new Bundle(), utterance);
+                }
                 if (code != TextToSpeech.SUCCESS) {
                     event("error", "Synthèse refusée (code " + code + "). Vérifiez la sortie média et le moteur TTS.");
                     return false;
@@ -904,7 +923,12 @@ public class FridayService extends Service {
             try { recorder.stop(); } catch (Exception ignored) {}
         }
         ttsReady = false;
-        if (tts != null) { try { tts.stop(); tts.shutdown(); } catch (Exception ignored) {} tts = null; }
+        synchronized (ttsControlLock) {
+            if (tts != null) {
+                try { tts.stop(); tts.shutdown(); } catch (Exception ignored) {}
+                tts = null;
+            }
+        }
         if (wakeLock != null && wakeLock.isHeld()) { wakeLock.release(); }
         event("status", "Écoute native désactivée.");
     }
