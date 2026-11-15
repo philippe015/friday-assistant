@@ -3,6 +3,14 @@
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 versionnage [SemVer](https://semver.org/lang/fr/).
 
+## [3.0.1] — 2026-11-15
+
+### Ajouté
+- **Diagnostic d'erreur** dans les réglages natifs : la dernière erreur du moteur IA est
+  mémorisée, affichée avec son horodatage, et copiable dans le presse-papiers
+  (bouton « ⧉ Copier la dernière erreur ») — avec modèle, URL et présence de la clé.
+- Nettoyage : fonction `vision()` résiduelle retirée du cockpit.
+
 ## [3.0.0] — 2026-11-15
 
 ### Supprimé

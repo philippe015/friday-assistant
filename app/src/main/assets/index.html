@@ -87,7 +87,6 @@ function ask(text){const q=String(text||'').trim();if(!q)return; if(q.length>500
 function start(){if(!bridge()){status('Application Android nécessaire pour le microphone.','error');return;}call('start');setTimeout(refreshNative,850);status('Démarrage de la reconnaissance vocale…','wait');}
 function stop(){call('stop');setTimeout(refreshNative,450);status('Écoute désactivée.');}
 function interrupt(){call('interrupt');status('Réponse interrompue. Micro toujours actif : pose ta question.','listen');}
-function vision(){if(!bridge()){status('Caméra disponible uniquement dans l’APK.','error');return;}state.visionBusy=true;call('vision','Décris précisément ce que montre cette photo, identifie les éléments importants et indique les incertitudes.');status('Capture photo : autorisez l’appareil photo.','wait');}
 function toggleImmersive(){state.immersive=!state.immersive;$('app').classList.toggle('immersive',state.immersive);$('fullscreenBtn').textContent=state.immersive?'⇤ Revenir à l’interface':'⛶ Mode immersif';if(state.immersive){document.documentElement.requestFullscreen?.().catch(()=>{});}else if(document.fullscreenElement){document.exitFullscreen?.().catch(()=>{});}}
 function defaultProfiles(){return {active:'friday',profiles:[{id:'friday',name:'F.R.I.D.A.Y.',prompt:templates.friday}]};}
 function readProfiles(){try{const json=call('getPersonalityProfiles');if(typeof json==='string'&&json.trim())return JSON.parse(json);}catch(e){log('Personnalité : '+e.message,true);}return defaultProfiles();}

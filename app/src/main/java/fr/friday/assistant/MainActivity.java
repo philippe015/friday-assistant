@@ -33,6 +33,7 @@ import java.util.Locale;
 public class MainActivity extends Activity {
     private SecurePrefs prefs;
     private TextView status;
+    private TextView lastErrorLabel;
     private Spinner providerSpinner;
     private EditText openaiUrl, openaiModel, openaiKey;
     private CheckBox voiceEnabled, locationEnabled, locationShare, placeNameEnabled;
@@ -226,6 +227,12 @@ public class MainActivity extends Activity {
         config.addView(label("Aucun suivi GPS permanent : mesure à la demande (jusqu'à 16 s) et objectif 3 m non garanti. " +
             "La précision effectivement mesurée est affichée. Si le partage IA est autorisé, les coordonnées précises de cette question sont transmises à l’API DeepSeek."));
         config.addView(button("◎ Tester précision GPS · cible 3 m", this::showGpsAccuracy));
+        config.addView(label("DIAGNOSTIC · dernière erreur du moteur IA"));
+        lastErrorLabel = label(prefs.get("last_error", "").isEmpty()
+                ? "Aucune erreur enregistrée."
+                : "Dernière erreur (" + prefs.get("last_error_time", "?") + ") : " + prefs.get("last_error", ""));
+        config.addView(lastErrorLabel);
+        config.addView(button("⧉ Copier la dernière erreur", this::copyLastError));
         config.addView(button("Enregistrer les réglages", this::save));
         config.addView(label("PERSONNALITÉ · prompt sur plusieurs lignes · profils chiffrés"));
         config.addView(button("✧ Modifier la personnalité de F.R.I.D.A.Y.", () -> {
@@ -319,6 +326,18 @@ public class MainActivity extends Activity {
         input.setText(String.valueOf(value));
         return String.valueOf(value);
     }
+    private void copyLastError() {
+        String err = prefs.get("last_error", "");
+        String when = prefs.get("last_error_time", "");
+        String payload = err.isEmpty() ? "Aucune erreur enregistrée." :
+                "[" + when + "] " + err + "\nmodèle=" + prefs.get("openai_model", "?")
+                + " url=" + prefs.get("openai_url", "?")
+                + " clé=" + (prefs.hasSecret("openai") ? "présente" : "absente");
+        android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if (cm != null) cm.setPrimaryClip(android.content.ClipData.newPlainText("friday-error", payload));
+        Toast.makeText(this, "Erreur copiée dans le presse-papiers", Toast.LENGTH_SHORT).show();
+    }
+
     private void openDeepSeekPage() {
         try {
             startActivity(new Intent(Intent.ACTION_VIEW,
@@ -500,6 +519,11 @@ public class MainActivity extends Activity {
                 if (kind.equals("interrupted")) {
                     hudCloneSpeaking.set(false);
                     if (webVoice != null) { try { webVoice.stop(); } catch (Exception ignored) { } }
+                }
+                if (kind.equals("error")) {
+                    prefs.put("last_error", text);
+                    prefs.put("last_error_time", new java.text.SimpleDateFormat("dd/MM HH:mm:ss", java.util.Locale.FRANCE).format(new java.util.Date()));
+                    if (lastErrorLabel != null) lastErrorLabel.setText("Dernière erreur : " + text);
                 }
                 if (kind.equals("status") || kind.equals("error") || kind.equals("tts") || kind.equals("mic_conflict") || kind.equals("interrupted")) status.setText(text);
                 if (pageReady) {
