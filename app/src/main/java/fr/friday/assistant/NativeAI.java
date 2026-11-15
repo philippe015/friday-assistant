@@ -60,7 +60,7 @@ public final class NativeAI {
         String local = localAnswer(question);
         if (local != null) return local;
         String key = settings.secret("mistral");
-        if (key.isEmpty()) throw new IOException("Clé API Mistral absente : ouvrez les réglages natifs.");
+        if (key.isEmpty()) throw new IOException("Clé API Mistral absente : Réglages natifs → collez la clé → Enregistrer.");
         String text = question;
         // Partage ponctuel : ce contexte n'est pas conservé dans l'historique de chat.
         if (locationContext != null && !locationContext.isEmpty())
@@ -71,7 +71,7 @@ public final class NativeAI {
     public static String visionAnswer(SecurePrefs cfg, byte[] jpeg, String question) throws Exception {
         if (jpeg == null || jpeg.length == 0 || jpeg.length > 2_000_000) throw new IOException("Image absente ou trop volumineuse.");
         String key = cfg.secret("mistral");
-        if (key.isEmpty()) throw new IOException("Clé Mistral absente pour la vision.");
+        if (key.isEmpty()) throw new IOException("Clé Mistral absente pour la vision : Réglages natifs → clé → Enregistrer.");
         String prompt = question == null || question.trim().isEmpty() ? "Décris cette photo en français et signale tes incertitudes." : question.trim();
         JSONArray content = new JSONArray();
         content.put(new JSONObject().put("type", "text").put("text", prompt));

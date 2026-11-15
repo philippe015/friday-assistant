@@ -146,8 +146,13 @@ public class MainActivity extends Activity {
         config.addView(button(ModelInstaller.installed(this) ? "✓ Modèle installé" : "↓ Télécharger le modèle français", this::installModel));
         config.addView(label("INTELLIGENCE ARTIFICIELLE UNIQUE · MISTRAL"));
         config.addView(label("Clé Mistral (laissez vide pour conserver l'ancienne)"));
-        mistralKey = field(prefs.secret("mistral").isEmpty() ? "Clé Mistral manquante" : "Clé Mistral déjà enregistrée", true);
+        mistralKey = field(prefs.hasSecret("mistral") ? "Clé Mistral déjà enregistrée" : "Clé Mistral manquante", true);
         config.addView(mistralKey);
+        String keyState = prefs.hasSecret("mistral")
+                ? "✔ Clé Mistral : enregistrée"
+                : "✘ Clé Mistral : absente — collez-la ci-dessus puis appuyez sur Enregistrer";
+        if (!SecurePrefs.LAST_ERROR.isEmpty()) keyState += "\n⚠ " + SecurePrefs.LAST_ERROR;
+        config.addView(label(keyState));
         config.addView(label("Modèle Mistral"));
         mistralModel = field("ministral-8b-latest", false);
         mistralModel.setText(prefs.get("mistral_model", "ministral-8b-latest")); config.addView(mistralModel);
@@ -325,7 +330,8 @@ public class MainActivity extends Activity {
     private void save() {
         try {
             String a = mistralKey.getText().toString().trim();
-            if (!a.isEmpty()) prefs.setSecret("mistral", a);
+            boolean keyGiven = !a.isEmpty();
+            if (keyGiven) prefs.setSecret("mistral", a);
             prefs.put("mode", "mistral");
             prefs.put("mistral_model", mistralModel.getText().toString().trim());
             String selectedVisionModel = visionModel.getText().toString().trim();
@@ -361,9 +367,12 @@ public class MainActivity extends Activity {
             prefs.put("location_share", locationEnabled.isChecked() && locationShare.isChecked() ? "1" : "0");
             prefs.put("address_lookup", locationEnabled.isChecked() && placeNameEnabled.isChecked() ? "1" : "0");
             mistralKey.setText("");
-            status.setText(clonedVoiceEnabled.isChecked() ?
+            String keyInfo = prefs.hasSecret("mistral")
+                    ? (SecurePrefs.LAST_ERROR.isEmpty() ? "Clé Mistral enregistrée." : "Clé enregistrée. ⚠ " + SecurePrefs.LAST_ERROR)
+                    : "⚠ Aucune clé Mistral enregistrée : les réponses seront refusées.";
+            status.setText(keyInfo + " " + (clonedVoiceEnabled.isChecked() ?
                 "Réglages enregistrés : VOIX CLONÉE ACTIVE. Testez-la puis redémarrez l'écoute." :
-                "Réglages enregistrés. Arrêtez puis redémarrez le service pour appliquer les permissions.");
+                "Réglages enregistrés. Arrêtez puis redémarrez le service pour appliquer les permissions."));
             if (locationEnabled.isChecked() && !FridayLocation.hasPermission(this)) requestLocationAccess();
             Toast.makeText(this,"Réglages natifs enregistrés",Toast.LENGTH_SHORT).show();
         } catch (Exception ex) { status.setText("Enregistrement impossible : " + ex.getMessage()); }
