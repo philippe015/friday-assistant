@@ -216,11 +216,11 @@ public class MainActivity extends Activity {
         followupInput.setInputType(InputType.TYPE_CLASS_NUMBER);
         followupInput.setText(prefs.get("followup_sec", "75")); config.addView(followupInput);
         bargeEnabled = new CheckBox(this);
-        bargeEnabled.setText("Permettre d'interrompre la voix en parlant (« Friday stop »), micro actif pendant la réponse");
+        bargeEnabled.setText("Activer STOP vocal pendant la réponse (« stop », « Friday stop », « j’ai une précision »)");
         bargeEnabled.setTextColor(Color.WHITE);
         bargeEnabled.setChecked("1".equals(prefs.get("barge_in_enabled", "1")));
         config.addView(bargeEnabled);
-        config.addView(label("Réduction de l'écho Android si compatible. Au haut-parleur, un casque est préférable si Friday entend sa propre voix."));
+        config.addView(label("Le décodeur de commandes STOP fonctionne séparément de la dictée. Si Android coupe le microphone ou si le haut-parleur couvre votre voix, la commande peut échouer. Le bouton Interrompre reste disponible."));
         config.addView(label("VITESSE VOCALE · 100 = normale (70 à 150)"));
         ttsInput = field("100", false);
         ttsInput.setInputType(InputType.TYPE_CLASS_NUMBER);
@@ -919,6 +919,10 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void configure() { runOnUiThread(() -> configScroll.setVisibility(View.VISIBLE)); }
         @JavascriptInterface public boolean isListening() { return FridayService.isActive(); }
         @JavascriptInterface public boolean isMicSilenced() { return FridayService.isMicSilenced(); }
+        @JavascriptInterface public String voiceInterruptTelemetry() {
+            if (!"1".equals(prefs.get("barge_in_enabled", "1"))) return "Désactivé dans Réglages";
+            return FridayService.interruptionDiagnostics();
+        }
         @JavascriptInterface public String currentVersion() { return FridayVersionGuard.thisVersion(MainActivity.this); }
         @JavascriptInterface public int otherVersionsCount() { return FridayVersionGuard.installed(MainActivity.this).size(); }
         @JavascriptInterface public void manageVersions() { runOnUiThread(() -> FridayVersionGuard.showManager(MainActivity.this)); }
