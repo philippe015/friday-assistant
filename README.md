@@ -1,16 +1,16 @@
 # 🤖 F.R.I.D.A.Y. — Assistant personnel Android
 
-**F.R.I.D.A.Y.** est un assistant vocal et conversationnel **100 % natif Android** : cockpit **HUD** holographique (WebView), backend **Python embarqué**, détection de mot-clé en **Rust**, reconnaissance vocale **hors-ligne (Vosk)** et IA **DeepSeek**.
+**F.R.I.D.A.Y.** est un assistant vocal et conversationnel **application Android native** : cockpit **HUD** holographique (WebView), backend **Python embarqué**, détection de mot-clé en **Rust**, reconnaissance vocale **hors-ligne (Vosk)** et IA **Mistral**.
 
-> Sources **v3.2.2** — application en développement actif.
+> Sources **v3.3.0** — application en développement actif.
 > APK **release signé** publié par la CI (voir [Releases](../../releases/latest)).
 
 ---
 
-## ✨ Fonctionnalités (v3.2.2)
+## ✨ Fonctionnalités (v3.3.0)
 
 ### 🎙️ Voix
-- **Écoute interactive** : le microphone ne se coupe plus pendant le calcul DeepSeek ni pendant la lecture TTS (micro et traitement sur deux threads)
+- **Écoute interactive** : le microphone ne se coupe plus pendant le calcul Mistral ni pendant la lecture TTS (micro et traitement sur deux threads)
 - **Interruption par la voix** :
   - « Friday stop » / « Friday attends » → coupe **l'audio seul**, le micro reste actif
   - « Friday, j'ai une précision » → coupe la réponse et ouvre une courte fenêtre d'écoute
@@ -22,8 +22,8 @@
 - Anti-écho : `VOICE_COMMUNICATION` + `AcousticEchoCanceler` / `NoiseSuppressor` (selon matériel)
 
 ### 🧠 Intelligence
-- **DeepSeek Chat Completions** (`https://api.deepseek.com/chat/completions`)
-- **Recherche Web intelligente** : API DeepSeek Search pour les questions factuelles et les relances, URLs de sources ; DeepSeek Fetch pour lire un lien fourni dans la question. Les appels Web peuvent être facturés.
+- **Mistral Chat Completions** (`https://api.mistral.ai/v1/chat/completions`)
+- **Recherche Web intelligente** : Mistral Conversations et l'outil intégré `web_search` pour les questions factuelles, les relances et la consultation des liens publics. Les sources sont affichées uniquement lorsqu'elles sont réellement fournies par l'API. Les appels Web peuvent être facturés.
 - **Réglage Web explicite** : case Recherche Web et bouton pour l'activer et tester réellement l'accès. En cas d'échec, l'application le signale.
 - **Mémoire personnelle locale chiffrée** sur demande
 - **10 profils de personnalité** (16 000 caractères), chiffrés via **Android Keystore**
@@ -83,6 +83,9 @@ WebView (cockpit HUD) ◄── état/événements ── FridayService
 **Pré-requis** : Android **8.0+** (API 26), appareil **arm64-v8a**.
 
 > ⚠️ APK **debug** (`debuggable=true`, signature debug) : usage personnel / test.
+
+
+**Depuis la v3.3.0 :** utiliser exclusivement une clé API Mistral. Les anciennes clés DeepSeek sont supprimées des préférences ; elles ne sont jamais envoyées à Mistral. Activez la recherche Web dans les réglages pour utiliser `web_search` avec Conversations. Cette fonction dépend de l'offre API et peut être facturée.
 
 ## 🛠️ Compiler depuis les sources
 
