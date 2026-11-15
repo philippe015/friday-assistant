@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import android.util.Log;
 import android.os.SystemClock;
 
-/** Service réellement indépendant du WebView : micro Vosk 16 kHz, DeepSeek et TTS écran éteint. */
+/** Service réellement indépendant du WebView : micro Vosk 16 kHz, Mistral et TTS écran éteint. */
 public class FridayService extends Service {
     public static final String ACTION_START = "fr.friday.assistant.START";
     public static final String ACTION_STOP = "fr.friday.assistant.STOP";
@@ -45,7 +45,7 @@ public class FridayService extends Service {
     private volatile long lastReplyAt = 0;
     private int silenceMs = 2100;
     private long followupMs = 75000;
-    private volatile boolean wakeArmed = false;  // shared with the DeepSeek response thread
+    private volatile boolean wakeArmed = false;  // shared with the Mistral response thread
     private volatile long bargePendingUntil = 0;
     private volatile long lastSpeechEndedAt = 0;
     private volatile String spokenText = "";
@@ -202,7 +202,7 @@ public class FridayService extends Service {
         return recognizer;
     }
 
-    /** Capture Vosk continue pendant les appels DeepSeek et la lecture audio. */
+    /** Capture Vosk continue pendant les appels Mistral et la lecture audio. */
     private void runLoop() {
         try (Model model = new Model(ModelInstaller.modelDir(this).getAbsolutePath())) {
             event("status", "Reconnaissance française prête : vous pouvez interrompre les réponses avec « Friday stop ». ");
@@ -487,7 +487,7 @@ public class FridayService extends Service {
         final String request = question;
         ResponseTurn turn = new ResponseTurn();
         currentTurn = turn;
-        Thread task = new Thread(() -> answerTurn(request, turn), "friday-deepseek-response");
+        Thread task = new Thread(() -> answerTurn(request, turn), "friday-mistral-response");
         turn.thread = task;
         task.start();
     }
@@ -496,7 +496,7 @@ public class FridayService extends Service {
         boolean memoryAction = MemoryIntent.kind(question) != MemoryIntent.NONE;
         try {
             if (!memoryAction && live(turn)) event("user", question);
-            if (live(turn)) event("status", memoryAction ? "Commande mémoire locale…" : "Réflexion DeepSeek… Vous pouvez m'interrompre.");
+            if (live(turn)) event("status", memoryAction ? "Commande mémoire locale…" : "Réflexion Mistral… Vous pouvez m'interrompre.");
             String local = PersonalMemory.command(settings, question);
             if (local == null) local = PythonBrain.localAnswer(question);
             if (local == null) local = deviceAnswer(question);
@@ -517,7 +517,7 @@ public class FridayService extends Service {
                     } else if ("1".equals(settings.get("location_share", "0"))) {
                         String place = "1".equals(settings.get("address_lookup", "0")) ? AndroidPlaceResolver.resolve(this, fix) : "";
                         locationForApi = fix.forAi() + (place.isEmpty() ? "" : "\nAdresse approximative Android : " + place);
-                    } else local = "La position GPS est disponible, mais le partage avec DeepSeek est désactivé.";
+                    } else local = "La position GPS est disponible, mais le partage avec Mistral est désactivé.";
                 }
             }
             if (!live(turn)) return;
