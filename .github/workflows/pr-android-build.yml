@@ -32,7 +32,12 @@ jobs:
 
       - name: Android SDK
         run: |
-          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
       - name: Rust Android target
         run: |
