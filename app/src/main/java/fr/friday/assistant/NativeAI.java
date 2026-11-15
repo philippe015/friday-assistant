@@ -320,6 +320,146 @@ public final class NativeAI {
         return warning.isEmpty() ? answer : warning + "\n\n" + answer;
     }
 
+
+    /**
+     * Streaming pour Chat Completions. L'outil Web de Conversations reste non-streaming
+     * dans ce chemin : ne jamais remplacer les références Web par une simulation.
+     * Le callback reçoit des phrases terminées, pas de simples fragments de tokens.
+     */
+    public static String answerStreaming(SecurePrefs settings, String question,
+            List<JSONObject> history, String locationContext, CancelToken token,
+            java.util.function.Consumer<String> onSentence) throws Exception {
+        CANCEL.set(token);
+        try {
+            String plain = localAnswer(question);
+            if (plain != null) return plain;
+            plain = AssistantIdentity.reply(question, PersonalityProfiles.activeName(settings),
+                    PersonalityProfiles.activePrompt(settings));
+            if (plain != null) return plain;
+            String previous = lastQuestion(history);
+            if (!"1".equals(settings.get("stream_enabled", "1"))
+                    || ("1".equals(settings.get("web_enabled", "1"))
+                         && WebSearch.needsWeb(question, previous))
+                    || (!"1".equals(settings.get("web_enabled", "1"))
+                         && WebSearch.explicit(question))) {
+                return answer(settings, question, history, locationContext);
+            }
+            String key = settings.secret("mistral");
+            if (key == null || key.isEmpty())
+                return answer(settings, question, history, locationContext);
+            String text = question;
+            if (locationContext != null && !locationContext.trim().isEmpty()) {
+                text += "\n\n[CONTEXTE GPS ANDROID AUTORISÉ POUR CETTE QUESTION : "
+                        + locationContext + "]\nCette position est fournie par Android, "
+                        + "ne prétends pas que tu ne disposes pas des coordonnées ; "
+                        + "ne déduis pas une adresse exacte.";
+            }
+            try {
+                return chatStreaming(settings, key, configuredModel(settings), text,
+                        history, onSentence);
+            } catch (Exception error) {
+                if (token != null) token.check();
+                // Un fallback peut répéter les mots déjà prononcés : le streaming n'utilise
+                // le repli non-streaming que si aucune phrase n'a été envoyée.
+                if (error instanceof InterruptedException) throw error;
+                if (error instanceof PartialSpeechFailure) throw error;
+                return mistralAnswer(settings, key, text, history);
+            }
+        } finally { CANCEL.remove(); }
+    }
+
+    private static final class PartialSpeechFailure extends IOException {
+        PartialSpeechFailure(String detail, Throwable cause) { super(detail, cause); }
+    }
+
+    private static String chatStreaming(SecurePrefs cfg, String key, String model,
+            String question, List<JSONObject> history,
+            java.util.function.Consumer<String> onSentence) throws Exception {
+        JSONArray messages = new JSONArray();
+        messages.put(new JSONObject().put("role", "system").put("content", system(cfg)));
+        for (JSONObject old : compactHistory(history)) messages.put(old);
+        messages.put(new JSONObject().put("role", "user").put("content", question));
+        JSONObject body = new JSONObject()
+                .put("model", model).put("messages", messages)
+                .put("max_tokens", 1600).put("stream", true);
+        CancelToken cancellation = CANCEL.get();
+        HttpURLConnection conn = (HttpURLConnection)
+                new URL(MISTRAL_BASE + "/chat/completions").openConnection();
+        if (cancellation != null) cancellation.bind(conn);
+        SpeechSentenceBuffer sentences = new SpeechSentenceBuffer();
+        StringBuilder full = new StringBuilder();
+        int spoken = 0;
+        try {
+            conn.setRequestMethod("POST");
+            conn.setConnectTimeout(12000);
+            conn.setReadTimeout(60000);
+            conn.setDoOutput(true);
+            conn.setUseCaches(false);
+            conn.setRequestProperty("Authorization", "Bearer " + key);
+            conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+            conn.setRequestProperty("Accept", "text/event-stream");
+            byte[] request = body.toString().getBytes(StandardCharsets.UTF_8);
+            conn.setFixedLengthStreamingMode(request.length);
+            if (cancellation != null) cancellation.check();
+            try (OutputStream out = conn.getOutputStream()) { out.write(request); }
+            int status = conn.getResponseCode();
+            if (status < 200 || status >= 300) {
+                throw new HttpStatusFailure(status, "Streaming Mistral indisponible",
+                        conn.getHeaderField("Retry-After"));
+            }
+            SpeechSentenceBuffer.EventLines events = new SpeechSentenceBuffer.EventLines();
+            boolean finished = false;
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                    conn.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (cancellation != null) cancellation.check();
+                    String data = events.accept(line);
+                    if (data == null) continue;
+                    if ("[DONE]".equals(data.trim())) { finished = true; break; }
+                    JSONObject event = new JSONObject(data);
+                    JSONArray choices = event.optJSONArray("choices");
+                    if (choices == null || choices.length() == 0) continue;
+                    JSONObject choice = choices.optJSONObject(0);
+                    if (choice == null) continue;
+                    JSONObject delta = choice.optJSONObject("delta");
+                    String fragment = delta == null ? "" : textContent(delta.opt("content"));
+                    if (!fragment.isEmpty()) {
+                        full.append(fragment);
+                        if (full.length() > 16000)
+                            throw new IOException("Réponse SSE trop volumineuse.");
+                        for (String sentence : sentences.accept(fragment)) {
+                            if (cancellation != null) cancellation.check();
+                            onSentence.accept(sentence);
+                            spoken++;
+                        }
+                    }
+                    if (!choice.isNull("finish_reason") && choice.has("finish_reason"))
+                        finished = true;
+                }
+            }
+            if (!finished)
+                throw new IOException("Flux Mistral interrompu avant la fin de réponse.");
+            String tail = sentences.flush();
+            if (!tail.isEmpty()) {
+                if (cancellation != null) cancellation.check();
+                onSentence.accept(tail);
+                spoken++;
+            }
+            String result = full.toString().trim();
+            if (result.isEmpty()) throw new IOException("Flux Mistral sans contenu texte.");
+            return result;
+        } catch (Exception e) {
+            if (spoken > 0) throw new PartialSpeechFailure(
+                    "Flux Mistral interrompu après le début de la réponse. "
+                    + "Aucun repli automatique afin d'éviter les répétitions.", e);
+            throw e;
+        } finally {
+            if (cancellation != null) cancellation.unbind(conn);
+            conn.disconnect();
+        }
+    }
+
     private static boolean invalidModel(Exception e) {
         String msg = e.getMessage() == null ? "" : e.getMessage();
         return msg.startsWith("API HTTP 400") || msg.startsWith("API HTTP 404")
