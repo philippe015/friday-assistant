@@ -2,7 +2,7 @@
 
 **F.R.I.D.A.Y.** est un assistant vocal et conversationnel **application Android native** : cockpit **HUD** holographique (WebView), backend **Python embarqué**, détection de mot-clé en **Rust**, reconnaissance vocale **hors-ligne (Vosk)** et IA **Mistral**.
 
-> Sources **v3.4.1** — application en développement actif.
+> Sources **v3.7.0** — application en développement actif.
 > APK **release signé** publié par la CI (voir [Releases](../../releases/latest)).
 
 ---
@@ -19,7 +19,7 @@ Ces fonctions sont **prévues**, pas encore livrées. L'IA reste **Mistral uniqu
 
 ---
 
-## ✨ Fonctionnalités (v3.4.1)
+## ✨ Fonctionnalités (v3.7.0)
 
 ### 🎙️ Voix
 - **Écoute interactive** : le microphone ne se coupe plus pendant le calcul Mistral ni pendant la lecture TTS (micro et traitement sur deux threads)
@@ -41,7 +41,12 @@ Ces fonctions sont **prévues**, pas encore livrées. L'IA reste **Mistral uniqu
 - **10 profils de personnalité** (16 000 caractères), chiffrés via **Android Keystore**
 - **Cerveau local Python** : heure, date, jour, année — **fonctionne sans réseau**
 
-### Correctifs v3.4.1
+### Versions récentes : v3.5.0 à v3.7.0
+- **v3.5.0** : reprises réseau limitées annulables, sélection des modèles Mistral, diagnostics Web.
+- **v3.6.0** : Streaming SSE Mistral Chat et TTS progressif, option activable, mesure de première parole.
+- **v3.7.0** : Vosk spécialisé optionnel avec [unk] et écoute d'une question (micro automatiquement coupé après l'énoncé).
+
+### Correctifs v3.7.0
 - **Identité du profil actif** : FRIDAY répond au nom choisi ; « Mistral » désigne le moteur de génération, pas l'assistant.
 - **GPS Mistral avec consentement** : l'activation Android du GPS est indépendante du partage de coordonnées à Mistral. Activez le partage ponctuel depuis le cockpit et redémarrez l'écoute si le GPS a été activé après le démarrage du service.
 - **Transparence** : indicateur « GPS vers Mistral » et dernier envoi API confirmé, sans coordonnées persistantes.
