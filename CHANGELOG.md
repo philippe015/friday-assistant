@@ -3,7 +3,7 @@
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 versionnage [SemVer](https://semver.org/lang/fr/).
 
-## [Non publié] — correctifs après v3.2.0
+## [3.2.1] — 2026-11-15
 
 ### Corrigé
 - **Réponses locales trompeuses** : la logique Python prioritaire appliquait encore
