@@ -253,7 +253,13 @@ public class MainActivity extends Activity {
         config.addView(label("Une courte expression par ligne, maximum 24. "
                 + "Une grammaire peut améliorer certaines commandes mais détériorer "
                 + "la dictée libre. [unk] est conservé en secours."));
-        voskHintsEditor = field("Ex. elite dangerous", true);
+        voskHintsEditor = field("Ex. elite dangerous", false);
+        voskHintsEditor.setSingleLine(false);
+        voskHintsEditor.setMinLines(3);
+        voskHintsEditor.setInputType(InputType.TYPE_CLASS_TEXT
+                | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        voskHintsEditor.setFilters(new android.text.InputFilter[]{
+                new android.text.InputFilter.LengthFilter(2100)});
         voskHintsEditor.setText(prefs.secret("vosk_hints"));
         config.addView(voskHintsEditor);
                 config.addView(label("LOCALISATION · permission Android facultative"));
