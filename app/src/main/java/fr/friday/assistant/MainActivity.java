@@ -115,7 +115,7 @@ public class MainActivity extends Activity {
         LinearLayout bar = new LinearLayout(this);
         bar.setPadding(dp(7),dp(3),dp(7),dp(3));
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = label("F.R.I.D.A.Y. · 3.3.0");
+        TextView title = label("F.R.I.D.A.Y. · 3.4.0");
         title.setTextSize(15); title.setTextColor(Color.rgb(71,228,249));
         bar.addView(title, new LinearLayout.LayoutParams(0,dp(48),1));
         Button configure = button("⚙ Réglages", () -> configScroll.setVisibility(configScroll.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
@@ -248,6 +248,7 @@ public class MainActivity extends Activity {
         config.addView(label("Aucun suivi GPS permanent : mesure à la demande (jusqu'à 16 s) et objectif 3 m non garanti. " +
             "La précision effectivement mesurée est affichée. Si le partage IA est autorisé, les coordonnées précises de cette question sont transmises à l’API Mistral."));
         config.addView(button("◎ Tester précision GPS · cible 3 m", this::showGpsAccuracy));
+        config.addView(button("⌖ Configurer le GPS pour les réponses locales", this::configureGpsForAssistant));
         config.addView(label("DIAGNOSTIC · dernière erreur du moteur IA"));
         lastErrorLabel = label(prefs.get("last_error", "").isEmpty()
                 ? "Aucune erreur enregistrée."
@@ -306,10 +307,11 @@ public class MainActivity extends Activity {
             prefs.put("provider", "mistral");
             prefs.put("mistral_model", mistralModel.getText().toString().trim());
             String mistralGiven = mistralKey.getText().toString().trim();
-            if (!mistralGiven.isEmpty()) prefs.setSecret("mistral", mistralGiven);
+            if (!mistralGiven.isEmpty()) { prefs.setSecret("mistral", mistralGiven); prefs.put("web_verified", "0"); }
             mistralKey.setText("");
             prefs.put("memory_enabled", memoryEnabled.isChecked() ? "1" : "0");
             prefs.put("web_enabled", webEnabled.isChecked() ? "1" : "0");
+            if (!webEnabled.isChecked()) prefs.put("web_verified", "0");
             prefs.put("silence_ms", bounded(silenceInput, 2100, 900, 6000));
             prefs.put("followup_sec", bounded(followupInput, 75, 15, 180));
             prefs.put("barge_in_enabled", bargeEnabled.isChecked() ? "1" : "0");
@@ -356,6 +358,7 @@ public class MainActivity extends Activity {
             return;
         }
         prefs.setSecret("mistral", typed);
+        prefs.put("web_verified", "0");
         mistralKey.setText("");
         boolean ok = prefs.hasSecret("mistral");
         mistralKeyState.setText(ok
@@ -369,6 +372,7 @@ public class MainActivity extends Activity {
     private void enableAndTestWeb() {
         webEnabled.setChecked(true);
         prefs.put("web_enabled", "1");
+        prefs.put("web_verified", "0");
         status.setText("Recherche Web activée. Vérification de l'API Mistral…");
         new Thread(() -> {
             String result;
@@ -378,7 +382,12 @@ public class MainActivity extends Activity {
                         + (error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
             }
             final String detail = result;
-            runOnUiThread(() -> status.setText(detail));
+            prefs.put("web_verified", detail.startsWith("Recherche Web Mistral opérationnelle") ? "1" : "0");
+            runOnUiThread(() -> {
+                status.setText(detail);
+                if (pageReady && hud != null)
+                    hud.evaluateJavascript("window.fridayRefreshNative&&window.fridayRefreshNative();", null);
+            });
         }, "friday-test-web").start();
     }
 
@@ -517,24 +526,78 @@ public class MainActivity extends Activity {
             catch (Exception e) { runOnUiThread(() -> status.setText("Erreur téléchargement : " + e.getMessage())); }
         }, "friday-model-download").start();
     }
-    /** Vérification ponctuelle de la précision réelle du GPS, sans partage réseau. */
+    /** Le partage de coordonnées avec Mistral requiert un consentement distinct. */
+    private void configureGpsForAssistant() {
+        new AlertDialog.Builder(this)
+                .setTitle("Localisation de F.R.I.D.A.Y.")
+                .setMessage("Le GPS peut répondre localement à « Où suis-je ? ». "
+                        + "Voulez-vous aussi transmettre ponctuellement les coordonnées à Mistral "
+                        + "uniquement lorsque vous posez une question sur les alentours ?")
+                .setPositiveButton("Autoriser le partage ponctuel", (dialog, which) -> {
+                    prefs.put("location_enabled", "1");
+                    prefs.put("location_share", "1");
+                    locationEnabled.setChecked(true);
+                    locationShare.setChecked(true);
+                    showGpsAccuracy();
+                })
+                .setNeutralButton("GPS local uniquement", (dialog, which) -> {
+                    prefs.put("location_enabled", "1");
+                    prefs.put("location_share", "0");
+                    locationEnabled.setChecked(true);
+                    locationShare.setChecked(false);
+                    showGpsAccuracy();
+                })
+                .setNegativeButton("Annuler", (dialog, which) -> {})
+                .show();
+    }
+
+    /** Acquisition réelle avec états distincts (permission, GPS, position). */
     private void showGpsAccuracy() {
-        if (!FridayLocation.hasPermission(this)) {
-            status.setText("Autorisez la position précise Android puis relancez le test GPS.");
-            requestLocationAccess(); return;
+        if (!"1".equals(prefs.get("location_enabled", "0"))) {
+            prefs.put("location_enabled", "1");
+            prefs.put("location_share", "0");
+            locationEnabled.setChecked(true);
+            locationShare.setChecked(false);
         }
-        status.setText("Acquisition GPS en cours (objectif 3 m, non garanti)…");
+        if (!FridayLocation.hasPermission(this)) {
+            cachedLocation = "Autorisation Android de localisation manquante.";
+            status.setText(cachedLocation);
+            requestLocationAccess();
+            return;
+        }
+        if (!FridayLocation.providerEnabled(this)) {
+            cachedLocation = "Localisation Android désactivée : activez le GPS dans le téléphone.";
+            status.setText(cachedLocation);
+            if (pageReady && hud != null)
+                hud.evaluateJavascript("window.fridayLocationSync&&window.fridayLocationSync();", null);
+            return;
+        }
+        cachedLocation = "Acquisition GPS en cours (objectif 3 m non garanti)…";
+        status.setText(cachedLocation);
+        if (pageReady && hud != null)
+            hud.evaluateJavascript("window.fridayLocationSync&&window.fridayLocationSync();", null);
         new Thread(() -> {
-            FridayLocation.Fix fix = FridayLocation.locate(getApplicationContext());
-            String place = fix != null && "1".equals(prefs.get("address_lookup", "0")) ?
-                AndroidPlaceResolver.resolve(getApplicationContext(), fix) : "";
-            cachedLocation = fix == null ? "Position GPS indisponible" : AndroidPlaceResolver.userText(fix, place);
+            String result;
+            try {
+                FridayLocation.Fix fix = FridayLocation.locate(getApplicationContext());
+                String place = fix != null && "1".equals(prefs.get("address_lookup", "0"))
+                        ? AndroidPlaceResolver.resolve(getApplicationContext(), fix) : "";
+                result = fix == null
+                        ? "Android n'a pas fourni de position récente. Réessayez dehors."
+                        : AndroidPlaceResolver.userText(fix, place);
+            } catch (Exception error) {
+                result = "Acquisition GPS impossible : " + error.getClass().getSimpleName();
+            }
+            cachedLocation = result;
             runOnUiThread(() -> {
                 status.setText(cachedLocation);
-                if (pageReady && hud != null) hud.evaluateJavascript("window.fridayLocationSync&&window.fridayLocationSync();", null);
+                if (pageReady && hud != null)
+                    hud.evaluateJavascript("window.fridayLocationSync&&window.fridayLocationSync();"
+                            + "window.fridayRefreshNative&&window.fridayRefreshNative();", null);
             });
         }, "friday-gps-test").start();
     }
+
     private void requestLocationAccess() {
         if (FridayLocation.hasPermission(this)) {
             status.setText("Localisation Android autorisée. Enregistrez les réglages puis redémarrez l'écoute depuis l'application.");
@@ -606,7 +669,8 @@ public class MainActivity extends Activity {
             if (FridayLocation.hasPermission(this)) {
                 locationEnabled.setChecked(true);
                 prefs.put("location_enabled", "1");
-                status.setText("Position autorisée. Redémarrez l'écoute depuis l'application pour l'utiliser écran verrouillé.");
+                status.setText("Position autorisée. Mesure GPS en cours ; redémarrez l'écoute pour l'utiliser écran verrouillé.");
+                showGpsAccuracy();
             } else {
                 prefs.put("location_enabled", "0");
                 locationEnabled.setChecked(false);
@@ -623,6 +687,9 @@ public class MainActivity extends Activity {
                 if (kind.equals("interrupted")) {
                     hudCloneSpeaking.set(false);
                     if (webVoice != null) { try { webVoice.stop(); } catch (Exception ignored) { } }
+                }
+                if (kind.equals("location")) {
+                    cachedLocation = text;
                 }
                 if (kind.equals("error")) {
                     prefs.put("last_error", text);
@@ -701,12 +768,35 @@ public class MainActivity extends Activity {
             });
         }, "friday-position").start();
     }
+    /** Configuration vérifiée, sans assimiler le réglage activé à un accès Web validé. */
+    private String webTelemetry() {
+        if (!"1".equals(prefs.get("web_enabled", "1"))) return "Désactivée";
+        if (!prefs.hasSecret("mistral")) return "Clé Mistral absente";
+        return "1".equals(prefs.get("web_verified", "0"))
+                ? "Activée · testée" : "Activée · non testée";
+    }
+    private String gpsTelemetry() {
+        if (!"1".equals(prefs.get("location_enabled", "0"))) return "Désactivé";
+        if (!FridayLocation.hasPermission(this)) return "Autorisation manquante";
+        if (!FridayLocation.providerEnabled(this)) return "GPS Android arrêté";
+        return FridayLocation.isFine(this) ? "Autorisé · précis" : "Autorisé · approximatif";
+    }
     private final class NativeBridge {
+        @JavascriptInterface public String activeProfileName() { return PersonalityProfiles.activeName(prefs); }
+        @JavascriptInterface public String webTelemetry() { return MainActivity.this.webTelemetry(); }
+        @JavascriptInterface public String gpsTelemetry() { return MainActivity.this.gpsTelemetry(); }
         @JavascriptInterface public String getPersonalityProfiles() {
             return PersonalityProfiles.read(prefs);
         }
         @JavascriptInterface public String savePersonalityProfiles(String json) {
-            try { PersonalityProfiles.save(prefs, json); return "OK"; }
+            try {
+                PersonalityProfiles.save(prefs, json);
+                runOnUiThread(() -> {
+                    if (pageReady && hud != null)
+                        hud.evaluateJavascript("window.fridayRefreshNative&&window.fridayRefreshNative();", null);
+                });
+                return "OK";
+            }
             catch (Exception e) { return "Erreur : " + e.getMessage(); }
         }
         @JavascriptInterface public void ask(String question) {

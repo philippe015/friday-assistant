@@ -7,6 +7,14 @@ public final class LocationIntentTest {
   check(LocationIntent.nearby("Restaurants à proximité"));
   check(!LocationIntent.nearby("Bonjour comment vas-tu ?"));
   check(!LocationIntent.nearby("Météo à Paris"));
+  check(LocationIntent.direct("Friday, où est-ce que je me trouve ?"));
+  check(LocationIntent.direct("Quel est mon emplacement actuel ?"));
+  check(LocationIntent.direct("Dans quel pays suis-je ?"));
+  check(LocationIntent.nearby("Quels lieux sont autour d'ici ?"));
+  check(LocationIntent.nearby("Quel temps fait-il ici ?"));
+  check(LocationIntent.nearby("Où se trouvent les restaurants aux alentours ?"));
+  check(!LocationIntent.nearby("Quelle est la météo à Lyon demain ?"));
+  check(!LocationIntent.nearby("Quelle est la population de Paris ?"));
   System.out.println("OK : intentions de localisation");
  }
  private static void check(boolean ok) { if(!ok) throw new AssertionError("Échec test localisation"); }

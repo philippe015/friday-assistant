@@ -49,6 +49,9 @@ public class FridayService extends Service {
     private volatile long bargePendingUntil = 0;
     private volatile long lastSpeechEndedAt = 0;
     private volatile String spokenText = "";
+    private volatile String latestQuestion = "";
+    private volatile String clarificationAnchor = "";
+    private volatile long clarificationUntil = 0L;
     private volatile boolean speakingNow = false;
     private volatile boolean echoProtection = false;
     private volatile ResponseTurn currentTurn;
@@ -66,6 +69,8 @@ public class FridayService extends Service {
     public static boolean isMicSilenced() { return micSilenced; }
     private static final class ResponseTurn {
         final NativeAI.CancelToken api = new NativeAI.CancelToken();
+        final String clarificationContext;
+        ResponseTurn(String context) { clarificationContext = context; }
         volatile Thread thread;
         volatile boolean cancelled;
         void cancel() {
@@ -417,6 +422,11 @@ public class FridayService extends Service {
         speakingNow = false;
         spokenText = "";
         if (previous != null) previous.cancel();
+        // Conserve le sujet même si la réponse a été interrompue avant l'historique.
+        if (!latestQuestion.isEmpty()) {
+            clarificationAnchor = latestQuestion;
+            clarificationUntil = SystemClock.elapsedRealtime() + 60_000L;
+        }
         if (tts != null) { try { tts.stop(); } catch (Exception ignored) { } }
         wakeArmed = true;
         lastReplyAt = SystemClock.elapsedRealtime();
@@ -450,6 +460,19 @@ public class FridayService extends Service {
             event("status", "Arrêt complet de l'écoute demandé.");
             shutdown(); return;
         }
+        if (BargeInPolicy.wantsToAddDetails(heard)) {
+            if (currentTurn != null) interruptResponse("Réponse interrompue pour votre précision.");
+            else {
+                wakeArmed = true;
+                clarificationAnchor = latestQuestion;
+                clarificationUntil = now + 60_000L;
+            }
+            wakeArmed = true;
+            lastReplyAt = now;
+            bargePendingUntil = now + 60_000L;
+            event("status", "Je vous écoute. Précisez votre demande : je conserve le sujet précédent.");
+            return;
+        }
         if (BargeInPolicy.isStopAnswer(heard)) {
             interruptResponse("Réponse stoppée. Je reste à l'écoute.");
             return;
@@ -470,7 +493,7 @@ public class FridayService extends Service {
                 event("status", "Friday à l'écoute : posez votre question.");
                 return;
             }
-        } else if (wakeArmed && now - lastReplyAt <= followupMs &&
+        } else if (wakeArmed && (now - lastReplyAt <= followupMs || now < clarificationUntil) &&
                 now - lastSpeechEndedAt >= 1200L) {
             // Court filtrage pour éviter de réinterpréter la fin du haut-parleur.
             question = heard;
@@ -479,13 +502,19 @@ public class FridayService extends Service {
             return;
         }
         if (BargeInPolicy.wantsToAddDetails(question)) {
-            lastReplyAt = now; bargePendingUntil = now + 20000L;
-            event("status", "Je vous écoute. Donnez votre précision ou posez une nouvelle question.");
+            interruptResponse("Je vous écoute pour votre précision.");
             return;
         }
         bargePendingUntil = 0;
         final String request = question;
-        ResponseTurn turn = new ResponseTurn();
+        String anchor = "";
+        if (!clarificationAnchor.isEmpty() && now < clarificationUntil
+                && BargeInPolicy.contextualFollowUp(question))
+            anchor = clarificationAnchor;
+        clarificationAnchor = "";
+        clarificationUntil = 0L;
+        latestQuestion = request;
+        ResponseTurn turn = new ResponseTurn(anchor);
         currentTurn = turn;
         Thread task = new Thread(() -> answerTurn(request, turn), "friday-mistral-response");
         turn.thread = task;
@@ -501,27 +530,51 @@ public class FridayService extends Service {
             if (local == null) local = PythonBrain.localAnswer(question);
             if (local == null) local = deviceAnswer(question);
             String locationForApi = null;
-            if (local == null && locationForApi == null && LocationIntent.nearby(question)) {
-                if (!"1".equals(settings.get("location_enabled", "0")) || !FridayLocation.hasPermission(this))
-                    local = "Activez la localisation Android dans les réglages pour obtenir votre position.";
-                else {
+            if (local == null && LocationIntent.nearby(question)) {
+                if (!"1".equals(settings.get("location_enabled", "0"))) {
+                    local = "La localisation de FRIDAY est désactivée. Dans Réglages, "
+                            + "activez Localisation et autorisez Android.";
+                } else if (!FridayLocation.hasPermission(this)) {
+                    local = "FRIDAY n'a pas la permission Android de localisation. "
+                            + "Ouvrez les réglages et autorisez la position.";
+                } else if (!FridayLocation.providerEnabled(this)) {
+                    local = "Le service de localisation du téléphone est désactivé. "
+                            + "Activez le GPS dans les paramètres Android.";
+                } else {
+                    event("status", "Acquisition GPS Android en cours, selon la précision disponible…");
                     FridayLocation.Fix fix = FridayLocation.locate(this);
                     if (!live(turn)) return;
-                    if (fix == null) local = "Position GPS indisponible. Vérifiez le GPS et réessayez.";
-                    else if (LocationIntent.direct(question)) {
-                        String place = "1".equals(settings.get("address_lookup", "0")) ? AndroidPlaceResolver.resolve(this, fix) : "";
-                        boolean web = false;
-                        if (place.isEmpty() && "1".equals(settings.get("location_share", "0")) && web)
-                            locationForApi = fix.forAi() + "\nRECHERCHE_ALENTOURS_WEB : Trouve le nom de la commune avec une source. N'invente pas la rue.";
-                        else local = AndroidPlaceResolver.userText(fix, place);
-                    } else if ("1".equals(settings.get("location_share", "0"))) {
-                        String place = "1".equals(settings.get("address_lookup", "0")) ? AndroidPlaceResolver.resolve(this, fix) : "";
-                        locationForApi = fix.forAi() + (place.isEmpty() ? "" : "\nAdresse approximative Android : " + place);
-                    } else local = "La position GPS est disponible, mais le partage avec Mistral est désactivé.";
+                    if (fix == null) {
+                        local = "Android n'a pas fourni de position récente. "
+                                + "Activez la localisation précise, approchez-vous d'une fenêtre et réessayez.";
+                        event("location", local);
+                    } else {
+                        event("location", fix.forUser());
+                        String place = "1".equals(settings.get("address_lookup", "0"))
+                                ? AndroidPlaceResolver.resolve(this, fix) : "";
+                        if (!live(turn)) return;
+                        if (LocationIntent.direct(question)) {
+                            local = AndroidPlaceResolver.userText(fix, place);
+                        } else if ("1".equals(settings.get("location_share", "0"))) {
+                            locationForApi = fix.forAi()
+                                    + (place.isEmpty() ? "" :
+                                        "\nLieu estimé par le géocodeur Android : " + place
+                                        + ". Vérifie si nécessaire ; n'invente jamais une adresse exacte.");
+                        } else {
+                            local = "J'ai trouvé votre position sur le téléphone, mais le partage GPS "
+                                    + "avec Mistral est désactivé. Activez « Partage ponctuel des "
+                                    + "coordonnées » pour les recherches autour de vous.";
+                        }
+                    }
                 }
             }
             if (!live(turn)) return;
-            String answer = local != null ? local : NativeAI.answer(settings, PythonBrain.prepareQuestion(question),
+            String prepared = PythonBrain.prepareQuestion(question);
+            if (!turn.clarificationContext.isEmpty())
+                prepared += "\n\n[CONTEXTE DE LA DEMANDE INTERROMPUE : "
+                        + turn.clarificationContext + "]\n[TRAITE LA PRÉCISION ACTUELLE EN "
+                        + "LIEN AVEC CE SUJET, SANS INVENTER.]";
+            String answer = local != null ? local : NativeAI.answer(settings, prepared,
                 historySnapshot(), locationForApi, turn.api);
             if (!live(turn)) return;
             boolean privateLocation = LocationIntent.nearby(question);

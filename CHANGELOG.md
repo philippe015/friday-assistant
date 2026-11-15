@@ -3,6 +3,22 @@
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 versionnage [SemVer](https://semver.org/lang/fr/).
 
+## [3.4.0] — 2026-11-15
+
+### Correctifs et améliorations
+- **Profil actif Mistral** : instructions de la personnalité réellement sélectionnée renforcées en fin de prompt système, pour les conversations classiques et la recherche Web ; affichage du nom du profil actif en télémétrie et vérification de l'enregistrement.
+- **Télémétrie Web** : suppression de la valeur codée en dur « Désactivé ». Indication réelle : désactivé, clé manquante, activé non testé, activé testé avec URL source.
+- **GPS Android** : meilleure détection des questions « Où suis-je ? », « Où est-ce que je me trouve ? », « Quels services autour de moi ? ». Diagnostic séparé des permissions, des services GPS, de l'absence de position et de la précision mesurée.
+- **Consentement localisation** : choix « GPS local uniquement » ou partage ponctuel autorisé avec Mistral pour des questions sur les alentours ; aucun envoi permanent de coordonnées.
+- **Interruption intelligente** : la commande « Friday, j'ai une précision » et ses variantes arrêtent la réponse en cours sans perdre le sujet ; le contexte de la demande interrompue est réutilisé dans la précision suivante.
+- **Cockpit** : état GPS, recherche Web, profil actif ; suppression des requêtes GPS en double lorsque le bouton GPS est utilisé.
+- **Tests** : cas de régression Java pour les formulations GPS et l'interruption ; contrôles de câblage de l'interface et de Mistral.
+
+### Limites
+- Recherche Web Mistral soumise aux permissions, au quota et à la facturation de la clé API.
+- Le GPS précis dépend du matériel, de l'autorisation Android et de la couverture ; 3 mètres ne sont pas garantis.
+- Les tests automatisés ne remplacent pas les vérifications audio/GPS/Mistral sur un appareil Android réel.
+
 ## [3.3.0] — 2026-11-15
 
 ### Fournisseur unique : Mistral AI

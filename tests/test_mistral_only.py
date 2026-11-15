@@ -39,8 +39,13 @@ class MistralOnlyTest(unittest.TestCase):
 
     def test_version(self):
         version = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 54", version)
-        self.assertIn("versionName '3.3.0'", version)
+        import re
+        code = re.search(r"versionCode (\d+)", version)
+        name = re.search(r"versionName '(\d+)\.(\d+)\.(\d+)'", version)
+        self.assertIsNotNone(code)
+        self.assertIsNotNone(name)
+        self.assertGreaterEqual(int(code.group(1)), 54)
+        self.assertGreaterEqual(tuple(int(x) for x in name.groups()), (3, 3, 0))
 
 if __name__ == "__main__":
     unittest.main()

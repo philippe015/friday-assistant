@@ -58,7 +58,25 @@ public final class PersonalityProfiles {
         } catch (Exception ignored) { return defaultData().toString(); }
     }
     public static void save(SecurePrefs prefs, String json) throws Exception {
-        prefs.setSecret(KEY, validated(json).toString());
+        String expected = validated(json).toString();
+        prefs.setSecret(KEY, expected);
+        String persisted = prefs.secret(KEY);
+        if (!expected.equals(persisted))
+            throw new IllegalStateException("Échec de l'enregistrement du profil actif. Vérifiez le stockage Android.");
+    }
+    /** Nom du profil réellement sélectionné et enregistré, pour la télémétrie. */
+    public static String activeName(SecurePrefs prefs) {
+        try {
+            JSONObject root = new JSONObject(read(prefs));
+            String activeId = root.getString("active");
+            JSONArray profiles = root.getJSONArray("profiles");
+            for (int i = 0; i < profiles.length(); i++) {
+                JSONObject profile = profiles.getJSONObject(i);
+                if (activeId.equals(profile.optString("id", "")))
+                    return profile.getString("name");
+            }
+        } catch (Exception ignored) { }
+        return "F.R.I.D.A.Y.";
     }
     public static String activePrompt(SecurePrefs prefs) {
         try {

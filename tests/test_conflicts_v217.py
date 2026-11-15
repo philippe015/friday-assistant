@@ -41,7 +41,7 @@ class ConflictIntegrationTest(unittest.TestCase):
         for component in ('versionState', 'versionsState', 'versionsBtn',
                           'MICRO BLOQUÉ', 'otherVersionsCount', 'currentVersion'):
             self.assertIn(component, html)
-        self.assertRegex(html, r'2\.\d+\.\d+')
+        self.assertRegex(html, r'[2-9]\.\d+\.\d+')
 
     def test_build_version_and_dialog_compilation_fix(self):
         build = (ROOT / 'app/build.gradle').read_text()
