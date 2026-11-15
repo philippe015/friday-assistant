@@ -115,7 +115,7 @@ public class MainActivity extends Activity {
         LinearLayout bar = new LinearLayout(this);
         bar.setPadding(dp(7),dp(3),dp(7),dp(3));
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = label("F.R.I.D.A.Y. · 3.4.0");
+        TextView title = label("F.R.I.D.A.Y. · 3.4.1");
         title.setTextSize(15); title.setTextColor(Color.rgb(71,228,249));
         bar.addView(title, new LinearLayout.LayoutParams(0,dp(48),1));
         Button configure = button("⚙ Réglages", () -> configScroll.setVisibility(configScroll.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
@@ -239,6 +239,9 @@ public class MainActivity extends Activity {
         locationShare.setTextColor(Color.WHITE);
         locationShare.setChecked("1".equals(prefs.get("location_share", "0")));
         config.addView(locationShare);
+        config.addView(label("Important : autoriser le GPS Android n'envoie PAS la position à Mistral. "
+                + "Cochez aussi le partage ponctuel, ou utilisez « Configurer le GPS pour les réponses locales ». "
+                + "Le service vocal peut nécessiter un redémarrage après modification des permissions."));
         placeNameEnabled = new CheckBox(this);
         placeNameEnabled.setText("Identifier la commune ou la rue à la demande (géocodeur du téléphone, peut utiliser son réseau)");
         placeNameEnabled.setTextColor(Color.WHITE);
@@ -248,7 +251,7 @@ public class MainActivity extends Activity {
         config.addView(label("Aucun suivi GPS permanent : mesure à la demande (jusqu'à 16 s) et objectif 3 m non garanti. " +
             "La précision effectivement mesurée est affichée. Si le partage IA est autorisé, les coordonnées précises de cette question sont transmises à l’API Mistral."));
         config.addView(button("◎ Tester précision GPS · cible 3 m", this::showGpsAccuracy));
-        config.addView(button("⌖ Configurer le GPS pour les réponses locales", this::configureGpsForAssistant));
+        config.addView(button("⌖ Autoriser la position GPS à Mistral (ponctuellement)", this::configureGpsForAssistant));
         config.addView(label("DIAGNOSTIC · dernière erreur du moteur IA"));
         lastErrorLabel = label(prefs.get("last_error", "").isEmpty()
                 ? "Aucune erreur enregistrée."
@@ -538,6 +541,8 @@ public class MainActivity extends Activity {
                     prefs.put("location_share", "1");
                     locationEnabled.setChecked(true);
                     locationShare.setChecked(true);
+                    status.setText("GPS et partage ponctuel avec Mistral autorisés. "
+                            + (FridayService.isActive() ? "Arrêtez puis redémarrez l'écoute pour appliquer les permissions GPS." : "Prêt pour une question sur votre position."));
                     showGpsAccuracy();
                 })
                 .setNeutralButton("GPS local uniquement", (dialog, which) -> {
@@ -545,6 +550,7 @@ public class MainActivity extends Activity {
                     prefs.put("location_share", "0");
                     locationEnabled.setChecked(true);
                     locationShare.setChecked(false);
+                    status.setText("GPS local autorisé, aucune coordonnée envoyée à Mistral.");
                     showGpsAccuracy();
                 })
                 .setNegativeButton("Annuler", (dialog, which) -> {})
@@ -555,9 +561,9 @@ public class MainActivity extends Activity {
     private void showGpsAccuracy() {
         if (!"1".equals(prefs.get("location_enabled", "0"))) {
             prefs.put("location_enabled", "1");
-            prefs.put("location_share", "0");
             locationEnabled.setChecked(true);
-            locationShare.setChecked(false);
+            // Ne jamais effacer un consentement de partage déjà donné simplement
+            // parce que l'utilisateur vérifie sa position sur l'écran GPS.
         }
         if (!FridayLocation.hasPermission(this)) {
             cachedLocation = "Autorisation Android de localisation manquante.";
@@ -691,6 +697,9 @@ public class MainActivity extends Activity {
                 if (kind.equals("location")) {
                     cachedLocation = text;
                 }
+                if (kind.equals("gps_api")) {
+                    status.setText(text);
+                }
                 if (kind.equals("error")) {
                     prefs.put("last_error", text);
                     prefs.put("last_error_time", new java.text.SimpleDateFormat("dd/MM HH:mm:ss", java.util.Locale.FRANCE).format(new java.util.Date()));
@@ -702,6 +711,8 @@ public class MainActivity extends Activity {
                     else {
                         String js = "window.fridayNativeReceive&&window.fridayNativeReceive(" + JSONObjectQuote(kind) + "," + JSONObjectQuote(text) + ");";
                         hud.evaluateJavascript(js, null);
+                        if (kind.equals("gps_api"))
+                            hud.evaluateJavascript("window.fridayRefreshNative&&window.fridayRefreshNative();", null);
                     }
                 }
             }
@@ -781,10 +792,29 @@ public class MainActivity extends Activity {
         if (!FridayLocation.providerEnabled(this)) return "GPS Android arrêté";
         return FridayLocation.isFine(this) ? "Autorisé · précis" : "Autorisé · approximatif";
     }
+    private String gpsShareTelemetry() {
+        if (!"1".equals(prefs.get("location_enabled", "0"))) return "GPS désactivé";
+        if (!"1".equals(prefs.get("location_share", "0"))) return "Non autorisé";
+        if (!FridayLocation.hasPermission(this)) return "Permission Android manquante";
+        if (!FridayLocation.providerEnabled(this)) return "Localisation Android arrêtée";
+        if (FridayService.isActive() && !FridayService.locationForegroundEnabled())
+            return "Redémarrer l'écoute";
+        String timestamp = prefs.get("gps_last_shared", "");
+        try {
+            long time = Long.parseLong(timestamp);
+            if (time > 0)
+                return "Autorisé · dernier envoi "
+                        + new java.text.SimpleDateFormat("HH:mm", java.util.Locale.FRANCE)
+                        .format(new java.util.Date(time));
+        } catch (NumberFormatException ignored) {}
+        return "Autorisé · en attente d'une question locale";
+    }
     private final class NativeBridge {
         @JavascriptInterface public String activeProfileName() { return PersonalityProfiles.activeName(prefs); }
         @JavascriptInterface public String webTelemetry() { return MainActivity.this.webTelemetry(); }
         @JavascriptInterface public String gpsTelemetry() { return MainActivity.this.gpsTelemetry(); }
+        @JavascriptInterface public String gpsShareTelemetry() { return MainActivity.this.gpsShareTelemetry(); }
+        @JavascriptInterface public void gpsConsent() { runOnUiThread(MainActivity.this::configureGpsForAssistant); }
         @JavascriptInterface public String getPersonalityProfiles() {
             return PersonalityProfiles.read(prefs);
         }

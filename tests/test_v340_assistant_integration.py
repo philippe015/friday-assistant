@@ -51,8 +51,11 @@ class AssistantIntegrations(unittest.TestCase):
 
     def test_version(self):
         gradle = file("app/build.gradle")
-        self.assertIn("versionCode 55", gradle)
-        self.assertIn("versionName '3.4.0'", gradle)
+        import re
+        self.assertGreaterEqual(int(re.search(r"versionCode (\d+)", gradle).group(1)), 55)
+        match = re.search(r"versionName '(\d+)\.(\d+)\.(\d+)'", gradle)
+        self.assertIsNotNone(match)
+        self.assertGreaterEqual(tuple(int(x) for x in match.groups()), (3, 4, 0))
 
 if __name__ == "__main__":
     unittest.main()

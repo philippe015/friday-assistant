@@ -88,6 +88,10 @@ public final class NativeAI {
                                 String locationContext) throws Exception {
         String local = localAnswer(question);
         if (local != null) return local;
+        // Les questions d'identité utilisent le profil actif, jamais l'auto-identité du LLM.
+        String identity = AssistantIdentity.reply(question,
+                PersonalityProfiles.activeName(settings), PersonalityProfiles.activePrompt(settings));
+        if (identity != null) return identity;
         String key = settings.secret("mistral");
         if (key.isEmpty())
             throw new IOException("Clé API Mistral absente : ouvrez les réglages FRIDAY, "
@@ -95,7 +99,12 @@ public final class NativeAI {
         // Localisation toujours transmise exclusivement pour une question où elle a été autorisée.
         String text = question;
         if (locationContext != null && !locationContext.trim().isEmpty())
-            text += "\n\n[Position partagée ponctuellement par l'utilisateur : " + locationContext + "]";
+            text += "\n\n[CONTEXTE GPS ANDROID RÉEL, AUTORISÉ POUR CETTE QUESTION : "
+                    + locationContext
+                    + "]\nTu as reçu la position dans cette requête. "
+                    + "N'affirme pas que le GPS n'est pas disponible pour cette question. "
+                    + "Précise ce qui est mesuré (coordonnées, précision, ancienneté) "
+                    + "et ce qui n'est pas connu (adresse exacte, établissements).";
         return mistralAnswer(settings, key, text, history);
     }
 
@@ -114,13 +123,22 @@ public final class NativeAI {
                 + "\nMÉMOIRE PERSONNELLE AUTORISÉE :\n" + PersonalMemory.context(cfg);
         if ("1".equals(cfg.get("deep_reasoning", "0")))
             base += "\nPour les tâches complexes, analyse les hypothèses puis communique une conclusion claire.";
-        return base + "\n\nPROFIL DE PERSONNALITÉ ACTIF : "
-                + PersonalityProfiles.activeName(cfg)
-                + "\nPROMPT DU PROFIL ACTIF — instructions de style et de comportement de F.R.I.D.A.Y. :\n"
-                + PersonalityProfiles.activePrompt(cfg)
-                + "\nApplique ce profil actif aux réponses orales et écrites, avec priorité "
-                + "sur le style générique de l'assistant. Réponds dans la langue prévue par ce profil, "
-                + "sans ignorer les faits vérifiés ni les limitations réelles des outils.";
+        String profile = PersonalityProfiles.activeName(cfg);
+        String prompt = PersonalityProfiles.activePrompt(cfg);
+        String personaName = AssistantIdentity.displayName(profile, prompt);
+        return "IDENTITÉ PRIORITAIRE : Tu es « " + personaName
+                + " », l'assistant personnel configuré par l'utilisateur, PAS le modèle « Mistral ». "
+                + "Mistral est le fournisseur technique de génération, pas le nom de l'assistant. "
+                + "Quand l'utilisateur demande ton nom, présente-toi sous l'identité « "
+                + personaName + " ». Respecte exactement les comportements et le style du profil actif. "
+                + base
+                + "\n\nPROFIL DE PERSONNALITÉ ACTIF : " + profile
+                + "\nPROMPT DU PROFIL ACTIF — instructions prioritaires de personnalité :\n"
+                + prompt
+                + "\nApplique ce profil actif à toutes les réponses orales, écrites et Web. "
+                + "Ne remplace jamais le nom de l'assistant par « Mistral » ; "
+                + "tu peux préciser que Mistral est ton moteur si l'on te demande ton fournisseur. "
+                + "N'invente ni résultat Web, ni capacité de localisation.";
     }
 
     private static String configuredModel(SecurePrefs cfg) {

@@ -36,6 +36,7 @@ public class FridayService extends Service {
     private static final int NOTIFICATION_ID = 9717;
     private static volatile boolean active = false;
     private static volatile boolean micSilenced = false;
+    private static volatile boolean foregroundLocationEnabled = false;
     private volatile boolean running = false;
     private Thread worker;
     private AudioRecord recorder;
@@ -67,6 +68,9 @@ public class FridayService extends Service {
 
     public static boolean isActive() { return active; }
     public static boolean isMicSilenced() { return micSilenced; }
+    public static boolean locationForegroundEnabled() {
+        return foregroundLocationEnabled;
+    }
     private static final class ResponseTurn {
         final NativeAI.CancelToken api = new NativeAI.CancelToken();
         final String clarificationContext;
@@ -135,6 +139,7 @@ public class FridayService extends Service {
                 if (useLocation) types |= ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION;
                 startForeground(NOTIFICATION_ID, notification("Écoute native · écran allumé ou verrouillé"), types);
             } else startForeground(NOTIFICATION_ID, notification("Écoute native · écran allumé ou verrouillé"));
+            foregroundLocationEnabled = useLocation;
         } catch (Exception ex) {
             event("error", "Service microphone refusé : démarrer l'écoute depuis l'application ouverte.");
             stopSelf(); return START_NOT_STICKY;
@@ -540,6 +545,10 @@ public class FridayService extends Service {
                 } else if (!FridayLocation.providerEnabled(this)) {
                     local = "Le service de localisation du téléphone est désactivé. "
                             + "Activez le GPS dans les paramètres Android.";
+                } else if (Build.VERSION.SDK_INT >= 29 && !foregroundLocationEnabled) {
+                    local = "La localisation a été activée après le démarrage de l'écoute. "
+                            + "Arrêtez puis redémarrez l'écoute dans FRIDAY pour que le service vocal "
+                            + "dispose du GPS Android, puis réessayez.";
                 } else {
                     event("status", "Acquisition GPS Android en cours, selon la précision disponible…");
                     FridayLocation.Fix fix = FridayLocation.locate(this);
@@ -553,17 +562,32 @@ public class FridayService extends Service {
                         String place = "1".equals(settings.get("address_lookup", "0"))
                                 ? AndroidPlaceResolver.resolve(this, fix) : "";
                         if (!live(turn)) return;
-                        if (LocationIntent.direct(question)) {
-                            local = AndroidPlaceResolver.userText(fix, place);
-                        } else if ("1".equals(settings.get("location_share", "0"))) {
+                        // Le GPS Android et l'autorisation de transmettre les coordonnées
+                        // à Mistral sont deux choix indépendants. Ne jamais les confondre.
+                        boolean sharingAllowed = "1".equals(settings.get("location_share", "0"));
+                        if (sharingAllowed) {
                             locationForApi = fix.forAi()
                                     + (place.isEmpty() ? "" :
                                         "\nLieu estimé par le géocodeur Android : " + place
-                                        + ". Vérifie si nécessaire ; n'invente jamais une adresse exacte.");
+                                        + ". Cette adresse est approximative et non vérifiée.")
+                                    + "\nLa position ci-dessus vient du GPS Android pour CETTE demande. "
+                                    + "Tu disposes donc bien de la position transmise, même si tu "
+                                    + "n'as pas accès directement aux capteurs du téléphone. "
+                                    + "Si la question porte sur l'emplacement actuel, fournis "
+                                    + "d'abord les coordonnées et le lieu estimé s'il existe ; "
+                                    + "n'invente pas le nom d'une rue ni un établissement.";
+                            event("status", "Position GPS acquise. Partage ponctuel autorisé avec Mistral.");
+                        } else if (LocationIntent.direct(question)) {
+                            local = AndroidPlaceResolver.userText(fix, place)
+                                    + " La position reste uniquement sur votre téléphone : "
+                                    + "le partage des coordonnées avec Mistral n'est pas autorisé. "
+                                    + "Pour l'activer, choisissez « Configurer le GPS pour "
+                                    + "les réponses locales » dans les réglages.";
                         } else {
-                            local = "J'ai trouvé votre position sur le téléphone, mais le partage GPS "
-                                    + "avec Mistral est désactivé. Activez « Partage ponctuel des "
-                                    + "coordonnées » pour les recherches autour de vous.";
+                            local = "J'ai trouvé votre position sur le téléphone, mais "
+                                    + "son partage avec Mistral n'est pas autorisé. "
+                                    + "Autorisez le partage ponctuel GPS dans les réglages "
+                                    + "pour rechercher des informations autour de vous.";
                         }
                     }
                 }
@@ -577,6 +601,11 @@ public class FridayService extends Service {
             String answer = local != null ? local : NativeAI.answer(settings, prepared,
                 historySnapshot(), locationForApi, turn.api);
             if (!live(turn)) return;
+            // Preuve d'une transmission API ponctuelle réussie, sans conserver les coordonnées.
+            if (locationForApi != null && local == null) {
+                settings.put("gps_last_shared", String.valueOf(System.currentTimeMillis()));
+                event("gps_api", "Coordonnées GPS transmises à Mistral pour cette question (API répondante).");
+            }
             boolean privateLocation = LocationIntent.nearby(question);
             if (!privateLocation && !memoryAction) {
                 addHistory("user", question); addHistory("assistant", answer);
@@ -752,6 +781,7 @@ public class FridayService extends Service {
         running = false;
         active = false;
         micSilenced = false;
+        foregroundLocationEnabled = false;
         textQuestions.clear();
         queuedQuestions.set(0);
         if (recorder != null) {

@@ -10,6 +10,8 @@ public final class LocationIntentTest {
   check(LocationIntent.direct("Friday, où est-ce que je me trouve ?"));
   check(LocationIntent.direct("Quel est mon emplacement actuel ?"));
   check(LocationIntent.direct("Dans quel pays suis-je ?"));
+  check(LocationIntent.direct("Mistral, as-tu ma position ?"));
+  check(LocationIntent.direct("Friday, as-tu accès à mon GPS ?"));
   check(LocationIntent.nearby("Quels lieux sont autour d'ici ?"));
   check(LocationIntent.nearby("Quel temps fait-il ici ?"));
   check(LocationIntent.nearby("Où se trouvent les restaurants aux alentours ?"));

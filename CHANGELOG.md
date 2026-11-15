@@ -3,6 +3,22 @@
 Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 versionnage [SemVer](https://semver.org/lang/fr/).
 
+## [3.4.1] — 2026-11-15
+
+### Correctifs principaux
+- **Nom et personnalité réellement actifs** : FRIDAY se présente avec l'identité définie par son profil actif et distingue clairement son nom de celui du fournisseur IA Mistral. Les prompts systèmes de Mistral Chat et Conversations insistent sur le profil sélectionné.
+- **GPS transmis à Mistral après consentement** : corrige le cas « Où suis-je ? », auparavant résolu localement même lorsque le partage avec Mistral était autorisé. Les coordonnées et leur précision sont maintenant incluses dans la requête Mistral pour les demandes de position et d'alentours autorisées.
+- **Respect de la vie privée** : activer simplement le GPS ne l'autorise pas à transmettre la localisation à Mistral. Il faut autoriser explicitement le partage ponctuel. Aucune position n'est envoyée pour les questions non locales, ni stockée dans l'historique.
+- **Cockpit transparent** : nouveau statut « GPS vers Mistral » et bouton d'autorisation, avec indication de l'heure du dernier envoi API réussi (sans conserver les coordonnées).
+- **Android** : indique lorsqu'un redémarrage de l'écoute vocale est requis après l'autorisation GPS, pour activer le type de service de localisation en premier plan.
+- **Tests de régression** : identité du profil, non-équivalence GPS local / partage Mistral, reconnaissance de la question « as-tu accès à mon GPS ? » et versionnage.
+
+### À vérifier sur le téléphone
+- Enregistrer le profil voulu, demander « Friday, comment tu t'appelles ? »
+- Dans le cockpit, choisir « Autoriser le GPS à Mistral » puis autoriser la permission Android ; arrêter et redémarrer l'écoute si demandé.
+- Poser « Friday, où suis-je ? » puis « Quel temps fait-il autour de moi ? ». Le second test demande le Web Mistral et peut être facturé.
+- Le GPS doit fournir une position récente ; l'adresse exacte n'est pas garantie. Les résultats Mistral ne peuvent pas être certifiés sans essais avec la clé personnelle.
+
 ## [3.4.0] — 2026-11-15
 
 ### Correctifs et améliorations
