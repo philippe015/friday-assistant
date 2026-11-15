@@ -195,6 +195,13 @@ public class FridayService extends Service {
         try { return new JSONObject(json).optString(key, "").trim(); }
         catch (Exception ignored) { return ""; }
     }
+    /** Active les scores de confiance Vosk sur chaque nouveau décodeur. */
+    private static Recognizer createRecognizer(Model model) throws Exception {
+        Recognizer recognizer = new Recognizer(model, 16000.0f);
+        recognizer.setWords(true);
+        return recognizer;
+    }
+
     /** Capture Vosk continue pendant les appels DeepSeek et la lecture audio. */
     private void runLoop() {
         try (Model model = new Model(ModelInstaller.modelDir(this).getAbsolutePath())) {
@@ -252,13 +259,15 @@ public class FridayService extends Service {
                             }
                         });
                     }
-                    recognizer = new Recognizer(model, 16000.0f);
+                    recognizer = createRecognizer(model);
                     ar.startRecording();
                     event("status", "Micro actif pendant les réponses. Anti-écho " +
                         (echoProtection ? "activé." : "non garanti : préférez des écouteurs."));
                     byte[] buffer = new byte[4096];
                     long lastPolicyCheck = 0, lastVoice = 0, lastPartialPublished = 0;
                     String completed = "", interim = "";
+                    double confidenceSum = 0;
+                    int confidenceCount = 0;
                     boolean earlyCancelled = false;
                     boolean sawSpeakerFeedback = false;
                     while (running) {
@@ -267,8 +276,9 @@ public class FridayService extends Service {
                         if (typed != null) {
                             queuedQuestions.updateAndGet(n -> Math.max(0, n - 1));
                             handlePhrase(typed);
-                            recognizer.close(); recognizer = new Recognizer(model, 16000.0f);
+                            recognizer.close(); recognizer = createRecognizer(model);
                             completed = interim = ""; lastVoice = 0;
+                            confidenceSum = 0; confidenceCount = 0;
                             earlyCancelled = false; sawSpeakerFeedback = false;
                         }
                         int count = ar.read(buffer, 0, buffer.length);
@@ -292,8 +302,9 @@ public class FridayService extends Service {
                                 micSilenced = true;
                                 event("mic_conflict", "Android a rendu le micro muet. Vérifiez les applications vocales concurrentes.");
                             }
-                            recognizer.close(); recognizer = new Recognizer(model, 16000.0f);
+                            recognizer.close(); recognizer = createRecognizer(model);
                             completed = interim = ""; lastVoice = 0;
+                            confidenceSum = 0; confidenceCount = 0;
                             earlyCancelled = false; sawSpeakerFeedback = false;
                             continue;
                         }
@@ -304,7 +315,13 @@ public class FridayService extends Service {
                         boolean endpoint = recognizer.acceptWaveForm(buffer, count);
                         long now = SystemClock.elapsedRealtime();
                         if (endpoint) {
-                            String segment = parse(recognizer.getResult(), "text");
+                            String resultJson = recognizer.getResult();
+                            String segment = parse(resultJson, "text");
+                            if (!segment.isEmpty()) {
+                                double[] stats = confidenceStats(resultJson);
+                                confidenceSum += stats[0];
+                                confidenceCount += (int) stats[1];
+                            }
                             if (!segment.isEmpty()) {
                                 completed = VoiceText.join(completed, segment);
                                 lastVoice = now;
@@ -337,16 +354,21 @@ public class FridayService extends Service {
                                 (!completed.isEmpty() || !interim.isEmpty())) {
                             String finalJson = recognizer.getFinalResult();
                             String tail = parse(finalJson, "text");
+                            double[] finalStats = confidenceStats(finalJson);
+                            double confidence = (confidenceCount + (int) finalStats[1]) > 0
+                                    ? (confidenceSum + finalStats[0]) / (confidenceCount + finalStats[1])
+                                    : 0;
                             String phrase = VoiceText.join(completed, tail);
                             if (phrase.isEmpty()) phrase = interim;
                             // Vosk fermé/réinitialisé, mais le micro reste ouvert sans interruption.
-                            recognizer.close(); recognizer = new Recognizer(model, 16000.0f);
+                            recognizer.close(); recognizer = createRecognizer(model);
                             boolean dropSpeaker = sawSpeakerFeedback &&
                                 !BargeInPolicy.startsWithWake(phrase) &&
                                 SystemClock.elapsedRealtime() - lastSpeechEndedAt < 3000L;
                             completed = interim = ""; lastVoice = 0;
+                            confidenceSum = 0; confidenceCount = 0;
                             earlyCancelled = false; sawSpeakerFeedback = false;
-                            double confidence = averageConfidence(finalJson);
+
                             boolean unclear = phrase.split("\\s+").length >= 3 && confidence > 0 && confidence < 0.55;
                             if (!dropSpeaker && !phrase.trim().isEmpty()) {
                                 if (unclear) {
@@ -385,7 +407,8 @@ public class FridayService extends Service {
     private void releaseAudioEffects() {
         try { if (echoCanceler != null) echoCanceler.release(); } catch (Exception ignored) { }
         try { if (noiseSuppressor != null) noiseSuppressor.release(); } catch (Exception ignored) { }
-        echoCanceler = null; noiseSuppressor = null; echoProtection = false;
+        try { if (gainControl != null) gainControl.release(); } catch (Exception ignored) { }
+        echoCanceler = null; noiseSuppressor = null; gainControl = null; echoProtection = false;
     }
     /** Rend le micro disponible immédiatement après une interruption. */
     private synchronized void interruptResponse(String status) {
@@ -402,17 +425,22 @@ public class FridayService extends Service {
         event("status", status);
     }
     /** L'ancien tour annulé ne peut plus ni parler ni remplacer la nouvelle réponse. */
-    /** Confiance moyenne des mots renvoyés par Vosk (0 = inconnue). */
-    private static double averageConfidence(String json) {
+    /** Somme des confiances valides et nombre de mots (segments + résultat final). */
+    private static double[] confidenceStats(String json) {
+        double sum = 0;
+        int count = 0;
         try {
             org.json.JSONArray words = new org.json.JSONObject(json).optJSONArray("result");
-            if (words == null || words.length() == 0) return 0;
-            double sum = 0;
+            if (words == null) return new double[]{0, 0};
             for (int i = 0; i < words.length(); i++) {
-                sum += words.getJSONObject(i).optDouble("conf", 0);
+                double conf = words.getJSONObject(i).optDouble("conf", Double.NaN);
+                if (!Double.isNaN(conf) && conf >= 0 && conf <= 1) {
+                    sum += conf;
+                    count++;
+                }
             }
-            return sum / words.length();
-        } catch (Exception e) { return 0; }
+        } catch (Exception ignored) { }
+        return new double[]{sum, count};
     }
 
     private void handlePhrase(String heard) {
