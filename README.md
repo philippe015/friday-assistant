@@ -1,6 +1,6 @@
 # 🤖 F.R.I.D.A.Y. — Assistant personnel Android
 
-**F.R.I.D.A.Y.** est un assistant vocal et conversationnel **100 % natif Android** : cockpit **HUD** holographique (WebView), backend **Python embarqué**, détection de mot-clé en **Rust**, reconnaissance vocale **hors-ligne (Vosk)** et IA **Mistral**.
+**F.R.I.D.A.Y.** est un assistant vocal et conversationnel **application Android native** : cockpit **HUD** holographique (WebView), backend **Python embarqué**, détection de mot-clé en **Rust**, reconnaissance vocale **hors-ligne (Vosk)** et IA **Mistral**.
 
 > Sources **v3.3.0** — application en développement actif.
 > APK **release signé** publié par la CI (voir [Releases](../../releases/latest)).
@@ -22,8 +22,8 @@
 - Anti-écho : `VOICE_COMMUNICATION` + `AcousticEchoCanceler` / `NoiseSuppressor` (selon matériel)
 
 ### 🧠 Intelligence
-- **DeepSeek Chat Completions** (`https://api.mistral.ai/v1/chat/completions`)
-- **Recherche Web intelligente** : API Mistral Search pour les questions factuelles et les relances, URLs de sources ; Mistral Conversations pour lire un lien fourni dans la question. Les appels Web peuvent être facturés.
+- **Mistral Chat Completions** (`https://api.mistral.ai/v1/chat/completions`)
+- **Recherche Web intelligente** : Mistral Conversations et l'outil intégré `web_search` pour les questions factuelles, les relances et la consultation des liens publics. Les sources sont affichées uniquement lorsqu'elles sont réellement fournies par l'API. Les appels Web peuvent être facturés.
 - **Réglage Web explicite** : case Recherche Web et bouton pour l'activer et tester réellement l'accès. En cas d'échec, l'application le signale.
 - **Mémoire personnelle locale chiffrée** sur demande
 - **10 profils de personnalité** (16 000 caractères), chiffrés via **Android Keystore**
