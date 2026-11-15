@@ -465,6 +465,10 @@ public class FridayService extends Service {
         currentTurn = null;
         speakingNow = false;
         spokenText = "";
+        // Ne pas attendre la fermeture réseau avant de stopper l'audio.
+        synchronized (ttsControlLock) {
+            if (tts != null) { try { tts.stop(); } catch (Exception ignored) { } }
+        }
         if (previous != null) previous.cancel();
         // Ne pas couper le micro en mode « une question » lorsque l'utilisateur
         // vient d'interrompre : il doit pouvoir formuler sa précision.
@@ -473,9 +477,6 @@ public class FridayService extends Service {
         if (!latestQuestion.isEmpty()) {
             clarificationAnchor = latestQuestion;
             clarificationUntil = SystemClock.elapsedRealtime() + 60_000L;
-        }
-        synchronized (ttsControlLock) {
-            if (tts != null) { try { tts.stop(); } catch (Exception ignored) { } }
         }
         wakeArmed = true;
         lastReplyAt = SystemClock.elapsedRealtime();
