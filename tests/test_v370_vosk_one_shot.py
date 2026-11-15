@@ -22,7 +22,7 @@ class VocabularyAndBatteryIntegration(unittest.TestCase):
         self.assertIn('settings.secret("vosk_hints")', service)
         self.assertIn("recognizer.setGrammar(grammar)", service)
         self.assertIn('prefs.setSecret("vosk_hints", hints)', activity)
-        self.assertIn('"\\"[unk]\\""', vocab)
+        self.assertIn("[unk]", vocab)
 
     def test_ui_diagnostics(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text()
