@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import android.util.Log;
 import android.os.SystemClock;
 
-/** Service réellement indépendant du WebView : micro Vosk 16 kHz, Mistral et TTS écran éteint. */
+/** Service réellement indépendant du WebView : micro Vosk 16 kHz, DeepSeek et TTS écran éteint. */
 public class FridayService extends Service {
     public static final String ACTION_START = "fr.friday.assistant.START";
     public static final String ACTION_STOP = "fr.friday.assistant.STOP";
@@ -44,7 +44,7 @@ public class FridayService extends Service {
     private volatile long lastReplyAt = 0;
     private int silenceMs = 2100;
     private long followupMs = 75000;
-    private volatile boolean wakeArmed = false;  // shared with the Mistral response thread
+    private volatile boolean wakeArmed = false;  // shared with the DeepSeek response thread
     private volatile long bargePendingUntil = 0;
     private volatile long lastSpeechEndedAt = 0;
     private volatile String spokenText = "";
@@ -64,12 +64,10 @@ public class FridayService extends Service {
     public static boolean isMicSilenced() { return micSilenced; }
     private static final class ResponseTurn {
         final NativeAI.CancelToken api = new NativeAI.CancelToken();
-        final MistralVoice.Playback audio = new MistralVoice.Playback();
         volatile Thread thread;
         volatile boolean cancelled;
         void cancel() {
             cancelled = true;
-            audio.cancel(); // Couper le haut-parleur avant la fermeture éventuelle du réseau.
             api.cancel();
             Thread t = thread;
             if (t != null) t.interrupt();
@@ -195,7 +193,7 @@ public class FridayService extends Service {
         try { return new JSONObject(json).optString(key, "").trim(); }
         catch (Exception ignored) { return ""; }
     }
-    /** Capture Vosk continue pendant les appels Mistral et la lecture audio. */
+    /** Capture Vosk continue pendant les appels DeepSeek et la lecture audio. */
     private void runLoop() {
         try (Model model = new Model(ModelInstaller.modelDir(this).getAbsolutePath())) {
             event("status", "Reconnaissance française prête : vous pouvez interrompre les réponses avec « Friday stop ». ");
@@ -430,7 +428,7 @@ public class FridayService extends Service {
         final String request = question;
         ResponseTurn turn = new ResponseTurn();
         currentTurn = turn;
-        Thread task = new Thread(() -> answerTurn(request, turn), "friday-mistral-response");
+        Thread task = new Thread(() -> answerTurn(request, turn), "friday-deepseek-response");
         turn.thread = task;
         task.start();
     }
@@ -439,33 +437,11 @@ public class FridayService extends Service {
         boolean memoryAction = MemoryIntent.kind(question) != MemoryIntent.NONE;
         try {
             if (!memoryAction && live(turn)) event("user", question);
-            if (live(turn)) event("status", memoryAction ? "Commande mémoire locale…" : "Réflexion Mistral… Vous pouvez m'interrompre.");
+            if (live(turn)) event("status", memoryAction ? "Commande mémoire locale…" : "Réflexion DeepSeek… Vous pouvez m'interrompre.");
             String local = PersonalMemory.command(settings, question);
             if (local == null) local = PythonBrain.localAnswer(question);
             if (local == null) local = deviceAnswer(question);
             String locationForApi = null;
-            if (local == null && NearbyIntent.wantsPlaces(question)) {
-                if (!"1".equals(settings.get("location_enabled", "0")) || !FridayLocation.hasPermission(this)) {
-                    local = "Activez le GPS Android et autorisez la localisation pour analyser les alentours.";
-                } else {
-                    if (live(turn)) event("location", "Mesure GPS ponctuelle…");
-                    FridayLocation.Fix fix = FridayLocation.locate(this);
-                    if (!live(turn)) return;
-                    if (fix == null) local = "Je n'ai pas obtenu de position GPS récente. Réessayez à l'extérieur.";
-                    else if (!"1".equals(settings.get("location_share", "0")))
-                        local = fix.forUser() + " Autorisez le partage GPS avec Mistral pour la recherche Web.";
-                    else if (!WebPolicy.enabled(settings.get("web_mode", "off")))
-                        local = "Activez la recherche Web de Mistral pour analyser les alentours.";
-                    else {
-                        String place = "1".equals(settings.get("address_lookup", "0")) ? AndroidPlaceResolver.resolve(this, fix) : "";
-                        locationForApi = fix.forAi() + (place.isEmpty() ? "" : "\nLieu estimé par Android : " + place) +
-                            "\nRECHERCHE_ALENTOURS_WEB : Vérifie les sources Web récentes pour " +
-                            NearbyIntent.categoryForSearch(question) + ", rayon indicatif 800 m. " +
-                            "Ne fabrique pas les commerces, distances, horaires ni adresses. " +
-                            "GPS avec incertitude +/-" + Math.round(fix.accuracy) + " m.";
-                    }
-                }
-            }
             if (local == null && locationForApi == null && LocationIntent.nearby(question)) {
                 if (!"1".equals(settings.get("location_enabled", "0")) || !FridayLocation.hasPermission(this))
                     local = "Activez la localisation Android dans les réglages pour obtenir votre position.";
@@ -475,21 +451,21 @@ public class FridayService extends Service {
                     if (fix == null) local = "Position GPS indisponible. Vérifiez le GPS et réessayez.";
                     else if (LocationIntent.direct(question)) {
                         String place = "1".equals(settings.get("address_lookup", "0")) ? AndroidPlaceResolver.resolve(this, fix) : "";
-                        boolean web = WebPolicy.enabled(settings.get("web_mode", "off"));
+                        boolean web = false;
                         if (place.isEmpty() && "1".equals(settings.get("location_share", "0")) && web)
                             locationForApi = fix.forAi() + "\nRECHERCHE_ALENTOURS_WEB : Trouve le nom de la commune avec une source. N'invente pas la rue.";
                         else local = AndroidPlaceResolver.userText(fix, place);
                     } else if ("1".equals(settings.get("location_share", "0"))) {
                         String place = "1".equals(settings.get("address_lookup", "0")) ? AndroidPlaceResolver.resolve(this, fix) : "";
                         locationForApi = fix.forAi() + (place.isEmpty() ? "" : "\nAdresse approximative Android : " + place);
-                    } else local = "La position GPS est disponible, mais le partage avec Mistral est désactivé.";
+                    } else local = "La position GPS est disponible, mais le partage avec DeepSeek est désactivé.";
                 }
             }
             if (!live(turn)) return;
             String answer = local != null ? local : NativeAI.answer(settings, PythonBrain.prepareQuestion(question),
                 historySnapshot(), locationForApi, turn.api);
             if (!live(turn)) return;
-            boolean privateLocation = LocationIntent.nearby(question) || NearbyIntent.wantsPlaces(question);
+            boolean privateLocation = LocationIntent.nearby(question);
             if (!privateLocation && !memoryAction) {
                 addHistory("user", question); addHistory("assistant", answer);
             }
@@ -594,16 +570,6 @@ public class FridayService extends Service {
         if (!"1".equals(settings.get("voice_enabled", "1"))) {
             event("error", "Réponse reçue en texte, mais « Répondre à voix haute » est désactivé.");
             return false;
-        }
-        if (MistralVoice.enabled(this, settings)) {
-            try {
-                event("tts", "Génération de la voix clonée Mistral Voxtral…");
-                MistralVoice.speak(getApplicationContext(), settings, text, () -> live(turn), turn.audio);
-                return live(turn);
-            } catch (Exception ex) {
-                if (!live(turn)) return false; // Interrompu : ne PAS relancer une autre voix.
-                event("error", "Voix clonée indisponible : " + ex.getMessage() + " · repli Android.");
-            }
         }
         if (tts == null || !ttsReady) {
             event("error", "Réponse reçue, mais TTS Android indisponible : " + ttsDiagnostic);
