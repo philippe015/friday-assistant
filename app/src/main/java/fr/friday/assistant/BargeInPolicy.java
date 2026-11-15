@@ -18,6 +18,37 @@ public final class BargeInPolicy {
         String s = VoiceText.normalize(VoiceText.withoutWakeWord(phrase)).replaceAll("[.,!?;:]", " ").trim();
         return s.matches("(stop|stoppe|arrete|tais toi|silence|pause|attends|arrete de parler|coupe la voix|interromps|interromps toi|stop la reponse|arrete la reponse)(\\s.*)?");
     }
+    /**
+     * Commande courte utilisable SANS « Friday » uniquement pendant une réponse.
+     * Jamais interprétée comme une question générale ni comme un arrêt du micro.
+     */
+    public static boolean isBareStopAnswer(String phrase) {
+        if (startsWithWake(phrase)) return false;
+        String s = VoiceText.normalize(phrase)
+                .replaceAll("[^a-z0-9 ]+", " ").replaceAll("\\s+", " ").trim();
+        return s.matches("(stop|stoppe|arrete|tais toi|silence|pause|attends|"
+                + "arrete de parler|coupe la voix|stop la reponse|arrete la reponse)"
+                + "(?: s il te plait)?");
+    }
+
+    /** Filtre d'écho : le mot prononcé par FRIDAY ne doit pas arrêter FRIDAY. */
+    private static boolean repeatsCurrentSpeech(String phrase, String assistantSpeech) {
+        String s = VoiceText.normalize(phrase)
+                .replaceAll("[^a-z0-9 ]+", " ").replaceAll("\\s+", " ").trim();
+        String a = VoiceText.normalize(assistantSpeech)
+                .replaceAll("[^a-z0-9 ]+", " ").replaceAll("\\s+", " ").trim();
+        return !s.isEmpty() && (" " + a + " ").contains(" " + s + " ");
+    }
+
+    /** Commandes courtes directes ; le micro reste actif jusqu'à la fin du dialogue. */
+    public static boolean explicitControlWhileSpeaking(String phrase, String assistantSpeech) {
+        if (isBareStopAnswer(phrase) ||
+                (!startsWithWake(phrase) && wantsToAddDetails(phrase))) {
+            return !repeatsCurrentSpeech(phrase, assistantSpeech);
+        }
+        return false;
+    }
+
     /** L'utilisateur veut ajouter un contexte, pas couper définitivement la réponse. */
     public static boolean wantsToAddDetails(String phrase) {
         String s = VoiceText.normalize(VoiceText.withoutWakeWord(phrase))
@@ -35,7 +66,11 @@ public final class BargeInPolicy {
         if (s.isEmpty()) return false;
         return s.matches("^(?:et|mais|pour|plutot|non|je voulais dire|je veux dire|"
                 + "en fait|c est|ce serait|au sujet de|a propos de|par rapport a|"
-                + "ma precision|avec|sans|demain|hier|la semaine prochaine)\\b.*")
+                + "ma precision|peux tu preciser|pourrais tu preciser|"
+                + "donne moi plus de precisions|donne plus de precisions|"
+                + "donne plus de details|explique plus|explique davantage|"
+                + "sois plus precis|precise ta reponse|avec|sans|demain|hier|"
+                + "la semaine prochaine)\\b.*")
                 || (s.split(" ").length <= 5
                     && !s.matches("^(?:qui|comment|quelle|quel|pourquoi|qu est ce que)\\b.*"));
     }
@@ -59,6 +94,7 @@ public final class BargeInPolicy {
     }
     /** Au Vosk partiel : arrêt précoce seulement sur commandes explicites ou question assez longue. */
     public static boolean earlyBarge(String partial, String assistantSpeech) {
+        if (explicitControlWhileSpeaking(partial, assistantSpeech)) return true;
         if (!canBarge(partial, assistantSpeech)) return false;
         if (isStopAnswer(partial) || isStopListening(partial) || wantsToAddDetails(partial)) return true;
         String words = VoiceText.withoutWakeWord(partial).trim();

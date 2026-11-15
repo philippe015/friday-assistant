@@ -19,6 +19,13 @@ Ces fonctions sont **prévues**, pas encore livrées. L'IA reste **Mistral uniqu
 
 ---
 
+## Correctifs d'interruption v3.7.1
+
+- « Stop », « Arrête », « Silence », « Pause » ou « Attends » peuvent interrompre une réponse **sans répéter le mot Friday**, uniquement pendant que FRIDAY répond.
+- « J'ai une précision », avec ou sans « Friday », coupe la réponse et garde le micro ouvert pour que l'utilisateur précise sa demande.
+- Le TTS Android est interrompu **avant** d'attendre la déconnexion réseau Mistral ; son démarrage est synchronisé avec l'ordre d'arrêt.
+- Dans le mode « une question », le micro reste ouvert pendant la réponse pour permettre les interruptions puis s'arrête après la fin de la réponse. La compréhension des commandes dépend toutefois de la capture audio et de l'anti-écho réellement disponibles sur l'appareil.
+
 ## Nouveautés v3.5–v3.7
 - v3.5.0 : fiabilité réseau et modèles Mistral.
 - v3.6.0 : streaming SSE et TTS progressif.

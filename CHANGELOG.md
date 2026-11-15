@@ -1,3 +1,12 @@
+## [3.7.1] — Corrections des interruptions vocales
+
+- **« stop » sans « Friday »** : commande courte acceptée pendant une réponse orale. « arrête », « silence », « attends » et « pause » sont également reconnues ; en dehors d'une réponse, le mot-clé reste requis pour les nouvelles demandes.
+- **« j'ai une précision »** sans mot-clé reconnue pendant la réponse ; la génération et la lecture sont annulées et le sujet précédent est conservé pour le complément.
+- **TTS Android** : arrêt vocal prioritaire à la déconnexion HTTP, protection contre la course lecture / arrêt, annulation HTTP indépendante du thread micro.
+- **Mode « une question »** : le micro reste ouvert pendant la lecture de la réponse, puis se ferme après, au lieu de bloquer toute interruption vocale.
+- **Test anti-écho** : filtre contre l'interruption quand le haut-parleur prononce lui-même le mot de commande ; tests Java et d'intégration renforcés.
+- Les fonctions dépendent de la qualité de la reconnaissance Vosk et de l'accès au micro Android. Aucun test sur téléphone réel avec un microphone et le compte Mistral de l'utilisateur n'est revendiqué.
+
 ## [3.7.0] — Vosk spécialisé et écoute ponctuelle
 
 - Nouveau **mode une question** : après une question détectée, arrêt du micro pendant la réponse, puis libération automatique du service et de son wake-lock. Démarrage manuel requis pour la question suivante. Dans ce mode, l'interruption vocale pendant la réponse n'est pas possible ; le bouton Interrompre reste opérationnel.

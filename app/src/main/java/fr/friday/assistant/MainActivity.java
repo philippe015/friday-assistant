@@ -238,13 +238,14 @@ public class MainActivity extends Activity {
                 + "Désactivez cette option si le réseau coupe les flux SSE."));
         config.addView(label("ÉCOUTE ET COMPRÉHENSION · Vosk hors ligne"));
         oneShotEnabled = new CheckBox(this);
-        oneShotEnabled.setText("Mode une question : arrêter automatiquement le micro après la demande");
+        oneShotEnabled.setText("Mode une question : arrêter automatiquement le micro après la réponse");
         oneShotEnabled.setTextColor(Color.WHITE);
         oneShotEnabled.setChecked("1".equals(prefs.get("listen_once", "0")));
         config.addView(oneShotEnabled);
-        config.addView(label("Réduit l'écoute permanente après une demande. Dans ce mode, "
-                + "l'interruption vocale pendant la réponse est désactivée car le micro est coupé ; "
-                + "le bouton Interrompre reste disponible."));
+        config.addView(label("Après la réponse, le microphone s'arrête automatiquement. "
+                + "Pendant que FRIDAY parle, le micro reste actif pour « stop » "
+                + "et « j'ai une précision ». Un casque améliore la reconnaissance "
+                + "des commandes et limite l'écho du haut-parleur."));
         voskHintsEnabled = new CheckBox(this);
         voskHintsEnabled.setText("Vocabulaire Vosk spécialisé (expérimental, sur demande)");
         voskHintsEnabled.setTextColor(Color.WHITE);
