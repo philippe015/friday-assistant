@@ -18,7 +18,7 @@ class StreamingIntegration(unittest.TestCase):
 
     def test_streamed_voice_cancelled(self):
         service = (JAVA / "FridayService.java").read_text()
-        self.assertIn("ArrayBlockingQueue<String>(12)", service)
+        self.assertIn("new ArrayBlockingQueue<>(12)", service)
         self.assertIn("new Thread(() -> {", service)
         self.assertIn("turn.speaker = audio", service)
         self.assertIn("audio.interrupt()", service)
