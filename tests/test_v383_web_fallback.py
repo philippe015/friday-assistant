@@ -29,6 +29,10 @@ class WebAccessV383(unittest.TestCase):
         self.assertIn("httpCode == 400 || httpCode == 404 || httpCode == 422", policy)
         self.assertIn("Outil Web non déclenché", native)
         self.assertIn("Aucun résultat de recherche n'a été obtenu", native)
+        self.assertIn("WebToolPolicy.maySearchPublicAlternatives(reason)", native)
+        self.assertIn("Je n\x27ai pas lu le contenu de cette page", native)
+        self.assertIn("String safeQuestion = question.replaceAll(", native)
+        self.assertIn("Collections.emptyList()", native)
 
     def test_local_memory_and_url_restrictions_remain(self):
         memory = source("PersonalMemory.java")
