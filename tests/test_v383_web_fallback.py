@@ -23,7 +23,7 @@ class WebAccessV383(unittest.TestCase):
         policy = source("WebToolPolicy.java")
         self.assertIn("conversationWithFallback(cfg, key, model, input, history)", native)
         self.assertIn("conversationWithFallback(cfg, key, configuredModel(cfg)", native)
-        self.assertIn("WebToolPolicy.retryWithoutExecution(", native)
+        self.assertIn("if (initial.executed || initial.references > 0)", native)
         self.assertIn("WebToolPolicy.retryRejectedModel(", native)
         self.assertIn("return conversation(cfg, key, DEFAULT_MODEL, question, history)", native)
         self.assertIn("httpCode == 400 || httpCode == 404 || httpCode == 422", policy)
@@ -46,8 +46,8 @@ class WebAccessV383(unittest.TestCase):
 
     def test_version(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertRegex(gradle, r"versionCode (?:66|67|68)")
-        self.assertRegex(gradle, r"versionName '3\.8\.[345]'")
+        self.assertRegex(gradle, r"versionCode (?:66|67|68|69)")
+        self.assertRegex(gradle, r"versionName '3\.8\.[3456]'")
 
 if __name__ == "__main__":
     unittest.main()
