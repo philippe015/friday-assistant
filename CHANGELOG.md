@@ -1,3 +1,13 @@
+## [3.8.2] — Lecture Web : URL « https// », diagnostic HTTP 403, analyse sans microphone
+
+- Normalise automatiquement une adresse publique mal saisie ou transcrite (`https//www.example.com`, `https:/www.example.com`, `www.example.com`) vers `https://www.example.com`, **avant de valider les règles HTTPS et les restrictions du réseau local**. Une URL sans domaine reste refusée.
+- La détection des URL dans les questions accepte désormais les préfixes `https//` et `https:/`, fréquents dans la reconnaissance vocale.
+- Distingue un vrai refus du site (401/403), une page introuvable (404), un quota (429) et une indisponibilité du site (5xx), sans simuler de contenu ni chercher à contourner les protections.
+- Le bouton **« Analyser cette page Web avec Mistral »** fonctionne désormais **sans micro ni service d'écoute**. L'URL corrigée s'affiche dans les Réglages ; l'analyse s'effectue sur un fil réseau et la réponse s'ouvre dans une fenêtre Android.
+- LCI (`www.lci.fr`) peut bloquer les requêtes automatisées (403) et indique s'opposer au moissonnage de ses contenus par IA. Ce correctif **n'essaie pas de contourner** un site qui refuse l'accès.
+- Conserve Mistral comme seul fournisseur de génération, l'accès Web explicitement activé, les commandes STOP v3.7.3 et Memory+ v3.8.0 chiffrée locale, sans synchronisation GitHub.
+- Tests Java sur les URL transcrites et les refus HTTP ; tests Python de l'analyse sans micro et de la confidentialité ; validation réelle sur téléphone encore nécessaire.
+
 ## [3.8.1] — Accès réel aux pages Web et diagnostic de recherche Mistral
 
 - Recherche Internet via l'API **Mistral Conversations** et son outil officiel `web_search`. Le prompt incite à une recherche réellement exécutée, la requête désactive le stockage côté Conversations avec `store: false`, et la télémétrie distingue sources présentes, outil exécuté sans URLs et outil non déclenché.

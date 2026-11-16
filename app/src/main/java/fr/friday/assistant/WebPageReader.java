@@ -34,11 +34,21 @@ public final class WebPageReader {
         }
     }
 
+    /** Répare uniquement les erreurs triviales de préfixe : https//, https:/ et www. */
+    public static String normalizeUrlInput(String value) {
+        if (value == null) return "";
+        String url = value.trim();
+        if (url.matches("(?is)^https\\s*:?/{1,2}.*"))
+            return url.replaceFirst("(?i)^https\\s*:?/{1,2}", "https://");
+        if (url.matches("(?i)^www\\.[a-z0-9].*")) return "https://" + url;
+        return url;
+    }
+
     /** Validation syntaxique testable hors réseau. La résolution DNS est vérifiée juste avant la lecture. */
     public static URI checkedUri(String url) throws Exception {
         if (url == null || url.isEmpty() || url.length() > 2048)
             throw new IllegalArgumentException("Adresse Web absente ou trop longue.");
-        URI uri = new URI(url);
+        URI uri = new URI(normalizeUrlInput(url));
         if (!"https".equalsIgnoreCase(uri.getScheme()))
             throw new IllegalArgumentException("Seules les pages HTTPS publiques sont autorisées.");
         if (uri.getRawUserInfo() != null || uri.getFragment() != null)
@@ -85,6 +95,19 @@ public final class WebPageReader {
         }
     }
 
+    /** Explique le code HTTP sans suggérer de contourner les restrictions du site. */
+    public static String explainHttpStatus(int status) {
+        if (status == 401 || status == 403)
+            return "Accès refusé par le site (HTTP " + status
+                    + "). FRIDAY ne peut pas lire cette page automatiquement.";
+        if (status == 404) return "Page introuvable sur le site (HTTP 404).";
+        if (status == 429)
+            return "Le site limite les accès automatisés (HTTP 429).";
+        if (status >= 500)
+            return "Le site est momentanément indisponible (HTTP " + status + ").";
+        return "La page répond HTTP " + status + ".";
+    }
+
     /** Content fetched directly from a PUBLIC HTTPS website, never a user's local app. */
     public static Page read(String url) throws Exception {
         URI target = checkedUri(url);
@@ -98,7 +121,7 @@ public final class WebPageReader {
             conn.setUseCaches(false);
             conn.setRequestProperty("Accept", "text/html, application/xhtml+xml, text/plain");
             conn.setRequestProperty("Accept-Encoding", "identity");
-            conn.setRequestProperty("User-Agent", "FRIDAY-Reader/3.8.1 (public HTTPS page)");
+            conn.setRequestProperty("User-Agent", "FRIDAY-Reader/3.8.2 (public HTTPS page)");
             try {
                 int code = conn.getResponseCode();
                 if (code >= 300 && code <= 308) {
@@ -109,7 +132,7 @@ public final class WebPageReader {
                     continue;
                 }
                 if (code != 200)
-                    throw new IllegalArgumentException("La page répond HTTP " + code + ".");
+                    throw new IllegalArgumentException(explainHttpStatus(code));
                 String ct = conn.getContentType();
                 String type = ct == null ? "" : ct.toLowerCase(Locale.ROOT);
                 if (!(type.startsWith("text/html") || type.startsWith("text/plain")

@@ -1,3 +1,11 @@
+## FRIDAY Web v3.8.2 — Dépannage des pages inaccessibles
+
+Dans **Réglages > Recherche Web**, la lecture d'une page HTTPS publique ne nécessite plus de démarrer le microphone. Saisissez `https://www.example.com/` et cliquez sur **Analyser cette page Web avec Mistral**. FRIDAY corrige également `https//` et `https:/` en `https://` quand un domaine est fourni.
+
+Un message **HTTP 403** indique que **le site refuse l'accès automatisé**, et non nécessairement que la clé Mistral est invalide. FRIDAY n'affirme pas avoir lu une page bloquée et ne contourne pas ses restrictions. Si besoin, poser une **nouvelle demande de recherche Web sur le sujet** avec des sources accessibles via l'outil Mistral, ou consulter le site dans son navigateur.
+
+La récupération d'une page publique est distincte de l'outil `web_search` de Mistral ; testez les deux fonctionnalités séparément dans Réglages. Memory+ reste locale et chiffrée ; aucune donnée personnelle n'est synchronisée vers GitHub.
+
 ## FRIDAY v3.8.1 — Web réellement vérifié
 
 La recherche Web utilise **Mistral Conversations / web_search** (pas Chat Completions). Dans Réglages, « Activer et tester la recherche Web Mistral » réalise un véritable essai avec la clé API enregistrée ; un échec est visible dans l'interface. Une recherche demandée explicitement ne doit pas être présentée comme accomplie si l'outil n'a pas été appelé.

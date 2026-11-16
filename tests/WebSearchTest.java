@@ -40,6 +40,14 @@ public final class WebSearchTest {
         check(WebSearch.firstUrl("Lis https://example.org/news?id=12.").equals("https://example.org/news?id=12"),
                 "Extraction URL");
         check(WebSearch.firstUrl("aucune URL").isEmpty(), "URL inventée");
+        check(WebSearch.firstUrl("Analyse la page https//www.lci.fr/").equals(
+                "https://www.lci.fr/"), "HTTPS oral dépourvu de deux-points");
+        check(WebSearch.firstUrl("Analyse la page https:/www.lci.fr/").equals(
+                "https://www.lci.fr/"), "HTTPS oral avec un seul slash");
+        check(WebSearch.firstUrl("Analyse www.lci.fr/").equals(
+                "https://www.lci.fr/"), "URL www sans schéma");
+        check(WebSearch.needsWeb("Analyse https//www.lci.fr/"),
+                "détection du Web avec HTTPS oral imparfait");
 
         StringBuilder longPrior = new StringBuilder();
         for (int i = 0; i < 100; i++) longPrior.append("actualité ");

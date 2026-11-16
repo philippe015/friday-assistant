@@ -42,10 +42,15 @@ class WebAccessRegression(unittest.TestCase):
         self.assertIn("private void testHttpsPage()", ui)
         self.assertIn('prefs.get("web_enabled", "1")', ui)
         gradle = (ROOT / "app/build.gradle").read_text()
-        self.assertIn("versionCode 64", gradle)
-        self.assertIn("versionName '3.8.1'", gradle)
+        import re
+        code = re.search(r"versionCode (\d+)", gradle)
+        self.assertIsNotNone(code)
+        self.assertGreaterEqual(int(code.group(1)), 64)
+        version = re.search(r"versionName '(\d+)\.(\d+)\.(\d+)'", gradle)
+        self.assertIsNotNone(version)
+        self.assertGreaterEqual(tuple(map(int, version.groups())), (3, 8, 1))
         html = (ROOT / "app/src/main/assets/index.html").read_text()
-        self.assertIn("v3.8.1", html)
+        self.assertIn("v" + ".".join(version.groups()), html)
 
     def test_memory_privacy_preserved(self):
         native = src("NativeAI.java")

@@ -10,7 +10,7 @@ import java.util.regex.Pattern;
  * Sans dépendance Android : testable par javac et utilisable hors connexion.
  */
 public final class WebSearch {
-    private static final Pattern URL = Pattern.compile("https?://[^\\s<>\"']+", Pattern.CASE_INSENSITIVE);
+    private static final Pattern URL = Pattern.compile("(?<![a-zA-Z0-9])(?:https?\\s*:?/{1,2}|www\\.)[^\\s<>\"']+", Pattern.CASE_INSENSITIVE);
     private static final Pattern EXPLICIT = Pattern.compile(
             "\\b(?:cherche|chercher|recherche|rechercher|verifie|verifier|consulte|consulter|trouve|trouver|regarde|regarder|sources?|internet|web|en ligne)\\b");
     private static final Pattern CURRENT = Pattern.compile(
@@ -45,7 +45,8 @@ public final class WebSearch {
     public static String firstUrl(String question) {
         Matcher matcher = URL.matcher(question == null ? "" : question);
         if (!matcher.find()) return "";
-        return matcher.group().replaceAll("[.,;!?)]+$", "");
+        String candidate = matcher.group().replaceAll("[.,;!?)]+$", "");
+        return WebPageReader.normalizeUrlInput(candidate);
     }
 
     public static boolean explicit(String question) {
