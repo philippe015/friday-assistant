@@ -1,3 +1,15 @@
+## [3.8.0] — FRIDAY Memory+ · mémoire locale chiffrée et consentement Mistral
+
+- Capacité de 12 à 200 notes (600 caractères chacune), catégorisées par `[projet]`, `[travail]` ou « Général », avec recherche locale, déduplication, modification/suppression individuelle et marquage de relecture manuelle.
+- Migration des 12 anciennes notes et de l'historique vocal vers un stockage AES-GCM **strict** sous Android Keystore. Les anciennes clés encodées Base64 sans chiffrement sont re-chiffrées avant d'être utilisées, sinon la lecture est refusée.
+- Le Keystore indisponible n'entraîne **aucun repli en clair** ; l'écriture échoue explicitement, sans synchronisation vers GitHub.
+- **Deux autorisations séparées** : activer la mémoire locale et autoriser le partage Mistral de notes pertinentes. La seconde est **désactivée par défaut**. Au maximum 5 notes et 1800 caractères sont ajoutés à une requête lorsqu'un lien lexical avec la question est détecté.
+- Historique des 40 derniers messages vocaux chiffré localement, migration de l'ancien stockage partagé non chiffré, suppression locale contrôlée.
+- Recherche vocale locale (« cherche dans ma mémoire projet ») sans appel au fournisseur IA. La suppression de toute la mémoire exige désormais une confirmation dans les Réglages, pas seulement un ordre vocal.
+- Anciennes fonctions FRIDAY préservées : Mistral uniquement, profils actifs, STOP vocal v3.7.3, streaming, GPS avec consentement.
+- Tests Java des règles Memory+, tests d'intégration statique sécurité, compilation Android CI. Validation réelle de migration Android/Keystore à faire sur appareil.
+- Voir [Politique locale Memory+](docs/PRIVACY_MEMORY_PLUS_V380.md).
+
 ## [3.7.3] — Arrêt vocal répété et diagnostic acoustique
 
 - Résout un cas ignoré par la v3.7.2 : « stop stop », « stop stop stop », « arrête arrête » et mélanges de commandes courtes étaient rejetés par la validation stricte des ordres sans mot-clé.
