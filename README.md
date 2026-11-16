@@ -4,7 +4,7 @@ Dans **Réglages > Recherche Web**, activer **« Activer et tester la recherche 
 
 Si le modèle de dialogue choisi n'exécute pas l'outil, ou s'il est rejeté avec HTTP 400/404/422, FRIDAY essaie **une fois** `mistral-small-latest` pour la recherche, sans changer le modèle préféré pour les conversations. En cas d'erreur HTTP **401**, vérifier la clé Mistral ; **403**, les droits d'accès à l'outil ; **429**, le quota/limite. Changer de modèle ne débloque pas des droits Web manquants. L'accès à certaines fonctions de Mistral peut être facturé.
 
-Pour lire une page publique directement, saisir une adresse `https://` puis choisir **« Analyser cette page Web avec Mistral »**. Aucun microphone n'est nécessaire. Les refus des sites, dont les 403, ne sont pas contournés. FRIDAY indique lorsqu'une page n'a pas pu être lue, sans inventer son contenu.
+Pour lire une page publique directement, saisir une adresse `https://` puis choisir **« Analyser cette page Web avec Mistral »**. Aucun microphone n'est nécessaire. Les refus des sites, dont les 403, ne sont pas contournés. Si possible, FRIDAY recherche à la place des sources publiques alternatives et les distingue explicitement de la page qu'il n'a pas pu lire. Les paramètres de l'URL refusée ne sont pas transmis à cette recherche.
 
 Le profil, les données GPS et les notes privées restent soumis aux permissions existantes ; Memory+ demeure chiffrée sur le téléphone et jamais synchronisée automatiquement vers GitHub.
 
