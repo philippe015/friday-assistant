@@ -50,7 +50,9 @@ public final class WebPageReader {
         if (host.equals("localhost") || host.equals("local") || host.endsWith(".local")
                 || host.endsWith(".lan") || host.endsWith(".internal")
                 || host.endsWith(".home") || host.endsWith(".onion")
-                || host.equals("metadata.google.internal"))
+                || host.equals("metadata.google.internal")
+                || host.matches("^(0|10|127|169\\.254|172\\.(1[6-9]|2[0-9]|3[01])|192\\.168)(\\.|$).*")
+                || host.equals("[::1]") || host.equals("::1"))
             throw new IllegalArgumentException("Adresses du réseau privé non autorisées.");
         return uri;
     }
