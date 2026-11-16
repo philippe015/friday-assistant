@@ -1,3 +1,11 @@
+## FRIDAY v3.8.4 — Anti-écho TTS Android
+
+FRIDAY ne doit plus traiter comme question la voix émise par son propre haut-parleur. Pendant toute réponse (Mistral, streaming ou lecture TTS), le Vosk général est temporairement suspendu. Un décodeur Vosk indépendant conserve la reconnaissance des commandes « STOP », « Arrête » et « J'ai une précision » pendant la réponse, dans les limites acoustiques du téléphone.
+
+Après la fin de la voix, la dictée normale reprend après **2,5 secondes** pour éviter de retranscrire l'écho résiduel. Après un STOP volontaire, ce délai est de **900 ms**. Les nouvelles questions vocales doivent donc être posées après cette courte attente ; le bouton d'interruption et la saisie écrite restent disponibles.
+
+La suppression de l'écho n'est pas une garantie de reconnaissance des commandes STOP sur tous les haut-parleurs. Un casque réduit les retours acoustiques. La mémoire Memory+ reste chiffrée sur le téléphone, sans synchronisation GitHub ; l'accès Web Mistral v3.8.3 est conservé.
+
 ## FRIDAY Web v3.8.3 — Recherche Internet mieux diagnostiquée
 
 Dans **Réglages > Recherche Web**, activer **« Activer et tester la recherche Web Mistral »**. La recherche passe par l'API Mistral **Conversations** et son outil officiel `web_search` (pas Chat Completions). Le bouton ne confirme un succès que si l'API fournit une URL source.

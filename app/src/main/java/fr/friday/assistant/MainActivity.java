@@ -235,7 +235,7 @@ public class MainActivity extends Activity {
         bargeEnabled.setTextColor(Color.WHITE);
         bargeEnabled.setChecked("1".equals(prefs.get("barge_in_enabled", "1")));
         config.addView(bargeEnabled);
-        config.addView(label("Le décodeur de commandes STOP fonctionne séparément de la dictée. Si Android coupe le microphone ou si le haut-parleur couvre votre voix, la commande peut échouer. Le bouton Interrompre reste disponible."));
+        config.addView(label("Anti-écho v3.8.4 : la dictée générale Vosk est suspendue pendant les réponses et 2,5 secondes après. Le micro reste disponible pour les commandes STOP et précision grâce au décodeur séparé. Posez une nouvelle question après cette courte pause. Si Android bloque le micro, utilisez le bouton Interrompre."));
         config.addView(label("VITESSE VOCALE · 100 = normale (70 à 150)"));
         ttsInput = field("100", false);
         ttsInput.setInputType(InputType.TYPE_CLASS_NUMBER);

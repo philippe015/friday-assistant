@@ -56,6 +56,8 @@ public class FridayService extends Service {
     private volatile boolean wakeArmed = false;  // shared with the Mistral response thread
     private volatile long bargePendingUntil = 0;
     private volatile long lastSpeechEndedAt = 0;
+    /** Protège la dictée normale des derniers sons TTS, même après la fin du tour. */
+    private volatile long echoBlockUntil = 0;
     private volatile String spokenText = "";
     private volatile String latestQuestion = "";
     private volatile String clarificationAnchor = "";
@@ -241,7 +243,7 @@ public class FridayService extends Service {
     /** Capture Vosk continue pendant les appels Mistral et la lecture audio. */
     private void runLoop() {
         try (Model model = new Model(ModelInstaller.modelDir(this).getAbsolutePath())) {
-            event("status", "Reconnaissance française prête : vous pouvez interrompre les réponses avec « Friday stop ». ");
+            event("status", "Reconnaissance française prête. Pendant une réponse, STOP et les précisions restent disponibles ; les nouvelles questions reprennent après la voix.");
             // Ne pas bloquer 15 secondes le micro en attendant le moteur TTS Android.
             new Thread(this::initTts, "friday-tts-setup").start();
             int consecutiveErrors = 0;
@@ -313,6 +315,7 @@ public class FridayService extends Service {
                     int confidenceCount = 0;
                     boolean earlyCancelled = false;
                     boolean sawSpeakerFeedback = false;
+                    boolean generalInputBlocked = false;
                     while (running) {
                         // Une question : écoute active PENDANT la réponse pour permettre
                         // « stop » et « j'ai une précision ». Fermeture APRÈS la réponse.
@@ -430,6 +433,34 @@ public class FridayService extends Service {
                             stopRecognizer.close(); stopRecognizer = null; stopSpotter.reset();
                             if (bargeEnabled) interruptDiagnostics = "Micro actif · prêt";
                         }
+                        // Le Vosk général ne doit JAMAIS écouter les phrases prononcées
+                        // par FRIDAY. Seul le décodeur STOP ci-dessus traite le PCM
+                        // pendant le tour, et pendant l'écho résiduel la dictée est muette.
+                        // Une transition force une nouvelle instance Vosk pour ne pas
+                        // garder une transcription partielle des haut-parleurs.
+                        long asrNow = SystemClock.elapsedRealtime();
+                        boolean blocked = TtsEchoGate.suppressGeneralAsr(
+                                currentTurn != null, asrNow, echoBlockUntil);
+                        if (blocked) {
+                            if (!generalInputBlocked) {
+                                generalInputBlocked = true;
+                                recognizer.close(); recognizer = createRecognizer(model);
+                                completed = interim = ""; lastVoice = 0;
+                                confidenceSum = 0; confidenceCount = 0;
+                                earlyCancelled = false; sawSpeakerFeedback = false;
+                                event("barge_diag", "Protection anti-écho : dictée suspendue · STOP actif pendant la réponse");
+                            }
+                            continue;
+                        }
+                        if (generalInputBlocked) {
+                            // Ne jamais rouvrir une session Vosk avec un reliquat du TTS.
+                            recognizer.close(); recognizer = createRecognizer(model);
+                            completed = interim = ""; lastVoice = 0;
+                            confidenceSum = 0; confidenceCount = 0;
+                            earlyCancelled = false; sawSpeakerFeedback = false;
+                            generalInputBlocked = false;
+                            event("barge_diag", "Protection anti-écho : dictée rouverte · questions autorisées");
+                        }
                         boolean endpoint = recognizer.acceptWaveForm(buffer, count);
                         long now = SystemClock.elapsedRealtime();
                         if (endpoint) {
@@ -540,6 +571,11 @@ public class FridayService extends Service {
     /** Rend le micro disponible immédiatement après une interruption. */
     private synchronized void interruptResponse(String status) {
         ResponseTurn previous = currentTurn;
+        // Bloque les fragments audio du TTS arrêtés à la dernière seconde :
+        // l'ordre STOP demeure possible via le décodeur indépendant.
+        long stoppedAt = SystemClock.elapsedRealtime();
+        echoBlockUntil = TtsEchoGate.afterStop(stoppedAt);
+        lastSpeechEndedAt = stoppedAt;
         currentTurn = null;
         speakingNow = false;
         spokenText = "";
@@ -744,24 +780,30 @@ public class FridayService extends Service {
             if (!turn.streamedVoice) {
                 spokenText = answer;
                 speakingNow = true;
-                event("status", "Réponse vocale en cours. Dites « Friday stop » ou posez une autre question.");
+                event("status", "Réponse vocale en cours. Dites « STOP » pour interrompre ; attendez la fin pour une nouvelle question.");
             }
             boolean spoken = turn.streamedVoice ? turn.streamingVoiceSucceeded : speak(answer, turn);
             if (!live(turn)) return;
             lastReplyAt = SystemClock.elapsedRealtime();
-            if (spoken) event("status", "Réponse terminée. Je reste à l'écoute pour une précision.");
+            if (spoken) event("status", "Réponse terminée. Protection anti-écho active brièvement avant la prochaine question.");
         } catch (Exception ex) {
             if (live(turn)) {
                 event("error", "Réponse indisponible : " + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
             }
         } finally {
             if (currentTurn == turn) {
-                currentTurn = null;
+                // Publier le délai AVANT de libérer le tour : le thread microphone
+                // n'a jamais de fenêtre où le PCM du haut-parleur rejoint Vosk.
                 boolean hadSpoken = speakingNow;
+                long finishedAt = SystemClock.elapsedRealtime();
+                if (hadSpoken) {
+                    lastSpeechEndedAt = finishedAt;
+                    echoBlockUntil = TtsEchoGate.afterVoice(finishedAt);
+                }
+                currentTurn = null;
                 speakingNow = false;
                 spokenText = "";
-                lastReplyAt = SystemClock.elapsedRealtime();
-                if (hadSpoken) lastSpeechEndedAt = lastReplyAt;
+                lastReplyAt = finishedAt;
             }
         }
     }
