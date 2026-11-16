@@ -1,0 +1,69 @@
+name: Publish FRIDAY v3.8.0
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-v3.8.0.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout v3.8.0
+        uses: actions/checkout@v4
+
+      - name: Validate app version
+        run: |
+          set -euo pipefail
+          grep -Fq "versionCode 63" app/build.gradle
+          grep -Fq "versionName '3.8.0'" app/build.gradle
+
+      - name: Wait for signed APK build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run watch 43806644642 --repo "$GITHUB_REPOSITORY" --exit-status --interval 10
+
+      - name: Download and verify signed APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 43806644642 --repo "$GITHUB_REPOSITORY" \
+            --name FRIDAY-release-signed-apk --dir dist
+          test -s dist/app-release.apk
+          unzip -tq dist/app-release.apk
+          mv dist/app-release.apk dist/FRIDAY-v3.8.0-release.apk
+          sha256sum dist/FRIDAY-v3.8.0-release.apk
+
+      - name: Tag version v3.8.0
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v3.8.0" >/dev/null 2>&1; then
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref='refs/tags/v3.8.0' -f sha="$GITHUB_SHA"
+          fi
+
+      - name: Publish official signed release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view v3.8.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload v3.8.0 dist/FRIDAY-v3.8.0-release.apk \
+              --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create v3.8.0 dist/FRIDAY-v3.8.0-release.apk \
+              --repo "$GITHUB_REPOSITORY" --verify-tag \
+              --title "F.R.I.D.A.Y. v3.8.0 - Memory+ locale et chiffrée" \
+              --notes "FRIDAY Memory+ v3.8.0 : 200 notes locales de 600 caracteres, categories, recherche et gestion individuelle, migration verifiee des 12 anciennes notes, stockage AES-GCM strict Android Keystore, aucun repli Base64 non chiffre. Historique vocal chiffre en local avec migration. Deux consentements distincts : memoire locale et partage de notes pertinentes a Mistral desactive par defaut (5 notes maximum et 1800 caracteres). Pas de synchronisation GitHub des donnees personnelles, aucune donnee utilisateur incluse dans cette release. VersionCode 63. Tests CI et compilation Android reussis. Migration et chiffrement a confirmer sur un telephone reel."
+          fi
+          gh release view v3.8.0 --repo "$GITHUB_REPOSITORY" --json url,assets
