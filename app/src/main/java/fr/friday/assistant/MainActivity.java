@@ -87,6 +87,14 @@ public class MainActivity extends Activity {
             prefs.put("provider", "mistral");
             prefs.put("mistral_only_v330", "1");
         }
+        // L'utilisateur a demandé l'accès Web systématique : migration unique
+        // des réglages des anciennes versions, sans toucher à la clé Mistral.
+        // Les modifications explicites faites ensuite restent respectées.
+        if (!"1".equals(prefs.get("web_always_default_v386", "0"))) {
+            prefs.put("web_enabled", "1");
+            prefs.put("web_mode", "always");
+            prefs.put("web_always_default_v386", "1");
+        }
         // Supprime une éventuelle ancienne clé Google Places, désormais inutilisée.
         try { prefs.setSecret("places", ""); } catch (Exception ignored) {}
         buildUi();
@@ -178,15 +186,17 @@ public class MainActivity extends Activity {
         webEnabled.setChecked("1".equals(prefs.get("web_enabled", "1")));
         config.addView(webEnabled);
         webAlways = new CheckBox(this);
-        webAlways.setText("Mode Toujours : tenter une recherche Internet à chaque question (peut être facturé)");
+        webAlways.setText("Recherche Internet TOUJOURS active pour Mistral (par défaut ; peut être facturée)");
         webAlways.setTextColor(Color.WHITE);
-        webAlways.setChecked("always".equals(prefs.get("web_mode", "auto")));
+        webAlways.setChecked("always".equals(prefs.get("web_mode", "always")));
         config.addView(webAlways);
-        config.addView(label("Mode Automatique (case désactivée) : recherche uniquement quand la question le nécessite. "
-                + "Mode Toujours : demande l'outil Web à chaque question envoyée à Mistral, "
-                + "sans pouvoir garantir que le compte ou le modèle l'exécutera."));
+        config.addView(label("Par défaut, FRIDAY tente une recherche Internet à chaque question envoyée à Mistral. "
+                + "Les réponses purement locales ne nécessitent pas de réseau. "
+                + "Décochez seulement pour revenir au mode Automatique. "
+                + "Mistral peut ne pas exécuter web_search ; FRIDAY le signalera. "
+                + "Chaque tentative peut coûter des crédits API."));
         config.addView(button("🌐 Activer et tester la recherche Web Mistral", this::enableAndTestWeb));
-        webDiagnosticLabel = label(prefs.get("web_last_status",
+        webDiagnosticLabel = label(prefs.get("web_last_test_status",
                 "Aucun test Web effectué. Appuyez sur le bouton pour connaître le résultat réel."));
         webDiagnosticLabel.setTextColor(Color.rgb(255, 228, 143));
         webDiagnosticLabel.setTextSize(14);
@@ -526,7 +536,7 @@ public class MainActivity extends Activity {
                 + "et de l'outil web_search. Un appel peut durer plusieurs dizaines de secondes.";
         webDiagnosticLabel.setText(pending);
         status.setText(pending);
-        prefs.put("web_last_status", pending);
+        prefs.put("web_last_test_status", pending);
         AlertDialog progress = new AlertDialog.Builder(this)
                 .setTitle("FRIDAY · diagnostic Internet")
                 .setMessage(pending)
@@ -542,7 +552,7 @@ public class MainActivity extends Activity {
             final String detail = result;
             final boolean verified = detail.startsWith("Recherche Web Mistral opérationnelle");
             prefs.put("web_verified", verified ? "1" : "0");
-            prefs.put("web_last_status", detail);
+            prefs.put("web_last_test_status", detail);
             webTestRunning.set(false);
             runOnUiThread(() -> {
                 if (isFinishing() || isDestroyed()) return;
@@ -1038,10 +1048,14 @@ public class MainActivity extends Activity {
     private String webTelemetry() {
         if (!"1".equals(prefs.get("web_enabled", "1"))) return "Désactivée";
         if (!prefs.hasSecret("mistral")) return "Clé Mistral absente";
-        String state = "1".equals(prefs.get("web_verified", "0"))
-                ? "Activée · testée" : "Activée · non testée";
+        String state = "always".equals(prefs.get("web_mode", "always"))
+                ? "Mode Toujours · Web demandé pour chaque question Mistral"
+                : "Mode Automatique";
+        String test = "1".equals(prefs.get("web_verified", "0"))
+                ? "Test connexion OK" : "Test connexion non confirmé";
         String recent = prefs.get("web_last_status", "");
-        return recent.isEmpty() ? state : state + " · " + recent;
+        return state + " · " + test +
+                (recent.isEmpty() ? "" : " · Dernière réponse : " + recent);
     }
     private String gpsTelemetry() {
         if (!"1".equals(prefs.get("location_enabled", "0"))) return "Désactivé";
