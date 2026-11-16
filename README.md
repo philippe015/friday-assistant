@@ -1,3 +1,13 @@
+## FRIDAY v3.8.6 — Accès Internet activé par défaut
+
+FRIDAY propose désormais automatiquement **Recherche Web activée + Mode Toujours** après installation ou migration depuis les anciennes versions. Chaque **question non locale envoyée à Mistral** demande l'outil officiel `web_search` via l'API Conversations. S'il ne s'exécute pas au premier essai, l'application effectue au plus **une deuxième tentative** ciblée avec `mistral-small-latest`. Le résultat indique clairement si des sources ont réellement été obtenues.
+
+La clé API Mistral déjà enregistrée est conservée. Les droits du compte, les quotas, la connexion Wi-Fi/données et les refus de certains sites restent applicables. L'option Toujours peut consommer davantage de crédits Mistral. FRIDAY n'effectue **pas de navigation permanente en arrière-plan** : Internet est utilisé lorsqu'une demande est envoyée. Une réponse sur l'heure ou une commande locale peut rester hors ligne.
+
+Le diagnostic du bouton Test Web est conservé séparément de l'état de la dernière recherche, pour éviter de confondre « clé capable de rechercher » avec « recherche effectivement exécutée ». Dans Réglages, il reste possible de revenir au mode Automatique en décochant Toujours et d'enregistrer.
+
+Memory+ reste chiffrée uniquement sur le téléphone, sans synchronisation GitHub. Les autorisations de partage GPS sont inchangées et la commande STOP/anti-écho de la v3.8.4 est conservée.
+
 ## FRIDAY v3.8.5 — Tester réellement l'accès Internet
 
 Ouvrir **Réglages → Moteur IA Mistral** puis appuyer sur **« Activer et tester la recherche Web Mistral »**. La fenêtre indique immédiatement « Test en cours », puis affiche le résultat explicite. Une copie du dernier diagnostic reste visible **juste sous le bouton** et dans la télémétrie Web du cockpit.
