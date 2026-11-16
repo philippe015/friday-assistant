@@ -25,7 +25,7 @@ class WebAccessV383(unittest.TestCase):
         self.assertIn("conversationWithFallback(cfg, key, configuredModel(cfg)", native)
         self.assertIn("if (initial.executed || initial.references > 0)", native)
         self.assertIn("WebToolPolicy.retryRejectedModel(", native)
-        self.assertIn("return conversation(cfg, key, DEFAULT_MODEL, question, history)", native)
+        self.assertIn("return conversation(cfg, key, DEFAULT_MODEL, targeted, history)", native)
         self.assertIn("httpCode == 400 || httpCode == 404 || httpCode == 422", policy)
         self.assertIn("Outil Web non déclenché", native)
         self.assertIn("Aucun résultat de recherche n'a été obtenu", native)
