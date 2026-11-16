@@ -14,7 +14,7 @@ class WebAccessRegression(unittest.TestCase):
         self.assertIn('MISTRAL_BASE + "/conversations"', native)
         self.assertIn('new JSONObject().put("type", "web_search")', native)
         self.assertIn('.put("store", false)', native)
-        self.assertIn('Mistral n\\x27a pas effectué de recherche Web', native)
+        self.assertIn("Mistral n'a pas effectué de recherche Web", native)
         self.assertIn("if (WebSearch.explicit(question))", native)
         self.assertIn('cfg.put("web_last_status", "Lecture HTTPS impossible : " + reason)', native)
         self.assertIn('WebPageReader.read(explicitUrl)', native)
