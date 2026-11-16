@@ -17,8 +17,8 @@ class PersonaGpsRegression(unittest.TestCase):
         self.assertIn("PersonalityProfiles.activePrompt(settings)", ai)
         self.assertIn("AssistantIdentity.displayName(profile, prompt)", ai)
         self.assertIn("Mistral est le fournisseur technique", ai)
-        self.assertIn('"instructions", system(cfg)', ai)
-        self.assertIn('"content", system(cfg)', ai)
+        self.assertIn('"instructions", system(cfg, question)', ai)
+        self.assertIn('"content", system(cfg, question)', ai)
 
     def test_location_forwarded_on_direct_requests_with_consent(self):
         service = source("FridayService.java")

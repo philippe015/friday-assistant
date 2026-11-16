@@ -203,14 +203,12 @@ public class FridayService extends Service {
         msg.putExtra("text", value);
         if (kind.equals("user") || kind.equals("assistant")) {
             try {
-                android.content.SharedPreferences sp = getSharedPreferences("friday_voice_history", MODE_PRIVATE);
-                long seq = sp.getLong("seq", 0) + 1;
-                JSONArray list = new JSONArray(sp.getString("events", "[]"));
-                list.put(new JSONObject().put("seq", seq).put("kind", kind).put("text", value));
-                while (list.length() > 40) list.remove(0);
-                sp.edit().putLong("seq", seq).putString("events", list.toString()).apply();
+                long seq = PrivateConversationHistory.append(this, settings, kind, value);
                 msg.putExtra("seq", seq);
-            } catch (Exception ignored) { }
+            } catch (Exception encryptedFailure) {
+                // Jamais de repli sur SharedPreferences en clair, même sans Keystore.
+                Log.w("FRIDAY_PRIVACY", "Historique non enregistré : protection chiffrée indisponible");
+            }
         }
         sendBroadcast(msg);
         if (kind.equals("status") || kind.equals("error")) {

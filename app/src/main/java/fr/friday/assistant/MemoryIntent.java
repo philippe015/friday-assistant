@@ -7,7 +7,7 @@ import java.util.regex.Pattern;
 
 /** Intentions explicites de mémoire. Testable sans Android. */
 public final class MemoryIntent {
-    public static final int NONE = 0, SAVE = 1, READ = 2, CLEAR = 3;
+    public static final int NONE = 0, SAVE = 1, READ = 2, CLEAR = 3, SEARCH = 4;
     private static final Pattern SAVE_PATTERN = Pattern.compile(
         "^(?:retiens|memorise|souviens.toi|garde en memoire|note pour plus tard)\\s+(?:que\\s+)?(.+)$",
         Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
@@ -19,8 +19,13 @@ public final class MemoryIntent {
     public static int kind(String input) {
         String s = normalize(input).replaceAll("[?!.,;:]+$", "").trim();
         if (s.matches(".*(?:efface (?:toute )?ma memoire|oublie toutes mes notes|oublie tout ce que tu as (?:retenu|memorise)).*")) return CLEAR;
+        if (s.matches("^(?:cherche|recherche|retrouve) (?:dans )?(?:ma |mes )?(?:memoire|notes) (?:sur |concernant |a propos de )?.+")) return SEARCH;
         if (s.matches(".*(?:qu.as.tu (?:memorise|retenu)|que (?:sais.tu|te rappelles.tu) de moi|liste (?:mes )?(?:souvenirs|notes)|montre (?:ma )?memoire).*")) return READ;
         return SAVE_PATTERN.matcher(s).matches() ? SAVE : NONE;
+    }
+    public static String searchQuery(String input) {
+        String s = normalize(input).replaceAll("[?!.,;:]+$", "").trim();
+        return s.replaceFirst("^(?:cherche|recherche|retrouve) (?:dans )?(?:ma |mes )?(?:memoire|notes) (?:sur |concernant |a propos de )?", "").trim();
     }
     public static String fact(String input) {
         if (input == null) return "";

@@ -16,9 +16,9 @@ import javax.crypto.spec.GCMParameterSpec;
 /**
  * Stockage des clés API : chiffrement AES-GCM via Android Keystore.
  *
- * Repli : si le Keystore de l'appareil est indisponible (erreur matérielle,
- * profil de travail, appareil cloné…), la valeur est conservée encodée en
- * Base64 et {@link #LAST_ERROR} décrit l'incident pour l'afficher à l'utilisateur.
+ * Depuis la v3.8.0, aucune écriture ne replie sur Base64 non chiffré.
+ * Les anciens secrets Base64 sont réchiffrés lorsque Keystore fonctionne,
+ * sinon leur lecture est refusée et {@link #LAST_ERROR} indique le problème.
  */
 public final class SecurePrefs {
     private static final String ALIAS = "friday_local_api_keys_v17";
@@ -36,7 +36,7 @@ public final class SecurePrefs {
     public String get(String k, String d) { return prefs.getString(k, d); }
     public void put(String k, String v) { prefs.edit().putString(k, v).apply(); }
 
-    /** Indique si une clé est utilisable (chiffrée ou repli). */
+    /** Indique si une clé secrète existe dans le coffre Android. */
     public boolean hasSecret(String name) {
         String data = prefs.getString("secret_" + name, "");
         return data != null && !data.isEmpty();
@@ -57,7 +57,8 @@ public final class SecurePrefs {
 
     public synchronized void setSecret(String name, String value) {
         if (value == null || value.isEmpty()) {
-            prefs.edit().remove("secret_" + name).apply();
+            if (!prefs.edit().remove("secret_" + name).commit())
+                throw new IllegalStateException("Suppression du secret impossible");
             return;
         }
         try {
@@ -66,14 +67,13 @@ public final class SecurePrefs {
             byte[] encrypted = c.doFinal(value.getBytes(StandardCharsets.UTF_8));
             String data = Base64.encodeToString(c.getIV(), Base64.NO_WRAP) + ":" +
                     Base64.encodeToString(encrypted, Base64.NO_WRAP);
-            prefs.edit().putString("secret_" + name, data).apply();
+            if (!prefs.edit().putString("secret_" + name, data).commit())
+                throw new java.io.IOException("Écriture chiffrée impossible");
             LAST_ERROR = "";
         } catch (Exception e) {
-            // Repli : la clé reste utilisable, mais l'incident est signalé.
-            LAST_ERROR = "Keystore indisponible (" + e.getClass().getSimpleName() + ") : clé stockée sans chiffrement";
-            String plain = PLAIN + Base64.encodeToString(
-                    value.getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
-            prefs.edit().putString("secret_" + name, plain).apply();
+            // Depuis v3.8, aucun secret ni profil ne peut être écrit en clair.
+            LAST_ERROR = "Stockage chiffré indisponible : écriture non chiffrée refusée";
+            throw new IllegalStateException(LAST_ERROR, e);
         }
     }
 
@@ -82,10 +82,14 @@ public final class SecurePrefs {
         if (data == null || data.isEmpty()) return "";
         if (data.startsWith(PLAIN)) {
             try {
-                return new String(Base64.decode(data.substring(PLAIN.length()), Base64.NO_WRAP),
-                        StandardCharsets.UTF_8);
+                // Migration de compatibilité : ne retourner le secret historique qu'après
+                // écriture AES-GCM et lecture contrôlée via Android Keystore.
+                String legacy = new String(Base64.decode(
+                        data.substring(PLAIN.length()), Base64.NO_WRAP), StandardCharsets.UTF_8);
+                setSecret(name, legacy);
+                return secret(name);
             } catch (Exception e) {
-                LAST_ERROR = "Clé illisible : " + e.getMessage();
+                LAST_ERROR = "Secret ancien en clair bloqué : migration Keystore impossible";
                 return "";
             }
         }
@@ -100,5 +104,49 @@ public final class SecurePrefs {
             LAST_ERROR = "Déchiffrement impossible (" + e.getClass().getSimpleName() + ") : réenregistrez la clé";
             return "";
         }
+    }
+
+    /**
+     * Stockage privé STRICT : contrairement aux anciennes clés API, aucun
+     * repli Base64/plaintext n'est jamais autorisé pour la mémoire et l'historique.
+     * L'écriture est synchrone : la migration ne détruit pas la source si elle échoue.
+     */
+    public synchronized void putPrivateSecret(String name, String value) throws Exception {
+        if (name == null || !name.matches("[a-zA-Z0-9_]{1,80}"))
+            throw new IllegalArgumentException("Identifiant sécurisé invalide");
+        if (value == null) value = "";
+        if (value.getBytes(StandardCharsets.UTF_8).length > 350000)
+            throw new IllegalArgumentException("Mémoire privée trop volumineuse");
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.ENCRYPT_MODE, key());
+        String data = Base64.encodeToString(cipher.getIV(), Base64.NO_WRAP) + ":"
+                + Base64.encodeToString(cipher.doFinal(value.getBytes(StandardCharsets.UTF_8)),
+                Base64.NO_WRAP);
+        if (!prefs.edit().putString("secret_" + name, data).commit())
+            throw new java.io.IOException("Écriture chiffrée impossible");
+    }
+
+    public synchronized String privateSecret(String name) throws Exception {
+        String data = prefs.getString("secret_" + name, "");
+        if (data == null || data.isEmpty()) return "";
+        if (data.startsWith(PLAIN))
+            throw new java.security.GeneralSecurityException(
+                    "Mémoire non chiffrée refusée : aucun repli en clair");
+        String[] parts = data.split(":", 2);
+        if (parts.length != 2) throw new java.security.GeneralSecurityException("Mémoire chiffrée illisible");
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.DECRYPT_MODE, key(),
+                new GCMParameterSpec(128, Base64.decode(parts[0], Base64.NO_WRAP)));
+        return new String(cipher.doFinal(Base64.decode(parts[1], Base64.NO_WRAP)),
+                StandardCharsets.UTF_8);
+    }
+
+    public synchronized boolean hasPrivateSecret(String name) {
+        return hasSecret(name);
+    }
+
+    public synchronized void removePrivateSecret(String name) throws Exception {
+        if (!prefs.edit().remove("secret_" + name).commit())
+            throw new java.io.IOException("Suppression locale impossible");
     }
 }
