@@ -35,7 +35,7 @@ public class MainActivity extends Activity {
     private TextView status;
     private TextView lastErrorLabel;
     private TextView mistralKeyState;
-    private EditText mistralModel, mistralKey;
+    private EditText mistralModel, mistralKey, webPageUrl;
     private CheckBox voiceEnabled, streamingEnabled, oneShotEnabled, voskHintsEnabled,
             locationEnabled, locationShare, placeNameEnabled;
     private CheckBox memoryEnabled, memoryShareMistral;
@@ -175,8 +175,13 @@ public class MainActivity extends Activity {
         webEnabled.setTextColor(Color.WHITE);
         webEnabled.setChecked("1".equals(prefs.get("web_enabled", "1")));
         config.addView(webEnabled);
-        config.addView(button("🌐 Activer et tester la recherche Web", this::enableAndTestWeb));
-        config.addView(label("En mode Web, FRIDAY consulte des sources publiques. Les recherches Mistral peuvent être facturées."));
+        config.addView(button("🌐 Activer et tester la recherche Web Mistral", this::enableAndTestWeb));
+        config.addView(label("Le bouton teste vraiment l'outil web_search de Mistral. Si le compte ou le modèle le refuse, le code d'erreur est affiché au lieu d'une réponse inventée. Les recherches peuvent être facturées."));
+        config.addView(button("Tester la lecture d'une page HTTPS publique", this::testHttpsPage));
+        webPageUrl = field("https://www.example.com/", false);
+        config.addView(label("Lire une URL HTTPS précise : FRIDAY récupère son texte public sur le téléphone, puis transmet l'extrait à Mistral après votre demande. Pas d'API Google ni de synchronisation GitHub."));
+        config.addView(webPageUrl);
+        config.addView(button("Analyser cette page Web avec Mistral", this::analyzeWebPage));
 
         config.addView(label("FRIDAY MEMORY+ v3.8.0 · privé, chiffré et sans synchronisation GitHub"));
         memoryEnabled = new CheckBox(this);
@@ -508,6 +513,43 @@ public class MainActivity extends Activity {
                     hud.evaluateJavascript("window.fridayRefreshNative&&window.fridayRefreshNative();", null);
             });
         }, "friday-test-web").start();
+    }
+
+    /** Test explicite : lecture HTTP de page publique sans transmettre le contenu à Mistral. */
+    private void testHttpsPage() {
+        status.setText("Test HTTPS en cours sur www.example.com…");
+        new Thread(() -> {
+            String result;
+            try {
+                WebPageReader.Page page = WebPageReader.read("https://www.example.com/");
+                result = "Lecture HTTPS opérationnelle (" + page.text.length()
+                        + " caractères). Cela ne prouve pas l'accès aux outils Web Mistral.";
+            } catch (Exception ex) {
+                result = "Lecture HTTPS indisponible : " + ex.getMessage();
+            }
+            final String text = result;
+            runOnUiThread(() -> status.setText(text));
+        }, "friday-test-page-http").start();
+    }
+
+    /** L'analyse d'URL est lancée sur action explicite de l'utilisateur. */
+    private void analyzeWebPage() {
+        String url = webPageUrl.getText().toString().trim();
+        if (!"1".equals(prefs.get("web_enabled", "1"))) {
+            status.setText("Activez la recherche Web dans Réglages et enregistrez les réglages.");
+            return;
+        }
+        try { WebPageReader.checkedUri(url); }
+        catch (Exception ex) {
+            status.setText("Adresse refusée : " + ex.getMessage());
+            return;
+        }
+        if (!FridayService.isActive()) {
+            status.setText("Démarrez l'écoute native avant de demander l'analyse de cette page.");
+            return;
+        }
+        sendQuestion("Analyse le contenu réel de cette page Web et résume les informations : " + url);
+        status.setText("Lecture de la page HTTPS et analyse par Mistral demandées.");
     }
 
     /** Une liste de modèles ne prouve pas la compatibilité avec web_search ou vision. */
