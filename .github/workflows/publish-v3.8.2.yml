@@ -1,0 +1,69 @@
+name: Publish FRIDAY v3.8.2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-v3.8.2.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout v3.8.2
+        uses: actions/checkout@v4
+
+      - name: Validate app version
+        run: |
+          set -euo pipefail
+          grep -Fq "versionCode 65" app/build.gradle
+          grep -Fq "versionName '3.8.2'" app/build.gradle
+
+      - name: Wait for signed APK build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run watch 43832067459 --repo "$GITHUB_REPOSITORY" --exit-status --interval 10
+
+      - name: Download and verify signed APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 43832067459 --repo "$GITHUB_REPOSITORY" \
+            --name FRIDAY-release-signed-apk --dir dist
+          test -s dist/app-release.apk
+          unzip -tq dist/app-release.apk
+          mv dist/app-release.apk dist/FRIDAY-v3.8.2-release.apk
+          sha256sum dist/FRIDAY-v3.8.2-release.apk
+
+      - name: Tag version v3.8.2
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v3.8.2" >/dev/null 2>&1; then
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref='refs/tags/v3.8.2' -f sha="$GITHUB_SHA"
+          fi
+
+      - name: Publish official signed release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view v3.8.2 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload v3.8.2 dist/FRIDAY-v3.8.2-release.apk \
+              --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create v3.8.2 dist/FRIDAY-v3.8.2-release.apk \
+              --repo "$GITHUB_REPOSITORY" --verify-tag \
+              --title "F.R.I.D.A.Y. v3.8.2 - URL vocales corrigees et erreurs HTTP claires" \
+              --notes "FRIDAY v3.8.2 : correction automatique des prefixes URL mal reconnus comme https// et https:/, et adresses www ; analyse ecrite d'une page HTTPS publique sans activer le microphone, correction visible du lien et lecture sur thread separe. Les refus HTTP 401/403, pages 404 et limitations 429 sont distingues sans inventer le contenu de pages bloquees. LCI peut refuser la lecture automatisee et FRIDAY ne contourne pas cette restriction. Tests Java et Python reussis, APK Android signe versionCode 65. Mistral uniquement, privacy Memory+ v3.8.0 et commande STOP preservees. Fonctionnement reel sur appareil a confirmer."
+          fi
+          gh release view v3.8.2 --repo "$GITHUB_REPOSITORY" --json url,assets
