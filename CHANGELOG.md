@@ -4,7 +4,8 @@
 - Si Conversations refuse le modèle sélectionné avec HTTP 400, 404 ou 422, FRIDAY teste une seule fois le modèle de repli. Les erreurs 401 (clé), 403 (autorisation) et 429 (quota) ne sont **pas contournées**.
 - Le bouton **« Activer et tester la recherche Web Mistral »** utilise la même stratégie, affiche le modèle effectivement employé et ne déclare le test réussi que si l'API retourne au moins une véritable URL source.
 - La télémétrie décrit désormais le résultat et le modèle utilisés : sources reçues, appel d'outil sans URL, ou outil non déclenché.
-- Conserve la lecture directe HTTPS publique, la commande STOP, Mistral comme seul moteur IA et Memory+ chiffrée locale sans synchronisation automatique.
+- Si un site public refuse la lecture directe (401/403), FRIDAY peut rechercher des **sources publiques alternatives** via Mistral et signale explicitement qu'il n'a **pas lu** la page refusée. L'URL et ses paramètres sont exclus de cette recherche secondaire. Les restrictions d'accès au site restent respectées.
+- Conserve la commande STOP, Mistral comme seul moteur IA et Memory+ chiffrée locale sans synchronisation automatique.
 - Tests de politique de repli hors réseau (Java), tests de régression d'intégration (Python) et compilation Android prévues par CI. **Essai réel Web avec la clé personnelle sur téléphone encore nécessaire.**
 
 ## [3.8.2] — Lecture Web : URL « https// », diagnostic HTTP 403, analyse sans microphone
