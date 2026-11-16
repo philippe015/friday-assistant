@@ -66,10 +66,10 @@ class MemoryPlusPrivacy(unittest.TestCase):
         self.assertIn('android:usesCleartextTraffic="false"', manifest)
         gradle = (ROOT / "app/build.gradle").read_text()
         import re
-        code = re.search(r"versionCode (\\d+)", gradle)
+        code = re.search(r"versionCode (\d+)", gradle)
         self.assertIsNotNone(code)
         self.assertGreaterEqual(int(code.group(1)), 63)
-        version = re.search(r"versionName '(\\d+)\\.(\\d+)\\.(\\d+)'", gradle)
+        version = re.search(r"versionName '(\d+)\.(\d+)\.(\d+)'", gradle)
         self.assertIsNotNone(version)
         self.assertGreaterEqual(tuple(map(int, version.groups())), (3, 8, 0))
 
