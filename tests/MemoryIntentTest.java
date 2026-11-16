@@ -9,6 +9,8 @@ public class MemoryIntentTest {
         eq(MemoryIntent.fact("retiens que je préfère le français"), "je préfère le français");
         eq(MemoryIntent.kind("Qu'as-tu mémorisé ?"), MemoryIntent.READ);
         eq(MemoryIntent.kind("Efface ma mémoire"), MemoryIntent.CLEAR);
+        eq(MemoryIntent.kind("Cherche dans ma mémoire le projet FRIDAY"), MemoryIntent.SEARCH);
+        eq(MemoryIntent.searchQuery("Cherche dans ma mémoire le projet FRIDAY"), "le projet friday");
         eq(MemoryIntent.kind("Quel est le temps aujourd'hui ?"), MemoryIntent.NONE);
         System.out.println("MemoryIntentTest OK");
     }
