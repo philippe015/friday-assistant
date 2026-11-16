@@ -650,9 +650,13 @@ public class MainActivity extends Activity {
         }));
     }
     private void clearVoiceHistory() {
-        getSharedPreferences("friday_voice_history", MODE_PRIVATE).edit().clear().apply();
-        if (pageReady) hud.evaluateJavascript("window.fridayNativeReset&&window.fridayNativeReset();", null);
-        status.setText("Historique vocal local effacé ; l'historique Web éventuel reste séparé.");
+        try {
+            PrivateConversationHistory.clear(this, prefs);
+            if (pageReady) hud.evaluateJavascript("window.fridayNativeReset&&window.fridayNativeReset();", null);
+            status.setText("Historique vocal chiffré effacé sur cet appareil.");
+        } catch (Exception ex) {
+            status.setText("Suppression de l'historique impossible : stockage sécurisé indisponible.");
+        }
     }
     private void installModel() {
         if (ModelInstaller.installed(this)) { status.setText("Modèle français déjà installé."); return; }
@@ -857,12 +861,13 @@ public class MainActivity extends Activity {
     private String JSONObjectQuote(String value) { return org.json.JSONObject.quote(value); }
     private void replayVoiceHistory() {
         if (hud == null || !pageReady) return;
-        String eventsJson = getSharedPreferences("friday_voice_history", MODE_PRIVATE).getString("events", "[]");
-        if (eventsJson == null) eventsJson = "[]";
         try {
+            String eventsJson = PrivateConversationHistory.read(this, prefs);
             new org.json.JSONArray(eventsJson);
             hud.evaluateJavascript("window.fridayNativeInbox&&window.fridayNativeInbox(" + eventsJson + ");", null);
-        } catch (Exception ignored) { }
+        } catch (Exception encryptedFailure) {
+            status.setText("Historique privé illisible : Keystore Android indisponible. Aucun accès en clair.");
+        }
     }
     @Override protected void onResume() {
         super.onResume();
