@@ -20,6 +20,11 @@ public final class PrivateConversationHistory {
         if (prefs.hasPrivateSecret(KEY)) {
             String result = prefs.privateSecret(KEY);
             new JSONArray(result); // validation, pas de repli en clair
+            // Réessayer de purger toute ancienne copie en clair si la
+            // suppression avait été interrompue après migration.
+            SharedPreferences legacy = ctx.getSharedPreferences(OLD, Context.MODE_PRIVATE);
+            if (legacy.contains("events") && !legacy.edit().clear().commit())
+                throw new IllegalStateException("Ancien historique non supprimé");
             return result;
         }
         SharedPreferences old = ctx.getSharedPreferences(OLD, Context.MODE_PRIVATE);
