@@ -1,3 +1,12 @@
+## [3.8.3] — Accès Web Mistral : essai de modèle de repli et diagnostic réel
+
+- Lorsque le modèle de dialogue sélectionné ne déclenche pas l'outil officiel `web_search`, FRIDAY effectue **un seul essai** via `mistral-small-latest`. Le modèle du dialogue reste inchangé.
+- Si Conversations refuse le modèle sélectionné avec HTTP 400, 404 ou 422, FRIDAY teste une seule fois le modèle de repli. Les erreurs 401 (clé), 403 (autorisation) et 429 (quota) ne sont **pas contournées**.
+- Le bouton **« Activer et tester la recherche Web Mistral »** utilise la même stratégie, affiche le modèle effectivement employé et ne déclare le test réussi que si l'API retourne au moins une véritable URL source.
+- La télémétrie décrit désormais le résultat et le modèle utilisés : sources reçues, appel d'outil sans URL, ou outil non déclenché.
+- Conserve la lecture directe HTTPS publique, la commande STOP, Mistral comme seul moteur IA et Memory+ chiffrée locale sans synchronisation automatique.
+- Tests de politique de repli hors réseau (Java), tests de régression d'intégration (Python) et compilation Android prévues par CI. **Essai réel Web avec la clé personnelle sur téléphone encore nécessaire.**
+
 ## [3.8.2] — Lecture Web : URL « https// », diagnostic HTTP 403, analyse sans microphone
 
 - Normalise automatiquement une adresse publique mal saisie ou transcrite (`https//www.example.com`, `https:/www.example.com`, `www.example.com`) vers `https://www.example.com`, **avant de valider les règles HTTPS et les restrictions du réseau local**. Une URL sans domaine reste refusée.
