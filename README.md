@@ -1,3 +1,13 @@
+## FRIDAY Memory+ v3.8.0
+
+**La nouvelle mémoire est privée par défaut.** Elle conserve jusqu'à 200 notes catégorisées (600 caractères chacune) sur le téléphone, chiffrées via Android Keystore. Recherche, modification, suppression et marquage de relecture se font dans les Réglages, hors ligne.
+
+La mémoire locale et son partage avec Mistral ont **deux autorisations indépendantes** : l'envoi des notes pertinentes à Mistral est désactivé par défaut. Aucune note, clé ou conversation n'est automatiquement synchronisée vers GitHub. L'historique vocal des 40 derniers échanges est lui aussi stocké sous chiffrement avec migration de l'ancienne version.
+
+Une commande « cherche dans ma mémoire ... » fonctionne localement, tandis que « retiens que ... » mémorise uniquement à la demande. Les suppressions globales exigent une confirmation dans les Réglages. La mémoire ne remplace pas la consultation des sources : elle peut contenir des informations anciennes ou inexactes.
+
+[Documentation de confidentialité Memory+](docs/PRIVACY_MEMORY_PLUS_V380.md)
+
 ## v3.7.3 — Répétition de STOP et diagnostic microphone
 
 - Les répétitions « stop stop », « stop stop stop » et « arrête arrête » sont traitées comme une seule commande d'interruption pendant la parole, sans exiger « Friday ».
