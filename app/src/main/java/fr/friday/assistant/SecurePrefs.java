@@ -16,9 +16,9 @@ import javax.crypto.spec.GCMParameterSpec;
 /**
  * Stockage des clés API : chiffrement AES-GCM via Android Keystore.
  *
- * Repli : si le Keystore de l'appareil est indisponible (erreur matérielle,
- * profil de travail, appareil cloné…), la valeur est conservée encodée en
- * Base64 et {@link #LAST_ERROR} décrit l'incident pour l'afficher à l'utilisateur.
+ * Depuis la v3.8.0, aucune écriture ne replie sur Base64 non chiffré.
+ * Les anciens secrets Base64 sont réchiffrés lorsque Keystore fonctionne,
+ * sinon leur lecture est refusée et {@link #LAST_ERROR} indique le problème.
  */
 public final class SecurePrefs {
     private static final String ALIAS = "friday_local_api_keys_v17";
@@ -69,11 +69,9 @@ public final class SecurePrefs {
             prefs.edit().putString("secret_" + name, data).apply();
             LAST_ERROR = "";
         } catch (Exception e) {
-            // Repli : la clé reste utilisable, mais l'incident est signalé.
-            LAST_ERROR = "Keystore indisponible (" + e.getClass().getSimpleName() + ") : clé stockée sans chiffrement";
-            String plain = PLAIN + Base64.encodeToString(
-                    value.getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
-            prefs.edit().putString("secret_" + name, plain).apply();
+            // Depuis v3.8, aucun secret ni profil ne peut être écrit en clair.
+            LAST_ERROR = "Keystore indisponible : stockage non chiffré refusé";
+            throw new IllegalStateException(LAST_ERROR, e);
         }
     }
 
@@ -82,10 +80,14 @@ public final class SecurePrefs {
         if (data == null || data.isEmpty()) return "";
         if (data.startsWith(PLAIN)) {
             try {
-                return new String(Base64.decode(data.substring(PLAIN.length()), Base64.NO_WRAP),
-                        StandardCharsets.UTF_8);
+                // Migration de compatibilité : ne retourner le secret historique qu'après
+                // écriture AES-GCM et lecture contrôlée via Android Keystore.
+                String legacy = new String(Base64.decode(
+                        data.substring(PLAIN.length()), Base64.NO_WRAP), StandardCharsets.UTF_8);
+                setSecret(name, legacy);
+                return legacy;
             } catch (Exception e) {
-                LAST_ERROR = "Clé illisible : " + e.getMessage();
+                LAST_ERROR = "Secret ancien en clair bloqué : migration Keystore impossible";
                 return "";
             }
         }
