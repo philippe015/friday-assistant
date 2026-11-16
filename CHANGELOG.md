@@ -1,3 +1,14 @@
+## [3.8.5] — Diagnostic Web visible et mode Toujours (Mistral)
+
+- Correction du bouton « Activer et tester la recherche Web Mistral » : son résultat n'était présenté que dans une ligne d'état **au-dessus** des Réglages, où il pouvait être masqué ou remplacé par les événements vocaux.
+- Dès l'appui, FRIDAY affiche une **fenêtre de progression**, un état persistant dans le bloc Réglages et un indicateur de test en cours ; après le test, le résultat détaillé apparaît dans la même fenêtre et reste dans les Réglages.
+- Les erreurs 401 (clé), 403 (outil non autorisé), 404/400/422 (modèle ou route), 429 (quota) et les délais réseau ont un message explicatif, sans montrer la clé privée.
+- Ajout du mode **Toujours** inspiré de la v2.2.0, à activer volontairement : chaque question envoyée à Mistral tente une recherche via Conversations / web_search. **Automatique** reste le comportement par défaut pour limiter le coût.
+- Compatibilité avec les réponses progressives : en mode Toujours, une recherche Web utilise le chemin non-streaming, puis la réponse peut être lue par TTS.
+- Le changement de mode n'accorde pas d'accès Web supplémentaire si la clé, le compte ou le modèle ne prend pas en charge les outils. Le succès est confirmé uniquement si une source URL est fournie par Mistral.
+- Tests Java/Python et build Android CI ; vérification réelle avec la clé personnelle sur le téléphone à effectuer.
+- Fonction anti-écho/STOP v3.8.4, GPS autorisé et Memory+ chiffrée locale conservés.
+
 ## [3.8.4] — Protection anti-écho : FRIDAY ne relance plus Mistral avec sa propre voix
 
 - **Cause corrigée** : la transcription générale Vosk traitait encore le son du haut-parleur pendant les réponses vocales, ce qui pouvait réinjecter le texte de FRIDAY comme nouvelle question.

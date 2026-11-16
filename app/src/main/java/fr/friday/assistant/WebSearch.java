@@ -61,6 +61,11 @@ public final class WebSearch {
                 || FACTUAL.matcher(clean).find();
     }
 
+    /** L'option Toujours demande le Web pour les questions non locales, hors URL directe. */
+    public static boolean shouldSearch(String mode, String question, String previousUserQuestion) {
+        return "always".equals(mode) || needsWeb(question, previousUserQuestion);
+    }
+
     public static boolean isFollowUp(String question) {
         String clean = fold(question).replaceFirst("^(?:friday|frida|freiday|freday|fride)\\s+", "");
         return FOLLOW_UP.matcher(clean).find() && clean.split(" ").length <= 11;
