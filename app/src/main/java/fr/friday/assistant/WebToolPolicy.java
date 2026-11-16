@@ -23,4 +23,9 @@ public final class WebToolPolicy {
         return selected != null && fallback != null && !selected.equals(fallback)
                 && (httpCode == 400 || httpCode == 404 || httpCode == 422);
     }
+    /** Recherche alternative seulement pour les vrais refus HTTP du site. */
+    public static boolean maySearchPublicAlternatives(String reason) {
+        return reason != null && (reason.startsWith("Accès refusé par le site (HTTP 401)")
+                || reason.startsWith("Accès refusé par le site (HTTP 403)"));
+    }
 }
