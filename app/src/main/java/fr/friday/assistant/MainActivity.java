@@ -179,7 +179,7 @@ public class MainActivity extends Activity {
         config.addView(label("Le bouton teste vraiment l'outil web_search de Mistral. Si le compte ou le modèle le refuse, le code d'erreur est affiché au lieu d'une réponse inventée. Les recherches peuvent être facturées."));
         config.addView(button("Tester la lecture d'une page HTTPS publique", this::testHttpsPage));
         webPageUrl = field("https://www.example.com/", false);
-        config.addView(label("Lire une URL HTTPS précise : FRIDAY récupère son texte public sur le téléphone, puis transmet l'extrait à Mistral après votre demande. Pas d'API Google ni de synchronisation GitHub."));
+        config.addView(label("Lire une URL HTTPS publique, même microphone arrêté. FRIDAY corrige « https// » en « https:// ». Certains sites interdisent la lecture automatique (403) : leur contenu ne sera pas contourné ni inventé. L'extrait disponible est transmis à Mistral uniquement après votre demande."));
         config.addView(webPageUrl);
         config.addView(button("Analyser cette page Web avec Mistral", this::analyzeWebPage));
 
@@ -532,24 +532,50 @@ public class MainActivity extends Activity {
         }, "friday-test-page-http").start();
     }
 
-    /** L'analyse d'URL est lancée sur action explicite de l'utilisateur. */
+    /** Analyse écrite autonome : aucun microphone ni service vocal nécessaires. */
     private void analyzeWebPage() {
-        String url = webPageUrl.getText().toString().trim();
-        if (!"1".equals(prefs.get("web_enabled", "1"))) {
-            status.setText("Activez la recherche Web dans Réglages et enregistrez les réglages.");
+        if (!webEnabled.isChecked()) {
+            status.setText("Activez la recherche Web dans Réglages.");
             return;
         }
-        try { WebPageReader.checkedUri(url); }
-        catch (Exception ex) {
-            status.setText("Adresse refusée : " + ex.getMessage());
+        final String url;
+        try {
+            url = WebPageReader.checkedUri(webPageUrl.getText().toString()).toString();
+            webPageUrl.setText(url);  // Affiche le préfixe HTTPS réparé à l'utilisateur.
+        } catch (Exception ex) {
+            status.setText("Adresse Web invalide : " + ex.getMessage()
+                    + " Exemple : https://www.example.com/");
             return;
         }
-        if (!FridayService.isActive()) {
-            status.setText("Démarrez l'écoute native avant de demander l'analyse de cette page.");
-            return;
-        }
-        sendQuestion("Analyse le contenu réel de cette page Web et résume les informations : " + url);
-        status.setText("Lecture de la page HTTPS et analyse par Mistral demandées.");
+        prefs.put("web_enabled", "1");
+        status.setText("Lecture de la page HTTPS en cours, sans microphone…");
+        new Thread(() -> {
+            final String answer;
+            try {
+                answer = NativeAI.answer(prefs,
+                        "Analyse le contenu réellement accessible de cette page Web, "
+                        + "résume ses informations et cite uniquement cette source : " + url,
+                        java.util.Collections.emptyList(), null);
+            } catch (Exception failure) {
+                String message = failure.getMessage() == null
+                        ? failure.getClass().getSimpleName() : failure.getMessage();
+                runOnUiThread(() -> status.setText(
+                        "Analyse Web impossible : " + message));
+                return;
+            }
+            runOnUiThread(() -> {
+                status.setText(answer.startsWith("Je ne peux pas lire")
+                        ? "Accès à cette page refusé ou indisponible : voir le diagnostic."
+                        : "Analyse de page terminée · consultez la réponse.");
+                new AlertDialog.Builder(this)
+                        .setTitle("FRIDAY · Page Web")
+                        .setMessage(answer)
+                        .setPositiveButton("Fermer", null)
+                        .show();
+                if (pageReady && hud != null)
+                    hud.evaluateJavascript("window.fridayRefreshNative&&window.fridayRefreshNative();", null);
+            });
+        }, "friday-webpage-no-microphone").start();
     }
 
     /** Une liste de modèles ne prouve pas la compatibilité avec web_search ou vision. */
