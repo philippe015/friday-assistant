@@ -1,3 +1,13 @@
+## FRIDAY Web v3.8.3 — Recherche Internet mieux diagnostiquée
+
+Dans **Réglages > Recherche Web**, activer **« Activer et tester la recherche Web Mistral »**. La recherche passe par l'API Mistral **Conversations** et son outil officiel `web_search` (pas Chat Completions). Le bouton ne confirme un succès que si l'API fournit une URL source.
+
+Si le modèle de dialogue choisi n'exécute pas l'outil, ou s'il est rejeté avec HTTP 400/404/422, FRIDAY essaie **une fois** `mistral-small-latest` pour la recherche, sans changer le modèle préféré pour les conversations. En cas d'erreur HTTP **401**, vérifier la clé Mistral ; **403**, les droits d'accès à l'outil ; **429**, le quota/limite. Changer de modèle ne débloque pas des droits Web manquants. L'accès à certaines fonctions de Mistral peut être facturé.
+
+Pour lire une page publique directement, saisir une adresse `https://` puis choisir **« Analyser cette page Web avec Mistral »**. Aucun microphone n'est nécessaire. Les refus des sites, dont les 403, ne sont pas contournés. Si possible, FRIDAY recherche à la place des sources publiques alternatives et les distingue explicitement de la page qu'il n'a pas pu lire. Les paramètres de l'URL refusée ne sont pas transmis à cette recherche.
+
+Le profil, les données GPS et les notes privées restent soumis aux permissions existantes ; Memory+ demeure chiffrée sur le téléphone et jamais synchronisée automatiquement vers GitHub.
+
 ## FRIDAY Web v3.8.2 — Dépannage des pages inaccessibles
 
 Dans **Réglages > Recherche Web**, la lecture d'une page HTTPS publique ne nécessite plus de démarrer le microphone. Saisissez `https://www.example.com/` et cliquez sur **Analyser cette page Web avec Mistral**. FRIDAY corrige également `https//` et `https:/` en `https://` quand un domaine est fourni.

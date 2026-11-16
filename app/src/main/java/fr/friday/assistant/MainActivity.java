@@ -176,7 +176,7 @@ public class MainActivity extends Activity {
         webEnabled.setChecked("1".equals(prefs.get("web_enabled", "1")));
         config.addView(webEnabled);
         config.addView(button("🌐 Activer et tester la recherche Web Mistral", this::enableAndTestWeb));
-        config.addView(label("Le bouton teste vraiment l'outil web_search de Mistral. Si le compte ou le modèle le refuse, le code d'erreur est affiché au lieu d'une réponse inventée. Les recherches peuvent être facturées."));
+        config.addView(label("Le bouton vérifie un appel réel à web_search et les URL sources. Si le modèle choisi échoue, un essai avec mistral-small-latest est effectué sans modifier votre modèle de dialogue. Une erreur de clé, de droits ou de quota reste visible. Les recherches peuvent être facturées."));
         config.addView(button("Tester la lecture d'une page HTTPS publique", this::testHttpsPage));
         webPageUrl = field("https://www.example.com/", false);
         config.addView(label("Lire une URL HTTPS publique, même microphone arrêté. FRIDAY corrige « https// » en « https:// ». Certains sites interdisent la lecture automatique (403) : leur contenu ne sera pas contourné ni inventé. L'extrait disponible est transmis à Mistral uniquement après votre demande."));

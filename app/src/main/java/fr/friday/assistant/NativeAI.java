@@ -234,8 +234,10 @@ public final class NativeAI {
         final String answer;
         final int references;
         final boolean executed;
-        WebReply(String answer, int references, boolean executed) {
-            this.answer = answer; this.references = references; this.executed = executed;
+        final String model;
+        WebReply(String answer, int references, boolean executed, String model) {
+            this.answer = answer; this.references = references;
+            this.executed = executed; this.model = model;
         }
     }
 
@@ -304,22 +306,56 @@ public final class NativeAI {
         } else {
             output = "Recherche effectuée par Mistral, mais aucune URL source vérifiable n'a été fournie.\n\n" + output;
         }
-        return new WebReply(output, refs.size(), webExecuted);
+        return new WebReply(output, refs.size(), webExecuted, model);
+    }
+
+    /**
+     * Le modèle choisi pour le dialogue peut ne pas déclencher l'outil Web.
+     * Essai unique avec le modèle Mistral par défaut lorsque l'outil est absent,
+     * ou lorsqu'une erreur 400/404/422 suggère un modèle incompatible.
+     * Les erreurs d'autorisation 401/403 et de quota 429 restent explicites.
+     * Le modèle de conversation choisi par l'utilisateur n'est pas modifié.
+     */
+    private static WebReply conversationWithFallback(SecurePrefs cfg, String key, String model,
+                                                      String question, List<JSONObject> history)
+            throws Exception {
+        try {
+            WebReply initial = conversation(cfg, key, model, question, history);
+            if (!WebToolPolicy.retryWithoutExecution(model, DEFAULT_MODEL,
+                    initial.executed, initial.references))
+                return initial;
+        } catch (HttpStatusFailure failure) {
+            if (!WebToolPolicy.retryRejectedModel(model, DEFAULT_MODEL, failure.status))
+                throw failure;
+        }
+        CancelToken cancellation = CANCEL.get();
+        if (cancellation != null) cancellation.check();
+        return conversation(cfg, key, DEFAULT_MODEL, question, history);
     }
 
     /** Vérification réelle de l'option Web, seulement après action explicite de l'utilisateur. */
     public static String testWeb(SecurePrefs cfg) throws Exception {
         String key = cfg.secret("mistral");
         if (key.isEmpty()) throw new IOException("Enregistrez d'abord votre clé API Mistral.");
-        WebReply test = conversation(cfg, key, configuredModel(cfg),
+        WebReply test = conversationWithFallback(cfg, key, configuredModel(cfg),
                 "Utilise réellement l'outil web_search pour retrouver la page officielle "
                 + "Service-Public.fr. Cite l'adresse exacte d'une page source, "
                 + "n'utilise pas uniquement tes connaissances.",
                 Collections.emptyList());
-        if (test.references > 0) return "Recherche Web Mistral opérationnelle : "
-                + test.references + " URL source vérifiable obtenue.";
-        if (test.executed) return "Mistral a lancé la recherche Web, mais aucune URL vérifiable n'a été retournée.";
-        return "Mistral répond, mais n'a pas déclenché de recherche Web. Vérifiez l'accès aux outils dans votre offre.";
+        if (test.references > 0) {
+            cfg.put("web_last_status", "Recherche vérifiée via " + test.model
+                    + " : " + test.references + " source(s)");
+            return "Recherche Web Mistral opérationnelle (" + test.model + ") : "
+                    + test.references + " URL source vérifiable obtenue.";
+        }
+        if (test.executed) {
+            cfg.put("web_last_status", "Recherche exécutée via " + test.model + ", sans URL source");
+            return "Mistral a lancé la recherche Web (" + test.model
+                    + "), mais aucune URL vérifiable n'a été retournée.";
+        }
+        cfg.put("web_last_status", "Aucun outil Web exécuté via " + test.model);
+        return "Mistral répond, mais n'a pas déclenché de recherche Web, y compris après le repli "
+                + "vers " + test.model + ". Vérifiez l'accès aux outils dans votre offre.";
     }
 
     private static String chat(SecurePrefs cfg, String key, String model, String question,
@@ -521,6 +557,37 @@ public final class NativeAI {
                 String reason = pageError.getMessage() == null
                         ? pageError.getClass().getSimpleName() : pageError.getMessage();
                 cfg.put("web_last_status", "Lecture HTTPS impossible : " + reason);
+                // Un site peut refuser une lecture directe tout en ayant des
+                // informations publiques sur d'autres sites. Ne jamais prétendre
+                // avoir lu la page refusée et ne jamais transmettre ses paramètres
+                // d'URL (qui peuvent contenir des identifiants) dans la recherche.
+                if (WebToolPolicy.maySearchPublicAlternatives(reason)) {
+                    try {
+                        java.net.URI safe = WebPageReader.checkedUri(explicitUrl);
+                        String domain = safe.getHost();
+                        String safeQuestion = question.replaceAll(
+                                "(?i)(?:https?\\s*:?/{1,2}|www\\.)\\S+", "").trim();
+                        WebReply alternatives = conversationWithFallback(cfg, key, model,
+                                "Cherche sur Internet des sources publiques indépendantes concernant "
+                                + "ce sujet et ce domaine : " + safeQuestion
+                                + ". La page d'origine refuse les lecteurs automatiques : "
+                                + "ne prétends jamais l'avoir ouverte ni en connaître le texte.",
+                                Collections.emptyList());
+                        if (alternatives.references > 0) {
+                            cfg.put("web_last_status", "Page refusée ; sources alternatives : "
+                                    + alternatives.references + " via " + alternatives.model);
+                            return "Lecture directe impossible : " + reason
+                                    + "\nJe n'ai pas lu le contenu de cette page. "
+                                    + "Voici uniquement des renseignements disponibles dans "
+                                    + "d'autres sources publiques :\n\n" + alternatives.answer;
+                        }
+                    } catch (Exception ignoredSearch) {
+                        CancelToken cancellation = CANCEL.get();
+                        if (cancellation != null) cancellation.check();
+                        // Le refus de la page reste la cause vérifiée ; ne pas inventer
+                        // de résultat en cas de panne de la recherche secondaire.
+                    }
+                }
                 return "Je ne peux pas lire cette page Web : " + reason
                         + ". Vérifiez l'adresse ou essayez de me demander une recherche Web. "
                         + "Je ne vais pas inventer son contenu.";
@@ -551,9 +618,11 @@ public final class NativeAI {
                 String input = question;
                 if (WebSearch.isFollowUp(question) && !previous.isEmpty())
                     input += "\n[Question précédente pour comprendre la relance : " + previous + "]";
-                WebReply found = conversation(cfg, key, model, input, history);
-                cfg.put("web_last_status", found.references > 0 ? "Outil Web : sources disponibles"
-                        : found.executed ? "Outil Web lancé, aucune URL" : "Outil Web non déclenché");
+                WebReply found = conversationWithFallback(cfg, key, model, input, history);
+                cfg.put("web_last_status", found.references > 0
+                        ? "Sources Web : " + found.references + " via " + found.model
+                        : found.executed ? "Outil Web exécuté via " + found.model + ", sans URL"
+                        : "Outil Web non déclenché via " + found.model);
                 // Une demande explicite ne peut pas être présentée comme une
                 // recherche accomplie si le fournisseur n'a pas lancé l'outil.
                 if (WebSearch.explicit(question) && !found.executed

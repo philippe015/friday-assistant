@@ -121,7 +121,7 @@ public final class WebPageReader {
             conn.setUseCaches(false);
             conn.setRequestProperty("Accept", "text/html, application/xhtml+xml, text/plain");
             conn.setRequestProperty("Accept-Encoding", "identity");
-            conn.setRequestProperty("User-Agent", "FRIDAY-Reader/3.8.2 (public HTTPS page)");
+            conn.setRequestProperty("User-Agent", "FRIDAY-Reader/3.8.3 (public HTTPS page)");
             try {
                 int code = conn.getResponseCode();
                 if (code >= 300 && code <= 308) {
