@@ -1,3 +1,13 @@
+## [3.8.1] — Accès réel aux pages Web et diagnostic de recherche Mistral
+
+- Recherche Internet via l'API **Mistral Conversations** et son outil officiel `web_search`. Le prompt incite à une recherche réellement exécutée, la requête désactive le stockage côté Conversations avec `store: false`, et la télémétrie distingue sources présentes, outil exécuté sans URLs et outil non déclenché.
+- Une demande explicite « cherche sur Internet » ne donne plus une réponse trompeuse tirée des seules connaissances du modèle lorsque Mistral refuse ou n'utilise pas l'outil : l'échec réel est affiché (401, 403, 400/422, 429, connexion).
+- **Lecture de pages HTTPS publiques** fournies dans la question : téléchargement direct sur le téléphone, extraction HTML/texte local, envoi d'un extrait limité à Mistral pour analyse avec l'URL effectivement lue comme référence.
+- Protection lecture URL : HTTPS uniquement, refus des accès locaux/privés et des identifiants intégrés, validation DNS, redirections limitées, délais réseau et contenu borné à 450 Ko / 12 000 caractères.
+- Réglages : bouton « Tester la lecture d'une page HTTPS publique » et champ « Analyser cette page Web avec Mistral », accessibles sans Google API.
+- Les protections **FRIDAY Memory+ v3.8.0** restent inchangées : mémoire chiffrée locale, partage facultatif vers Mistral désactivé par défaut, aucune synchronisation automatique vers GitHub.
+- **Limite** : l'outil Web de Mistral dépend des droits et quotas de la clé API. Une page dynamique, protégée par connexion, bloquée par robots ou autrement inaccessible ne peut pas être garantie. Aucun test avec la clé personnelle de l'utilisateur n'a été réalisé.
+
 ## [3.8.0] — FRIDAY Memory+ · mémoire locale chiffrée et consentement Mistral
 
 - Capacité de 12 à 200 notes (600 caractères chacune), catégorisées par `[projet]`, `[travail]` ou « Général », avec recherche locale, déduplication, modification/suppression individuelle et marquage de relecture manuelle.
