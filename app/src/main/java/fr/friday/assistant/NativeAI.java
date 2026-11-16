@@ -565,7 +565,8 @@ public final class NativeAI {
                     try {
                         java.net.URI safe = WebPageReader.checkedUri(explicitUrl);
                         String domain = safe.getHost();
-                        String safeQuestion = question.replace(explicitUrl, domain);
+                        String safeQuestion = question.replaceAll(
+                                "(?i)(?:https?\\s*:?/{1,2}|www\\.)\\S+", "").trim();
                         WebReply alternatives = conversationWithFallback(cfg, key, model,
                                 "Cherche sur Internet des sources publiques indépendantes concernant "
                                 + "ce sujet et ce domaine : " + safeQuestion
