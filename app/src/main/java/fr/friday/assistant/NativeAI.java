@@ -557,6 +557,36 @@ public final class NativeAI {
                 String reason = pageError.getMessage() == null
                         ? pageError.getClass().getSimpleName() : pageError.getMessage();
                 cfg.put("web_last_status", "Lecture HTTPS impossible : " + reason);
+                // Un site peut refuser une lecture directe tout en ayant des
+                // informations publiques sur d'autres sites. Ne jamais prétendre
+                // avoir lu la page refusée et ne jamais transmettre ses paramètres
+                // d'URL (qui peuvent contenir des identifiants) dans la recherche.
+                if (WebToolPolicy.maySearchPublicAlternatives(reason)) {
+                    try {
+                        java.net.URI safe = WebPageReader.checkedUri(explicitUrl);
+                        String domain = safe.getHost();
+                        String safeQuestion = question.replace(explicitUrl, domain);
+                        WebReply alternatives = conversationWithFallback(cfg, key, model,
+                                "Cherche sur Internet des sources publiques indépendantes concernant "
+                                + "ce sujet et ce domaine : " + safeQuestion
+                                + ". La page d'origine refuse les lecteurs automatiques : "
+                                + "ne prétends jamais l'avoir ouverte ni en connaître le texte.",
+                                Collections.emptyList());
+                        if (alternatives.references > 0) {
+                            cfg.put("web_last_status", "Page refusée ; sources alternatives : "
+                                    + alternatives.references + " via " + alternatives.model);
+                            return "Lecture directe impossible : " + reason
+                                    + "\nJe n'ai pas lu le contenu de cette page. "
+                                    + "Voici uniquement des renseignements disponibles dans "
+                                    + "d'autres sources publiques :\n\n" + alternatives.answer;
+                        }
+                    } catch (Exception ignoredSearch) {
+                        CancelToken cancellation = CANCEL.get();
+                        if (cancellation != null) cancellation.check();
+                        // Le refus de la page reste la cause vérifiée ; ne pas inventer
+                        // de résultat en cas de panne de la recherche secondaire.
+                    }
+                }
                 return "Je ne peux pas lire cette page Web : " + reason
                         + ". Vérifiez l'adresse ou essayez de me demander une recherche Web. "
                         + "Je ne vais pas inventer son contenu.";
