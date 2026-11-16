@@ -27,7 +27,11 @@ class RepeatedStopRegression(unittest.TestCase):
     def test_ui_and_version(self):
         html = (ROOT / "app/src/main/assets/index.html").read_text()
         gradle = (ROOT / "app/build.gradle").read_text()
-        self.assertIn("v3.7.3", html)
+        # Version displayed by cockpit must match the actual Gradle version.
+        import re
+        declared = re.search(r"versionName '(\d+)\.(\d+)\.(\d+)'", gradle)
+        self.assertIsNotNone(declared)
+        self.assertIn("v" + ".".join(declared.groups()), html)
         import re
         code = re.search(r"versionCode (\d+)", gradle)
         self.assertIsNotNone(code)
