@@ -37,8 +37,8 @@ class EchoRegression(unittest.TestCase):
 
     def test_version_and_privacy(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertRegex(gradle, r"versionCode (?:67|68)")
-        self.assertRegex(gradle, r"versionName '3\.8\.[45]'")
+        self.assertRegex(gradle, r"versionCode (?:67|68|69)")
+        self.assertRegex(gradle, r"versionName '3\.8\.[456]'")
         memory = (JAVA / "PersonalMemory.java").read_text(encoding="utf-8")
         self.assertIn('cfg.get("memory_share_mistral", "0")', memory)
         ai = (JAVA / "NativeAI.java").read_text(encoding="utf-8")

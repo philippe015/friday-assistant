@@ -251,10 +251,11 @@ public final class NativeAI {
         JSONObject body = new JSONObject()
                 .put("model", model)
                 .put("instructions", system(cfg, question)
-                    + "\nPour cette requête de recherche Web, utilise réellement l'outil web_search si "
-                    + "l'information nécessite un site, une date ou une source. "
-                    + "N'affirme jamais avoir consulté un site sans avoir effectivement appelé cet outil. "
-                    + "Donne tes sources quand elles sont présentes.")
+                    + "\nRecherche Internet demandée en priorité pour cette réponse : "
+                    + "utilise l'outil web_search et consulte des sources publiques appropriées "
+                    + "avant de formuler des informations externes. "
+                    + "Ne prétends pas avoir consulté une page si aucun outil n'a été exécuté. "
+                    + "Cite uniquement les liens réellement retournés par la recherche.")
                 .put("inputs", conversationInputs(history, question))
                 .put("tools", new JSONArray().put(new JSONObject().put("type", "web_search")))
                 .put("store", false);
@@ -321,16 +322,25 @@ public final class NativeAI {
             throws Exception {
         try {
             WebReply initial = conversation(cfg, key, model, question, history);
-            if (!WebToolPolicy.retryWithoutExecution(model, DEFAULT_MODEL,
-                    initial.executed, initial.references))
+            if (initial.executed || initial.references > 0)
                 return initial;
         } catch (HttpStatusFailure failure) {
+            // Ne jamais contourner 401, 403, 429 ni rejouer une erreur réseau.
             if (!WebToolPolicy.retryRejectedModel(model, DEFAULT_MODEL, failure.status))
                 throw failure;
         }
         CancelToken cancellation = CANCEL.get();
         if (cancellation != null) cancellation.check();
-        return conversation(cfg, key, DEFAULT_MODEL, question, history);
+        // Au maximum deux appels : le premier modèle ne déclenche parfois pas
+        // web_search même s'il est autorisé. Tenter une question explicitement
+        // formulée pour la recherche, y compris si le modèle est déjà par défaut.
+        // Aucune boucle, aucun faux lien, jamais de repli vers un autre fournisseur.
+        String targeted = "Recherche réellement sur Internet avec l'outil web_search "
+                + "les informations publiques nécessaires pour cette demande. "
+                + "Privilégie plusieurs sources vérifiables et cite leurs liens. "
+                + "Ne déclare pas avoir cherché sans exécution effective de l'outil. "
+                + "\nQuestion de l'utilisateur : " + question;
+        return conversation(cfg, key, DEFAULT_MODEL, targeted, history);
     }
 
     /** Vérification réelle de l'option Web, seulement après action explicite de l'utilisateur. */
@@ -343,17 +353,17 @@ public final class NativeAI {
                 + "n'utilise pas uniquement tes connaissances.",
                 Collections.emptyList());
         if (test.references > 0) {
-            cfg.put("web_last_status", "Recherche vérifiée via " + test.model
+            cfg.put("web_last_test_status", "Recherche vérifiée via " + test.model
                     + " : " + test.references + " source(s)");
             return "Recherche Web Mistral opérationnelle (" + test.model + ") : "
                     + test.references + " URL source vérifiable obtenue.";
         }
         if (test.executed) {
-            cfg.put("web_last_status", "Recherche exécutée via " + test.model + ", sans URL source");
+            cfg.put("web_last_test_status", "Recherche exécutée via " + test.model + ", sans URL source");
             return "Mistral a lancé la recherche Web (" + test.model
                     + "), mais aucune URL vérifiable n'a été retournée.";
         }
-        cfg.put("web_last_status", "Aucun outil Web exécuté via " + test.model);
+        cfg.put("web_last_test_status", "Aucun outil Web exécuté via " + test.model);
         return "Mistral répond, mais n'a pas déclenché de recherche Web, y compris après le repli "
                 + "vers " + test.model + ". Vérifiez l'accès aux outils dans votre offre.";
     }
@@ -398,7 +408,7 @@ public final class NativeAI {
             String previous = lastQuestion(history);
             if (!"1".equals(settings.get("stream_enabled", "1"))
                     || ("1".equals(settings.get("web_enabled", "1"))
-                         && WebSearch.shouldSearch(settings.get("web_mode", "auto"), question, previous))
+                         && WebSearch.shouldSearch(settings.get("web_mode", "always"), question, previous))
                     || (!"1".equals(settings.get("web_enabled", "1"))
                          && WebSearch.explicit(question))) {
                 return answer(settings, question, history, locationContext);
@@ -561,7 +571,7 @@ public final class NativeAI {
                                        List<JSONObject> history) throws Exception {
         String model = configuredModel(cfg);
         String previous = lastQuestion(history);
-        boolean needed = WebSearch.shouldSearch(cfg.get("web_mode", "auto"), question, previous);
+        boolean needed = WebSearch.shouldSearch(cfg.get("web_mode", "always"), question, previous);
         boolean webEnabled = "1".equals(cfg.get("web_enabled", "1"));
         if (!webEnabled && (WebSearch.explicit(question) || !WebSearch.firstUrl(question).isEmpty()))
             return "La recherche Web est désactivée. Réactivez-la dans les réglages de FRIDAY.";
@@ -645,8 +655,7 @@ public final class NativeAI {
                         : "Outil Web non déclenché via " + found.model);
                 // Une demande explicite ne peut pas être présentée comme une
                 // recherche accomplie si le fournisseur n'a pas lancé l'outil.
-                if (WebSearch.explicit(question) && !found.executed
-                        && found.references == 0)
+                if (!found.executed && found.references == 0)
                     return "Mistral n'a pas effectué de recherche Web pour cette demande. "
                             + "Le moteur ou le compte ne l'a pas déclenchée. "
                             + "Ouvrez Réglages > Activer et tester la recherche Web. "

@@ -14,7 +14,7 @@ class StreamingIntegration(unittest.TestCase):
         self.assertIn('"[DONE]"', ai)
         self.assertIn("SpeechSentenceBuffer.EventLines", ai)
         self.assertIn("onSentence.accept", ai)
-        self.assertIn('WebSearch.shouldSearch(settings.get("web_mode", "auto"), question, previous)', ai)
+        self.assertIn('WebSearch.shouldSearch(settings.get("web_mode", "always"), question, previous)', ai)
 
     def test_streamed_voice_cancelled(self):
         service = (JAVA / "FridayService.java").read_text()
