@@ -1,3 +1,13 @@
+## [3.8.6] — Internet toujours activé pour les questions Mistral
+
+- Migration unique à l'installation : **recherche Internet activée** et mode **Toujours** sélectionné automatiquement, y compris si v3.8.5 était en mode Automatique. Les choix ultérieurs de l'utilisateur sont respectés.
+- Chaque question transmise à Mistral utilise désormais le chemin **Conversations + web_search** : réponse normale et réponse vocale streaming empruntent la même route Web. Les commandes entièrement locales ne génèrent pas de requête Internet inutile.
+- Si un premier appel Conversations répond sans exécuter d'outil Web, FRIDAY effectue **une seule tentative supplémentaire** avec `mistral-small-latest` et une instruction de recherche explicite. Aucun rebouclage, aucun contournement 401/403/429 et aucune URL inventée.
+- Les indicateurs **test de connexion Web** et **dernière recherche réelle** sont distincts : un échange sans sources ne fait plus disparaître le succès du test de la clé Mistral.
+- **Limite du fournisseur :** l'API Conversations expose `web_search` mais n'offre pas de paramètre `tool_choice` forcé dans son schéma documenté. Toujours signifie donc **tenter la recherche à chaque question** ; l'exécution et les sources doivent encore être vérifiées dans la réponse.
+- Les requêtes Web Mistral peuvent être facturées. Aucune recherche permanente en tâche de fond, aucune synchronisation GitHub des données personnelles. Chiffrement Memory+, STOP anti-écho et autorisations GPS conservés.
+- Tests de régression Java/Python, compilation Android sur GitHub Actions et validation sur appareil avec la clé personnelle à effectuer.
+
 ## [3.8.5] — Diagnostic Web visible et mode Toujours (Mistral)
 
 - Correction du bouton « Activer et tester la recherche Web Mistral » : son résultat n'était présenté que dans une ligne d'état **au-dessus** des Réglages, où il pouvait être masqué ou remplacé par les événements vocaux.
