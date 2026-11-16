@@ -1,3 +1,11 @@
+## FRIDAY v3.8.1 — Web réellement vérifié
+
+La recherche Web utilise **Mistral Conversations / web_search** (pas Chat Completions). Dans Réglages, « Activer et tester la recherche Web Mistral » réalise un véritable essai avec la clé API enregistrée ; un échec est visible dans l'interface. Une recherche demandée explicitement ne doit pas être présentée comme accomplie si l'outil n'a pas été appelé.
+
+Pour **analyser une page précise**, saisir une URL HTTPS publique dans le champ Web des Réglages et cliquer « Analyser cette page Web avec Mistral » après avoir démarré l'écoute. FRIDAY lit le texte public de la page localement (sans Google API), puis envoie à Mistral un extrait borné pour répondre ; il cite l'URL effectivement consultée. Les sites nécessitant une connexion, le rendu JavaScript, des pages privées et les contenus non textuels ne sont pas garantis.
+
+La mémoire personnelle reste chiffrée uniquement sur Android. Le partage des notes Memory+ avec Mistral est une permission **distincte**, désactivée par défaut ; aucune synchronisation vers GitHub.
+
 ## FRIDAY Memory+ v3.8.0
 
 **La nouvelle mémoire est privée par défaut.** Elle conserve jusqu'à 200 notes catégorisées (600 caractères chacune) sur le téléphone, chiffrées via Android Keystore. Recherche, modification, suppression et marquage de relecture se font dans les Réglages, hors ligne.
