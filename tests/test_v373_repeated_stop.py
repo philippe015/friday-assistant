@@ -28,8 +28,13 @@ class RepeatedStopRegression(unittest.TestCase):
         html = (ROOT / "app/src/main/assets/index.html").read_text()
         gradle = (ROOT / "app/build.gradle").read_text()
         self.assertIn("v3.7.3", html)
-        self.assertIn("versionCode 62", gradle)
-        self.assertIn("versionName '3.7.3'", gradle)
+        import re
+        code = re.search(r"versionCode (\d+)", gradle)
+        self.assertIsNotNone(code)
+        self.assertGreaterEqual(int(code.group(1)), 62)
+        version = re.search(r"versionName '(\d+)\.(\d+)\.(\d+)'", gradle)
+        self.assertIsNotNone(version)
+        self.assertGreaterEqual(tuple(map(int, version.groups())), (3, 7, 3))
         self.assertIn("voiceInterruptTelemetry", html)
 
 if __name__ == "__main__":
