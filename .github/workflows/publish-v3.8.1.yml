@@ -1,0 +1,69 @@
+name: Publish FRIDAY v3.8.1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-v3.8.1.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout v3.8.1
+        uses: actions/checkout@v4
+
+      - name: Validate app version
+        run: |
+          set -euo pipefail
+          grep -Fq "versionCode 64" app/build.gradle
+          grep -Fq "versionName '3.8.1'" app/build.gradle
+
+      - name: Wait for signed APK build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run watch 43824298213 --repo "$GITHUB_REPOSITORY" --exit-status --interval 10
+
+      - name: Download and verify signed APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 43824298213 --repo "$GITHUB_REPOSITORY" \
+            --name FRIDAY-release-signed-apk --dir dist
+          test -s dist/app-release.apk
+          unzip -tq dist/app-release.apk
+          mv dist/app-release.apk dist/FRIDAY-v3.8.1-release.apk
+          sha256sum dist/FRIDAY-v3.8.1-release.apk
+
+      - name: Tag version v3.8.1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v3.8.1" >/dev/null 2>&1; then
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref='refs/tags/v3.8.1' -f sha="$GITHUB_SHA"
+          fi
+
+      - name: Publish official signed release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view v3.8.1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload v3.8.1 dist/FRIDAY-v3.8.1-release.apk \
+              --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create v3.8.1 dist/FRIDAY-v3.8.1-release.apk \
+              --repo "$GITHUB_REPOSITORY" --verify-tag \
+              --title "F.R.I.D.A.Y. v3.8.1 - Mistral Web et pages HTTPS réelles" \
+              --notes "FRIDAY v3.8.1 : recherche reelle via web_search dans l'API Conversations de Mistral, diagnostic fiable du Web et des droits du compte, lecture et analyse de pages HTTPS publiques fournies par l'utilisateur, refus des URLs privees, affichage de la source effectivement lue, nouveaux controles de test dans les Reglages. Memory+ conserve sa memoire locale chiffree Android Keystore et son partage des notes vers Mistral reste desactive par defaut. Aucune API Google ni synchronisation GitHub. VersionCode 64 et tests CI valides. La qualite du Web avec votre cle personnelle Mistral et sur votre telephone reste a tester."
+          fi
+          gh release view v3.8.1 --repo "$GITHUB_REPOSITORY" --json url,assets
