@@ -39,7 +39,9 @@ public class MainActivity extends Activity {
     private CheckBox voiceEnabled, streamingEnabled, oneShotEnabled, voskHintsEnabled,
             locationEnabled, locationShare, placeNameEnabled;
     private CheckBox memoryEnabled, memoryShareMistral;
-    private CheckBox webEnabled;
+    private CheckBox webEnabled, webAlways;
+    private TextView webDiagnosticLabel;
+    private final AtomicBoolean webTestRunning = new AtomicBoolean(false);
     private TextView voiceSampleStatus;
     private volatile boolean voiceRecording = false;
     private volatile boolean voicePreview = false;
@@ -175,8 +177,25 @@ public class MainActivity extends Activity {
         webEnabled.setTextColor(Color.WHITE);
         webEnabled.setChecked("1".equals(prefs.get("web_enabled", "1")));
         config.addView(webEnabled);
+        webAlways = new CheckBox(this);
+        webAlways.setText("Mode Toujours : tenter une recherche Internet à chaque question (peut être facturé)");
+        webAlways.setTextColor(Color.WHITE);
+        webAlways.setChecked("always".equals(prefs.get("web_mode", "auto")));
+        config.addView(webAlways);
+        config.addView(label("Mode Automatique (case désactivée) : recherche uniquement quand la question le nécessite. "
+                + "Mode Toujours : demande l'outil Web à chaque question envoyée à Mistral, "
+                + "sans pouvoir garantir que le compte ou le modèle l'exécutera."));
         config.addView(button("🌐 Activer et tester la recherche Web Mistral", this::enableAndTestWeb));
-        config.addView(label("Le bouton vérifie un appel réel à web_search et les URL sources. Si le modèle choisi échoue, un essai avec mistral-small-latest est effectué sans modifier votre modèle de dialogue. Une erreur de clé, de droits ou de quota reste visible. Les recherches peuvent être facturées."));
+        webDiagnosticLabel = label(prefs.get("web_last_status",
+                "Aucun test Web effectué. Appuyez sur le bouton pour connaître le résultat réel."));
+        webDiagnosticLabel.setTextColor(Color.rgb(255, 228, 143));
+        webDiagnosticLabel.setTextSize(14);
+        webDiagnosticLabel.setPadding(dp(8), dp(8), dp(8), dp(12));
+        config.addView(webDiagnosticLabel);
+        config.addView(label("Le résultat du test apparaît ici ET dans une fenêtre lisible. "
+                + "Un succès nécessite une URL source renvoyée par Mistral. "
+                + "Si la clé, le modèle ou le compte refuse l'outil, le code d'erreur est expliqué. "
+                + "Le test peut être facturé."));
         config.addView(button("Tester la lecture d'une page HTTPS publique", this::testHttpsPage));
         webPageUrl = field("https://www.example.com/", false);
         config.addView(label("Lire une URL HTTPS publique, même microphone arrêté. FRIDAY corrige « https// » en « https:// ». Certains sites interdisent la lecture automatique (403) : leur contenu ne sera pas contourné ni inventé. L'extrait disponible est transmis à Mistral uniquement après votre demande."));
@@ -365,6 +384,7 @@ public class MainActivity extends Activity {
             prefs.put("memory_enabled", memoryEnabled.isChecked() ? "1" : "0");
             prefs.put("memory_share_mistral", memoryEnabled.isChecked() && memoryShareMistral.isChecked() ? "1" : "0");
             prefs.put("web_enabled", webEnabled.isChecked() ? "1" : "0");
+            prefs.put("web_mode", webAlways.isChecked() ? "always" : "auto");
             if (!webEnabled.isChecked()) prefs.put("web_verified", "0");
             prefs.put("silence_ms", bounded(silenceInput, 2100, 900, 6000));
             prefs.put("followup_sec", bounded(followupInput, 75, 15, 180));
@@ -492,23 +512,52 @@ public class MainActivity extends Activity {
         Toast.makeText(this, ok ? "Clé Mistral enregistrée" : "Clé non enregistrée", Toast.LENGTH_SHORT).show();
     }
 
-    /** Activation immédiate, puis test réseau réellement exécuté hors du thread UI. */
+    /** Test réseau réel : résultat toujours lisible dans les réglages et en fenêtre. */
     private void enableAndTestWeb() {
+        if (!webTestRunning.compareAndSet(false, true)) {
+            Toast.makeText(this, "Un test Web est déjà en cours.", Toast.LENGTH_LONG).show();
+            return;
+        }
         webEnabled.setChecked(true);
         prefs.put("web_enabled", "1");
+        prefs.put("web_mode", webAlways.isChecked() ? "always" : "auto");
         prefs.put("web_verified", "0");
-        status.setText("Recherche Web activée. Vérification de l'API Mistral…");
+        String pending = "Test Web Mistral EN COURS : vérification du modèle, de la clé "
+                + "et de l'outil web_search. Un appel peut durer plusieurs dizaines de secondes.";
+        webDiagnosticLabel.setText(pending);
+        status.setText(pending);
+        prefs.put("web_last_status", pending);
+        AlertDialog progress = new AlertDialog.Builder(this)
+                .setTitle("FRIDAY · diagnostic Internet")
+                .setMessage(pending)
+                .setPositiveButton("Masquer", (dialog, which) -> { })
+                .show();
         new Thread(() -> {
             String result;
-            try { result = NativeAI.testWeb(prefs); }
-            catch (Exception error) {
-                result = "Recherche Web activée, mais test impossible : "
-                        + (error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
+            try {
+                result = NativeAI.testWeb(prefs);
+            } catch (Exception error) {
+                result = NativeAI.explainWebTestFailure(error);
             }
             final String detail = result;
-            prefs.put("web_verified", detail.startsWith("Recherche Web Mistral opérationnelle") ? "1" : "0");
+            final boolean verified = detail.startsWith("Recherche Web Mistral opérationnelle");
+            prefs.put("web_verified", verified ? "1" : "0");
+            prefs.put("web_last_status", detail);
+            webTestRunning.set(false);
             runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                webDiagnosticLabel.setText(detail);
                 status.setText(detail);
+                if (progress.isShowing()) {
+                    progress.setTitle(verified ? "Recherche Internet opérationnelle" : "Diagnostic Internet FRIDAY");
+                    progress.setMessage(detail);
+                } else {
+                    new AlertDialog.Builder(this)
+                            .setTitle(verified ? "Recherche Internet opérationnelle" : "Diagnostic Internet FRIDAY")
+                            .setMessage(detail)
+                            .setPositiveButton("Fermer", (dialog, which) -> { })
+                            .show();
+                }
                 if (pageReady && hud != null)
                     hud.evaluateJavascript("window.fridayRefreshNative&&window.fridayRefreshNative();", null);
             });
