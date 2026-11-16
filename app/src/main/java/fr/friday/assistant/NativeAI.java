@@ -398,7 +398,7 @@ public final class NativeAI {
             String previous = lastQuestion(history);
             if (!"1".equals(settings.get("stream_enabled", "1"))
                     || ("1".equals(settings.get("web_enabled", "1"))
-                         && WebSearch.needsWeb(question, previous))
+                         && WebSearch.shouldSearch(settings.get("web_mode", "auto"), question, previous))
                     || (!"1".equals(settings.get("web_enabled", "1"))
                          && WebSearch.explicit(question))) {
                 return answer(settings, question, history, locationContext);
@@ -529,6 +529,7 @@ public final class NativeAI {
         String msg = e.getMessage() == null ? "" : e.getMessage();
         if (msg.startsWith("API HTTP 401")) return "clé Mistral refusée (401)";
         if (msg.startsWith("API HTTP 403")) return "outil non autorisé par le compte (403)";
+        if (msg.startsWith("API HTTP 404")) return "modèle ou route API indisponible (404)";
         if (msg.startsWith("API HTTP 429")) return "limite ou quota de requêtes atteint (429)";
         if (msg.startsWith("API HTTP 422")) return "outil Web ou modèle incompatible (422)";
         if (msg.startsWith("API HTTP 400")) return "outil Web refusé par le modèle ou le compte (400)";
@@ -537,11 +538,30 @@ public final class NativeAI {
         return "service indisponible (" + e.getClass().getSimpleName() + ")";
     }
 
+    /** Diagnostic compréhensible sans afficher la clé, les données privées ni les réponses API. */
+    public static String explainWebTestFailure(Exception error) {
+        String reason = webFailure(error);
+        String advice = "Vérifiez la connexion Internet puis la clé API dans les Réglages.";
+        if (reason.contains("(401)"))
+            advice = "La clé API Mistral est refusée : enregistrez une clé valide.";
+        else if (reason.contains("(403)"))
+            advice = "Le compte n'autorise pas web_search : vérifiez les droits et la facturation Mistral.";
+        else if (reason.contains("(429)"))
+            advice = "Limite ou quota Mistral atteint : vérifiez les quotas et l'offre du modèle.";
+        else if (reason.contains("(400)") || reason.contains("(422)") || reason.contains("(404)"))
+            advice = "Le modèle n'accepte peut-être pas les outils Conversations. "
+                    + "Vérifiez un modèle Mistral compatible avec web_search et votre offre.";
+        else if (error instanceof java.net.SocketTimeoutException)
+            advice = "Le réseau n'a pas répondu à temps. Réessayez sur une connexion stable.";
+        return "Test Internet ÉCHOUÉ : " + reason + ".\\n" + advice
+                + "\\nLa recherche Web n'a pas été confirmée.";
+    }
+
     private static String mistralAnswer(SecurePrefs cfg, String key, String question,
                                        List<JSONObject> history) throws Exception {
         String model = configuredModel(cfg);
         String previous = lastQuestion(history);
-        boolean needed = WebSearch.needsWeb(question, previous);
+        boolean needed = WebSearch.shouldSearch(cfg.get("web_mode", "auto"), question, previous);
         boolean webEnabled = "1".equals(cfg.get("web_enabled", "1"));
         if (!webEnabled && (WebSearch.explicit(question) || !WebSearch.firstUrl(question).isEmpty()))
             return "La recherche Web est désactivée. Réactivez-la dans les réglages de FRIDAY.";
