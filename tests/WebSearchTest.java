@@ -40,6 +40,14 @@ public final class WebSearchTest {
         check(WebSearch.firstUrl("Lis https://example.org/news?id=12.").equals("https://example.org/news?id=12"),
                 "Extraction URL");
         check(WebSearch.firstUrl("aucune URL").isEmpty(), "URL inventée");
+        check(WebSearch.shouldSearch("always", "Bonjour", ""),
+                "Mode Toujours doit demander le Web même pour une question ordinaire");
+        check(!WebSearch.shouldSearch("auto", "Bonjour", ""),
+                "Mode Automatique ne doit pas rechercher une salutation");
+        check(WebSearch.shouldSearch("auto", "Quelle est la météo demain ?", ""),
+                "Mode Automatique conserve les questions d'actualité");
+        check(!WebSearch.shouldSearch("off", "Bonjour", ""),
+                "Mode Off est limité à l'évaluation du besoin : désactivation gérée par le service");
         check(WebSearch.firstUrl("Analyse la page https//www.lci.fr/").equals(
                 "https://www.lci.fr/"), "HTTPS oral dépourvu de deux-points");
         check(WebSearch.firstUrl("Analyse la page https:/www.lci.fr/").equals(
