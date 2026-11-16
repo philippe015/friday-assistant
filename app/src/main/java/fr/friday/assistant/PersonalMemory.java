@@ -69,6 +69,9 @@ public final class PersonalMemory {
                 if (!obj.has("id") || !obj.has("content"))
                     throw new IllegalStateException("Format mémoire invalide");
             }
+            // Si la suppression de l'ancienne copie avait échoué lors de la
+            // précédente ouverture, recommencer seulement APRÈS lecture AES valide.
+            if (cfg.hasSecret(LEGACY)) cfg.removePrivateSecret(LEGACY);
             return arr;
         }
         JSONArray converted = new JSONArray();
