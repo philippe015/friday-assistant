@@ -36,7 +36,7 @@ public final class SecurePrefs {
     public String get(String k, String d) { return prefs.getString(k, d); }
     public void put(String k, String v) { prefs.edit().putString(k, v).apply(); }
 
-    /** Indique si une clé est utilisable (chiffrée ou repli). */
+    /** Indique si une clé secrète existe dans le coffre Android. */
     public boolean hasSecret(String name) {
         String data = prefs.getString("secret_" + name, "");
         return data != null && !data.isEmpty();
@@ -57,7 +57,8 @@ public final class SecurePrefs {
 
     public synchronized void setSecret(String name, String value) {
         if (value == null || value.isEmpty()) {
-            prefs.edit().remove("secret_" + name).apply();
+            if (!prefs.edit().remove("secret_" + name).commit())
+                throw new IllegalStateException("Suppression du secret impossible");
             return;
         }
         try {
@@ -66,11 +67,12 @@ public final class SecurePrefs {
             byte[] encrypted = c.doFinal(value.getBytes(StandardCharsets.UTF_8));
             String data = Base64.encodeToString(c.getIV(), Base64.NO_WRAP) + ":" +
                     Base64.encodeToString(encrypted, Base64.NO_WRAP);
-            prefs.edit().putString("secret_" + name, data).apply();
+            if (!prefs.edit().putString("secret_" + name, data).commit())
+                throw new java.io.IOException("Écriture chiffrée impossible");
             LAST_ERROR = "";
         } catch (Exception e) {
             // Depuis v3.8, aucun secret ni profil ne peut être écrit en clair.
-            LAST_ERROR = "Keystore indisponible : stockage non chiffré refusé";
+            LAST_ERROR = "Stockage chiffré indisponible : écriture non chiffrée refusée";
             throw new IllegalStateException(LAST_ERROR, e);
         }
     }
@@ -85,7 +87,7 @@ public final class SecurePrefs {
                 String legacy = new String(Base64.decode(
                         data.substring(PLAIN.length()), Base64.NO_WRAP), StandardCharsets.UTF_8);
                 setSecret(name, legacy);
-                return legacy;
+                return secret(name);
             } catch (Exception e) {
                 LAST_ERROR = "Secret ancien en clair bloqué : migration Keystore impossible";
                 return "";
