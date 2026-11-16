@@ -1,3 +1,13 @@
+## FRIDAY v3.8.5 — Tester réellement l'accès Internet
+
+Ouvrir **Réglages → Moteur IA Mistral** puis appuyer sur **« Activer et tester la recherche Web Mistral »**. La fenêtre indique immédiatement « Test en cours », puis affiche le résultat explicite. Une copie du dernier diagnostic reste visible **juste sous le bouton** et dans la télémétrie Web du cockpit.
+
+Le mode **Automatique** choisit le Web seulement quand la demande le nécessite. En activant **« Mode Toujours »**, chaque question transmise à Mistral demande `web_search` via son API `/v1/conversations`, au prix de requêtes éventuellement facturées ; les réponses prennent alors plus de temps et le streaming token par token n'est pas disponible pour cette recherche. Le modèle décide toujours si l'outil est exécuté. Les réponses locales, l'heure et certaines commandes ne font pas systématiquement appel à l'API.
+
+**Diagnostic :** 401 = clé invalide ; 403 = outil non autorisé par le compte ; 429 = quota ou limites ; 400/404/422 = modèle ou API incompatible ; délai = problème de réseau. Le téléchargement d'une page publique en HTTPS est distinct de l'autorisation d'utiliser le moteur `web_search` de Mistral. Ne communiquez jamais votre clé API dans un rapport.
+
+La mémoire personnelle reste chiffrée sur le téléphone, sans sauvegarde automatique vers GitHub, et la commande STOP / anti-écho v3.8.4 reste disponible.
+
 ## FRIDAY v3.8.4 — Anti-écho TTS Android
 
 FRIDAY ne doit plus traiter comme question la voix émise par son propre haut-parleur. Pendant toute réponse (Mistral, streaming ou lecture TTS), le Vosk général est temporairement suspendu. Un décodeur Vosk indépendant conserve la reconnaissance des commandes « STOP », « Arrête » et « J'ai une précision » pendant la réponse, dans les limites acoustiques du téléphone.
