@@ -38,14 +38,14 @@ public class MainActivity extends Activity {
     private EditText mistralModel, mistralKey;
     private CheckBox voiceEnabled, streamingEnabled, oneShotEnabled, voskHintsEnabled,
             locationEnabled, locationShare, placeNameEnabled;
-    private CheckBox memoryEnabled;
+    private CheckBox memoryEnabled, memoryShareMistral;
     private CheckBox webEnabled;
     private TextView voiceSampleStatus;
     private volatile boolean voiceRecording = false;
     private volatile boolean voicePreview = false;
     private final AtomicBoolean hudCloneSpeaking = new AtomicBoolean(false);
     private boolean recordAfterMicPermission = false;
-    private EditText memoryEditor;
+    private EditText memoryEditor, memorySearchInput;
     private EditText silenceInput, followupInput, ttsInput, voskHintsEditor;
     private CheckBox bargeEnabled;
     private LinearLayout config;
@@ -116,7 +116,7 @@ public class MainActivity extends Activity {
         LinearLayout bar = new LinearLayout(this);
         bar.setPadding(dp(7),dp(3),dp(7),dp(3));
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = label("F.R.I.D.A.Y. · 3.4.1");
+        TextView title = label("F.R.I.D.A.Y. · " + FridayVersionGuard.thisVersion(this));
         title.setTextSize(15); title.setTextColor(Color.rgb(71,228,249));
         bar.addView(title, new LinearLayout.LayoutParams(0,dp(48),1));
         Button configure = button("⚙ Réglages", () -> configScroll.setVisibility(configScroll.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
@@ -178,13 +178,19 @@ public class MainActivity extends Activity {
         config.addView(button("🌐 Activer et tester la recherche Web", this::enableAndTestWeb));
         config.addView(label("En mode Web, FRIDAY consulte des sources publiques. Les recherches Mistral peuvent être facturées."));
 
-        config.addView(label("MÉMOIRE PERSONNELLE · uniquement sur demande explicite"));
+        config.addView(label("FRIDAY MEMORY+ v3.8.0 · privé, chiffré et sans synchronisation GitHub"));
         memoryEnabled = new CheckBox(this);
-        memoryEnabled.setText("Activer ma mémoire chiffrée (les notes seront transmises à Mistral avec les questions)");
+        memoryEnabled.setText("Activer ma mémoire locale (notes chiffrées AES-GCM via Android Keystore)");
         memoryEnabled.setTextColor(Color.WHITE);
         memoryEnabled.setChecked("1".equals(prefs.get("memory_enabled", "0")));
         config.addView(memoryEnabled);
-        config.addView(label("Une note par ligne · 12 notes max · 300 caractères chacune. Ne stockez pas de mots de passe ou de secrets."));
+        memoryShareMistral = new CheckBox(this);
+        memoryShareMistral.setText("J'autorise Mistral à recevoir jusqu'à 5 notes pertinentes pour répondre à mes questions");
+        memoryShareMistral.setTextColor(Color.WHITE);
+        memoryShareMistral.setChecked("1".equals(prefs.get("memory_share_mistral", "0")));
+        config.addView(memoryShareMistral);
+        config.addView(label("Ce partage est désactivé par défaut. Les notes restent sur le téléphone sauf consentement explicite. Le texte d'une question envoyée à Mistral quitte normalement le téléphone. Aucun transfert vers GitHub."));
+        config.addView(label("Une note par ligne · 200 notes max · 600 caractères chacune. Option : [projet] ou [travail] au début d'une note. Ne stockez pas de mots de passe."));
         memoryEditor = new EditText(this);
         memoryEditor.setSingleLine(false);
         memoryEditor.setMinLines(4);
@@ -193,9 +199,13 @@ public class MainActivity extends Activity {
         memoryEditor.setTextColor(Color.WHITE);
         memoryEditor.setTextSize(14);
         memoryEditor.setText(PersonalMemory.editorText(prefs));
-        memoryEditor.setHint("Exemple : Préfère des réponses techniques en français");
+        memoryEditor.setHint("[projet] Mon projet F.R.I.D.A.Y. n'utilise que Mistral");
         config.addView(memoryEditor);
-        config.addView(button("Enregistrer les notes de mémoire", this::saveMemory));
+        config.addView(button("Enregistrer les notes chiffrées", this::saveMemory));
+        memorySearchInput = field("Rechercher localement (mot, projet ou thème)", false);
+        config.addView(memorySearchInput);
+        config.addView(button("Rechercher / modifier / supprimer une note", this::showMemorySearch));
+        config.addView(label("Les dates de révision sont saisies manuellement : elles ne certifient pas l'exactitude d'une information."));
         config.addView(button("Effacer toutes les notes mémorisées", () -> {
             new AlertDialog.Builder(this).setTitle("Effacer la mémoire personnelle ?")
                 .setMessage("Cela supprime définitivement les notes personnelles enregistrées localement.")
@@ -206,7 +216,7 @@ public class MainActivity extends Activity {
                     catch (Exception e) { status.setText("Erreur mémoire : " + e.getMessage()); }
                 }).show();
         }));
-        config.addView(label("Commandes vocales : « Friday, retiens que... », « Friday, qu'as-tu mémorisé ? »."));
+        config.addView(label("Commandes vocales locales : « Friday, retiens que... », « Friday, cherche dans ma mémoire projet », « Friday, qu'as-tu mémorisé ? ». Effacement total uniquement après confirmation dans les réglages."));
         config.addView(label("DÉTECTION DES PHRASES · délai de silence (millisecondes, 900 à 6000)"));
         silenceInput = field("2100", false);
         silenceInput.setInputType(InputType.TYPE_CLASS_NUMBER);
@@ -348,6 +358,7 @@ public class MainActivity extends Activity {
             if (!mistralGiven.isEmpty()) { prefs.setSecret("mistral", mistralGiven); prefs.put("web_verified", "0"); }
             mistralKey.setText("");
             prefs.put("memory_enabled", memoryEnabled.isChecked() ? "1" : "0");
+            prefs.put("memory_share_mistral", memoryEnabled.isChecked() && memoryShareMistral.isChecked() ? "1" : "0");
             prefs.put("web_enabled", webEnabled.isChecked() ? "1" : "0");
             if (!webEnabled.isChecked()) prefs.put("web_verified", "0");
             prefs.put("silence_ms", bounded(silenceInput, 2100, 900, 6000));
@@ -377,11 +388,75 @@ public class MainActivity extends Activity {
             private void saveMemory() {
         try {
             int count = PersonalMemory.replaceFromEditor(prefs, memoryEditor.getText().toString());
-            status.setText("Mémoire chiffrée : " + count + " notes enregistrées. Activez la case mémoire pour les utiliser.");
+            status.setText("Memory+ : " + count + " notes chiffrées localement. Partage Mistral désactivé par défaut.");
             Toast.makeText(this, "Notes enregistrées : " + count, Toast.LENGTH_SHORT).show();
         } catch (Exception ex) {
             status.setText("Échec de la mémoire : " + ex.getMessage());
         }
+    }
+
+    private void showMemorySearch() {
+        try {
+            java.util.List<PersonalMemory.Entry> notes = PersonalMemory.search(
+                    prefs, memorySearchInput.getText().toString(), 40);
+            if (notes.isEmpty()) {
+                status.setText("Aucune note locale correspondant à la recherche.");
+                return;
+            }
+            String[] labels = new String[notes.size()];
+            for (int i = 0; i < notes.size(); i++) {
+                PersonalMemory.Entry e = notes.get(i);
+                String preview = e.editorLine();
+                labels[i] = (e.lastReviewedAt > 0 ? "✓ " : "• ") +
+                        (preview.length() <= 100 ? preview : preview.substring(0, 100) + "…");
+            }
+            new AlertDialog.Builder(this).setTitle("Memory+ · notes locales chiffrées")
+                    .setItems(labels, (d, which) -> editMemoryEntry(notes.get(which)))
+                    .setNegativeButton("Fermer", null).show();
+        } catch (Exception ex) {
+            status.setText("Recherche mémoire impossible (chiffrement indisponible).");
+        }
+    }
+
+    private void editMemoryEntry(PersonalMemory.Entry selected) {
+        EditText edit = field("Note ou [catégorie] note", false);
+        edit.setSingleLine(false);
+        edit.setMinLines(3);
+        edit.setText(selected.editorLine());
+        new AlertDialog.Builder(this)
+                .setTitle("Memory+ · " + selected.category +
+                        (selected.lastReviewedAt > 0 ? " · révisée manuellement" : " · non révisée"))
+                .setView(edit)
+                .setPositiveButton("Modifier", (d, which) -> {
+                    try {
+                        PersonalMemory.update(prefs, selected.id, edit.getText().toString());
+                        reloadMemoryEditor();
+                        status.setText("Note mise à jour localement et chiffrée.");
+                    } catch (Exception ex) { status.setText("Modification impossible : " + ex.getMessage()); }
+                })
+                .setNeutralButton("Marquer révisée", (d, which) -> {
+                    try {
+                        PersonalMemory.markReviewed(prefs, selected.id);
+                        status.setText("Note marquée comme relue par vous. Véracité non certifiée.");
+                    } catch (Exception ex) { status.setText("Révision impossible."); }
+                })
+                .setNegativeButton("Supprimer", (d, which) -> {
+                    new AlertDialog.Builder(this)
+                            .setTitle("Supprimer cette note ?")
+                            .setMessage("Cette action supprime définitivement la note chiffrée sélectionnée.")
+                            .setNegativeButton("Annuler", null)
+                            .setPositiveButton("Supprimer", (dialog, button) -> {
+                                try {
+                                    PersonalMemory.delete(prefs, selected.id);
+                                    reloadMemoryEditor();
+                                    status.setText("Note supprimée localement.");
+                                } catch (Exception ex) { status.setText("Suppression impossible."); }
+                            }).show();
+                }).show();
+    }
+
+    private void reloadMemoryEditor() {
+        memoryEditor.setText(PersonalMemory.editorText(prefs));
     }
 
     private String bounded(EditText input, int fallback, int low, int high) {
