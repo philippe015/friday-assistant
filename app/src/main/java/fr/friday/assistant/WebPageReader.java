@@ -38,7 +38,7 @@ public final class WebPageReader {
     public static String normalizeUrlInput(String value) {
         if (value == null) return "";
         String url = value.trim();
-        if (url.matches("(?is)^https\\s*:?/{1,2}.+"))
+        if (url.matches("(?is)^https\\s*:?/{1,2}.*"))
             return url.replaceFirst("(?i)^https\\s*:?/{1,2}", "https://");
         if (url.matches("(?i)^www\\.[a-z0-9].*")) return "https://" + url;
         return url;
