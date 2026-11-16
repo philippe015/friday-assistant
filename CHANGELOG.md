@@ -1,3 +1,12 @@
+## [3.8.4] — Protection anti-écho : FRIDAY ne relance plus Mistral avec sa propre voix
+
+- **Cause corrigée** : la transcription générale Vosk traitait encore le son du haut-parleur pendant les réponses vocales, ce qui pouvait réinjecter le texte de FRIDAY comme nouvelle question.
+- **Isolation de la dictée générale** tant que le tour de réponse est actif, y compris pendant le streaming TTS. Le décodeur de commandes dédié continue d'écouter « stop », « arrête » et « j'ai une précision » si activé.
+- **Garde anti-réverbération** de 2,5 secondes à la fin normale de la réponse ; après interruption STOP, délai plus court de 900 ms. Le reconnaisseur Vosk général est réinitialisé lors de chaque transition pour vider les mots captés.
+- Le microphone reste en marche pour l'interruption vocale, mais **les nouvelles questions vocales attendent la fin de la réponse et du délai anti-écho**. Les questions écrites restent possibles à tout moment.
+- Les paramètres Mistral/Web v3.8.3, Memory+ chiffrée et permissions GPS sont conservés.
+- Tests de la politique anti-écho Java, tests Python de l'ordre des décodeurs et build Android via CI. Test acoustique réel sur téléphone indispensable : la commande STOP peut toujours être perturbée par une acoustique défavorable.
+
 ## [3.8.3] — Accès Web Mistral : essai de modèle de repli et diagnostic réel
 
 - Lorsque le modèle de dialogue sélectionné ne déclenche pas l'outil officiel `web_search`, FRIDAY effectue **un seul essai** via `mistral-small-latest`. Le modèle du dialogue reste inchangé.
