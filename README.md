@@ -1,3 +1,15 @@
+## FRIDAY v3.8.9 — Dialogue continu et diagnostic complet
+
+Un défaut de la v3.8.8 bloquait la reconnaissance vocale **pendant les recherches Web**, même quand le haut-parleur était silencieux. La v3.8.9 garde désormais le microphone et Vosk actifs en attendant Mistral. Dites **« Friday, ... »** pour envoyer une nouvelle question, même si une recherche précédente n'a pas fini. Pendant la synthèse vocale, seul STOP / précision reste actif, puis la dictée se rouvre après l'anti-écho.
+
+En cas de microphone rendu muet par Android, FRIDAY évite les réinitialisations répétées de Vosk et tente un autre mode de capture. Une requête Mistral silencieuse trop longue est annulée après 150 secondes. Une erreur réseau peut être annoncée à voix haute si TTS fonctionne.
+
+**Diagnostic :** ouvrir Réglages → **Diagnostic complet de l'écoute · micro / Vosk / Mistral / voix**. La fenêtre affiche l'état du service, du micro Android, de Vosk/STOP, du moteur vocal, du mode Continu/Une question et du test Web. Le bouton de copie exclut la clé Mistral, les coordonnées GPS et les conversations. La dernière erreur détaillée reste consultable séparément.
+
+**Pour vérifier :** en mode Continu (case « Mode une question » décochée), poser « Friday, actualités des sept dernières heures », puis « Friday, quelle heure est-il ? » pendant que le réseau est encore en attente. Après une réponse parlée, patienter 2,5 secondes et poser trois autres questions commençant par Friday. Si cela échoue, transmettre le diagnostic copié et préciser si la question apparaît en texte ou si seul le son manque.
+
+Voir `docs/AUDIT_V389_VOICE_CONTINUITY.md` pour le détail du diagnostic, des corrections et des limites. La version conserve Memory+ chiffrée sur le téléphone, les permissions GPS, le Web de Mistral et STOP. **La stabilité réelle doit être vérifiée sur appareil.**
+
 ## FRIDAY v3.8.8 — Réponse vocale et questions suivantes
 
 Après une réponse longue, FRIDAY doit continuer à écouter. Le circuit Web Mistral utilise maintenant directement la synthèse Android lorsqu'une réponse complète est fournie : la file streaming ne doit plus conserver une requête active après un échec audio. La lecture réellement progressive conserve une file bornée, contrôlée pour ne pas attendre un lecteur TTS mort. En cas d'erreur TTS, le service laisse le texte disponible, annonce le problème et tente de réinitialiser la voix sans couper le microphone.

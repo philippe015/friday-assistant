@@ -53,8 +53,8 @@ class WebAlwaysDefaultV386(unittest.TestCase):
 
     def test_version_privacy_and_stop_remain(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 71", gradle)
-        self.assertIn("versionName '3.8.8'", gradle)
+        self.assertIn("versionCode 72", gradle)
+        self.assertIn("versionName '3.8.9'", gradle)
         self.assertIn('cfg.get("memory_share_mistral", "0")', read("PersonalMemory.java"))
         self.assertIn("TtsEchoGate.suppressGeneralAsr(", read("FridayService.java"))
         self.assertIn("stopRecognizer.acceptWaveForm(buffer, count)", read("FridayService.java"))

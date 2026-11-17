@@ -40,7 +40,11 @@ public class FridayService extends Service {
     private static volatile boolean active = false;
     private static volatile boolean micSilenced = false;
     private static volatile String interruptDiagnostics = "Micro non démarré";
+    private static volatile String voiceReadiness = "Micro arrêté";
+    private static volatile String lastTtsStatus = "Voix non initialisée";
     private static volatile boolean foregroundLocationEnabled = false;
+    private static final long MAX_PENDING_WEB_MS = 150000L;
+    private final Handler requestWatchdog = new Handler(Looper.getMainLooper());
     private volatile boolean running = false;
     private volatile boolean oneShotTriggered = false;
     private Thread worker;
@@ -79,6 +83,14 @@ public class FridayService extends Service {
     public static boolean isActive() { return active; }
     public static boolean isMicSilenced() { return micSilenced; }
     public static String interruptionDiagnostics() { return interruptDiagnostics; }
+    public static String voiceReadiness() { return voiceReadiness; }
+    public static String lastTtsStatus() { return lastTtsStatus; }
+    private void voiceState(String state) {
+        if (!state.equals(voiceReadiness)) {
+            voiceReadiness = state;
+            event("voice_state", state);
+        }
+    }
     public static boolean locationForegroundEnabled() {
         return foregroundLocationEnabled;
     }
@@ -90,6 +102,7 @@ public class FridayService extends Service {
         volatile Thread speaker;
         volatile boolean streamedVoice;
         volatile boolean streamingVoiceSucceeded;
+        volatile Runnable watchdog;
         volatile boolean cancelled;
         final long startedAt = SystemClock.elapsedRealtime();
         final AtomicLong firstVoiceAt = new AtomicLong();
@@ -165,6 +178,7 @@ public class FridayService extends Service {
         running = true;
         oneShotTriggered = false;
         active = true;
+        voiceState("Démarrage du microphone et du reconnaisseur français…");
         micSilenced = false;
         interruptDiagnostics = "Initialisation du décodeur d'interruption";
         silenceMs = settingInt("silence_ms", 2100, 900, 6000);
@@ -173,7 +187,7 @@ public class FridayService extends Service {
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "FRIDAY:MicroService");
         wakeLock.setReferenceCounted(false);
         wakeLock.acquire();
-        event("status", "Écoute native active, écran allumé ou verrouillé. Dites Friday.");
+        event("status", "Écoute native active. Dites Friday pour poser une question.");
         worker = new Thread(this::runLoop, "friday-voice-core");
         worker.start();
         return START_NOT_STICKY; // Pas de redémarrage clandestin après arrêt par le système.
@@ -248,6 +262,7 @@ public class FridayService extends Service {
             // Ne pas bloquer 15 secondes le micro en attendant le moteur TTS Android.
             new Thread(this::initTts, "friday-tts-setup").start();
             int consecutiveErrors = 0;
+            int mutedMicroReopens = 0;
             while (running && !oneShotTriggered) {
                 AudioRecord ar = null;
                 Recognizer recognizer = null;
@@ -260,7 +275,11 @@ public class FridayService extends Service {
                     if (minimum <= 0) throw new IllegalStateException("Microphone 16 kHz indisponible");
                     int bytes = Math.max(16384, minimum * 4);
                     boolean bargeEnabled = "1".equals(settings.get("barge_in_enabled", "1"));
-                    int src = bargeEnabled ? MediaRecorder.AudioSource.VOICE_COMMUNICATION : MediaRecorder.AudioSource.VOICE_RECOGNITION;
+                    // Si Android a rendu VOICE_COMMUNICATION muet, repartir
+                    // sur VOICE_RECOGNITION lors de la prochaine session audio.
+                    int src = bargeEnabled && mutedMicroReopens == 0
+                            ? MediaRecorder.AudioSource.VOICE_COMMUNICATION
+                            : MediaRecorder.AudioSource.VOICE_RECOGNITION;
                     ar = new AudioRecord(src, 16000, AudioFormat.CHANNEL_IN_MONO,
                         AudioFormat.ENCODING_PCM_16BIT, bytes);
                     if (ar.getState() != AudioRecord.STATE_INITIALIZED && bargeEnabled) {
@@ -303,6 +322,7 @@ public class FridayService extends Service {
                     }
                     recognizer = createRecognizer(model);
                     ar.startRecording();
+                    voiceState("Micro actif : dites Friday pour parler");
                     interruptDiagnostics = bargeEnabled
                             ? "Micro PCM prêt · décodeur STOP démarre à la réponse"
                             : "Désactivé dans Réglages · autoriser l'interruption vocale";
@@ -317,6 +337,7 @@ public class FridayService extends Service {
                     boolean earlyCancelled = false;
                     boolean sawSpeakerFeedback = false;
                     boolean generalInputBlocked = false;
+                    long mutedSince = 0;
                     while (running) {
                         // Une question : écoute active PENDANT la réponse pour permettre
                         // « stop » et « j'ai une précision ». Fermeture APRÈS la réponse.
@@ -351,23 +372,44 @@ public class FridayService extends Service {
                             }
                         }
                         if (silencedByPolicy.get()) {
+                            long mutedAt = SystemClock.elapsedRealtime();
                             interruptDiagnostics = "Micro rendu muet par Android · STOP vocal impossible";
-                            if (stopRecognizer != null) {
-                                stopRecognizer.close(); stopRecognizer = null; stopSpotter.reset();
-                            }
-                            if (!micSilenced) {
+                            if (mutedSince == 0) {
+                                // NE PAS recréer Vosk à chaque trame muette :
+                                // auparavant cela répétait des allocations natives.
+                                mutedSince = mutedAt;
                                 micSilenced = true;
-                                event("mic_conflict", "Android a rendu le micro muet. Vérifiez les applications vocales concurrentes.");
+                                voiceState("Android a coupé le micro : contrôle des permissions / autre application");
+                                event("mic_conflict", "Micro muet selon Android. "
+                                        + "FRIDAY essaiera un autre mode de capture si possible.");
+                                if (stopRecognizer != null) {
+                                    stopRecognizer.close(); stopRecognizer = null;
+                                    stopSpotter.reset();
+                                }
+                                recognizer.close(); recognizer = createRecognizer(model);
+                                completed = interim = ""; lastVoice = 0;
+                                confidenceSum = 0; confidenceCount = 0;
+                                earlyCancelled = false; sawSpeakerFeedback = false;
                             }
+                            if (mutedAt - mutedSince >= 8000L && mutedMicroReopens < 2) {
+                                mutedMicroReopens++;
+                                event("error", "Micro Android muet depuis 8 secondes : "
+                                        + "reconstruction de la capture audio ("
+                                        + mutedMicroReopens + "/2).");
+                                throw new IllegalStateException("Réinitialisation contrôlée de la capture muette");
+                            }
+                            continue;
+                        }
+                        if (mutedSince != 0 || micSilenced) {
+                            mutedSince = 0;
+                            micSilenced = false;
+                            mutedMicroReopens = 0;
                             recognizer.close(); recognizer = createRecognizer(model);
                             completed = interim = ""; lastVoice = 0;
                             confidenceSum = 0; confidenceCount = 0;
                             earlyCancelled = false; sawSpeakerFeedback = false;
-                            continue;
-                        }
-                        if (micSilenced) {
-                            micSilenced = false;
                             interruptDiagnostics = "Micro à nouveau accessible";
+                            voiceState("Micro restauré : dites Friday");
                             event("status", "Microphone de nouveau accessible. Dites Friday.");
                         }
                         // Affiche uniquement une mesure d'énergie PCM indicative.
@@ -384,7 +426,9 @@ public class FridayService extends Service {
                         }
                         // Décodeur court dédié aux commandes d'interruption : le
                         // décodeur général peut mélanger « stop » avec la voix TTS.
-                        if (currentTurn != null && bargeEnabled && !stopRecognizerUnavailable) {
+                        if (currentTurn != null
+                                && TtsEchoGate.useStopRecognizer(speakingNow, bargeEnabled)
+                                && !stopRecognizerUnavailable) {
                             if (stopRecognizer == null) {
                                 try {
                                     stopRecognizer = new Recognizer(model, 16000.0f);
@@ -434,14 +478,13 @@ public class FridayService extends Service {
                             stopRecognizer.close(); stopRecognizer = null; stopSpotter.reset();
                             if (bargeEnabled) interruptDiagnostics = "Micro actif · prêt";
                         }
-                        // Le Vosk général ne doit JAMAIS écouter les phrases prononcées
-                        // par FRIDAY. Seul le décodeur STOP ci-dessus traite le PCM
-                        // pendant le tour, et pendant l'écho résiduel la dictée est muette.
-                        // Une transition force une nouvelle instance Vosk pour ne pas
-                        // garder une transcription partielle des haut-parleurs.
+                        // Pendant Mistral/Web en attente, FRIDAY NE PARLE PAS :
+                        // le Vosk général doit rester disponible pour une nouvelle
+                        // question « Friday ... », même si currentTurn est présent.
+                        // Seule la sortie TTS effective et sa queue d'écho le bloquent.
                         long asrNow = SystemClock.elapsedRealtime();
                         boolean blocked = TtsEchoGate.suppressGeneralAsr(
-                                currentTurn != null, asrNow, echoBlockUntil);
+                                speakingNow, asrNow, echoBlockUntil);
                         if (blocked) {
                             if (!generalInputBlocked) {
                                 generalInputBlocked = true;
@@ -449,7 +492,8 @@ public class FridayService extends Service {
                                 completed = interim = ""; lastVoice = 0;
                                 confidenceSum = 0; confidenceCount = 0;
                                 earlyCancelled = false; sawSpeakerFeedback = false;
-                                event("barge_diag", "Protection anti-écho : dictée suspendue · STOP actif pendant la réponse");
+                                voiceState("Lecture TTS / anti-écho : dictée suspendue, STOP disponible");
+                                event("barge_diag", "Protection anti-écho : dictée suspendue · STOP actif pendant la voix");
                             }
                             continue;
                         }
@@ -460,7 +504,8 @@ public class FridayService extends Service {
                             confidenceSum = 0; confidenceCount = 0;
                             earlyCancelled = false; sawSpeakerFeedback = false;
                             generalInputBlocked = false;
-                            event("barge_diag", "Protection anti-écho : dictée rouverte · questions autorisées");
+                            voiceState("Micro prêt : dites Friday pour votre question suivante");
+                            event("barge_diag", "Protection anti-écho terminée · questions autorisées");
                         }
                         boolean endpoint = recognizer.acceptWaveForm(buffer, count);
                         long now = SystemClock.elapsedRealtime();
@@ -683,6 +728,19 @@ public class FridayService extends Service {
         latestQuestion = request;
         ResponseTurn turn = new ResponseTurn(anchor);
         currentTurn = turn;
+        voiceState("Question reçue · Mistral recherche · micro disponible pour une nouvelle question avec Friday");
+        // Protège contre un fournisseur/API bloqué : aucun tour muet ne doit
+        // garder l'écoute occupée indéfiniment. Un TTS en lecture n'est pas coupé.
+        turn.watchdog = () -> {
+            if (live(turn) && TtsEchoGate.staleNetworkTurn(
+                    true, speakingNow, SystemClock.elapsedRealtime(),
+                    turn.startedAt, MAX_PENDING_WEB_MS)) {
+                event("error", "Délai de recherche Mistral dépassé. "
+                        + "Vous pouvez poser une nouvelle question.");
+                interruptResponse("Recherche expirée · microphone disponible · dites Friday.");
+            }
+        };
+        requestWatchdog.postDelayed(turn.watchdog, MAX_PENDING_WEB_MS);
         Thread task = new Thread(() -> answerTurn(request, turn), "friday-mistral-response");
         turn.thread = task;
         if ("1".equals(settings.get("listen_once", "0")))
@@ -809,9 +867,22 @@ public class FridayService extends Service {
             }
         } catch (Exception ex) {
             if (live(turn)) {
-                event("error", "Réponse indisponible : " + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
+                String reason = ex.getMessage() == null
+                        ? ex.getClass().getSimpleName() : ex.getMessage();
+                event("error", "Réponse indisponible : " + reason);
+                // Une panne API ne doit pas donner l'impression d'un assistant
+                // définitivement muet. Dire une courte notification locale
+                // sans inventer une réponse Mistral ni interrompre le micro.
+                if ("1".equals(settings.get("voice_enabled", "1")) && ttsReady) {
+                    String notice = "Mistral n'a pas répondu à cette question. "
+                            + "Je reste à votre écoute. Dites Friday pour recommencer.";
+                    spokenText = notice;
+                    speakingNow = true;
+                    if (!speak(notice, turn)) recoverTtsAsync();
+                }
             }
         } finally {
+            if (turn.watchdog != null) requestWatchdog.removeCallbacks(turn.watchdog);
             if (currentTurn == turn) {
                 // Publier le délai AVANT de libérer le tour : le thread microphone
                 // n'a jamais de fenêtre où le PCM du haut-parleur rejoint Vosk.
@@ -825,6 +896,8 @@ public class FridayService extends Service {
                 speakingNow = false;
                 spokenText = "";
                 lastReplyAt = finishedAt;
+                voiceState(hadSpoken ? "Fin de la voix · anti-écho 2,5 secondes"
+                        : "Réponse terminée · micro disponible, dites Friday");
                 if (running && !"1".equals(settings.get("listen_once", "0"))) {
                     event("barge_diag", "Réponse clôturée · anti-écho temporaire · dictée bientôt active");
                 }
@@ -990,18 +1063,21 @@ public class FridayService extends Service {
             });
             if (!ready.await(15, TimeUnit.SECONDS)) {
                 ttsDiagnostic = "Initialisation de la voix expirée (15 s). Vérifiez le moteur TTS Android.";
+                lastTtsStatus = ttsDiagnostic;
                 event("error", ttsDiagnostic);
                 return;
             }
             if (!running) { if (tts != null) tts.shutdown(); tts = null; return; }
             if (initCode.get() != TextToSpeech.SUCCESS) {
                 ttsDiagnostic = "Moteur de synthèse vocale Android non initialisé (" + initCode.get() + ").";
+                lastTtsStatus = ttsDiagnostic;
                 event("error", ttsDiagnostic);
                 return;
             }
             int language = tts.setLanguage(Locale.FRENCH);
             if (language == TextToSpeech.LANG_MISSING_DATA || language == TextToSpeech.LANG_NOT_SUPPORTED) {
                 ttsDiagnostic = "Voix française manquante : installez la langue française dans le moteur TTS du téléphone.";
+                lastTtsStatus = ttsDiagnostic;
                 event("error", ttsDiagnostic);
                 return;
             }
@@ -1013,10 +1089,12 @@ public class FridayService extends Service {
             tts.setPitch(1.0f);
             ttsReady = true;
             ttsDiagnostic = "Voix française prête (" + tts.getDefaultEngine() + ").";
+            lastTtsStatus = ttsDiagnostic;
             event("tts", ttsDiagnostic);
         } catch (Exception e) {
             ttsReady = false;
             ttsDiagnostic = "Erreur TTS : " + e.getClass().getSimpleName() + " : " + e.getMessage();
+            lastTtsStatus = ttsDiagnostic;
             event("error", ttsDiagnostic);
             Log.e("FRIDAY_TTS", "Initialisation TTS", e);
         }
@@ -1101,6 +1179,7 @@ public class FridayService extends Service {
     }
 
     private synchronized void shutdown() {
+        requestWatchdog.removeCallbacksAndMessages(null);
         ResponseTurn previous = currentTurn;
         currentTurn = null;
         if (previous != null) previous.cancel();
@@ -1111,6 +1190,7 @@ public class FridayService extends Service {
         active = false;
         micSilenced = false;
         interruptDiagnostics = "Micro arrêté";
+        voiceState("Micro arrêté");
         foregroundLocationEnabled = false;
         textQuestions.clear();
         queuedQuestions.set(0);

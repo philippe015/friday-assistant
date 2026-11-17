@@ -264,7 +264,7 @@ public class MainActivity extends Activity {
         bargeEnabled.setTextColor(Color.WHITE);
         bargeEnabled.setChecked("1".equals(prefs.get("barge_in_enabled", "1")));
         config.addView(bargeEnabled);
-        config.addView(label("Anti-écho v3.8.4 : la dictée générale Vosk est suspendue pendant les réponses et 2,5 secondes après. Le micro reste disponible pour les commandes STOP et précision grâce au décodeur séparé. Posez une nouvelle question après cette courte pause. Si Android bloque le micro, utilisez le bouton Interrompre."));
+        config.addView(label("Anti-écho v3.8.9 : Vosk reste actif pendant les recherches Web en attente. Il se suspend uniquement quand FRIDAY parle et pendant 2,5 secondes après. Le micro reste disponible pour les commandes STOP et précision grâce au décodeur séparé. Posez une nouvelle question après cette courte pause. Si Android bloque le micro, utilisez le bouton Interrompre."));
         config.addView(label("VITESSE VOCALE · 100 = normale (70 à 150)"));
         ttsInput = field("100", false);
         ttsInput.setInputType(InputType.TYPE_CLASS_NUMBER);
@@ -339,6 +339,7 @@ public class MainActivity extends Activity {
                 : "Dernière erreur (" + prefs.get("last_error_time", "?") + ") : " + prefs.get("last_error", ""));
         config.addView(lastErrorLabel);
         config.addView(button("⧉ Copier la dernière erreur", this::copyLastError));
+        config.addView(button("Diagnostic complet de l'écoute · micro / Vosk / Mistral / voix", this::showVoiceDiagnostics));
         config.addView(button("Enregistrer les réglages", this::save));
         config.addView(label("PERSONNALITÉ · prompt sur plusieurs lignes · profils chiffrés"));
         config.addView(button("✧ Modifier la personnalité de F.R.I.D.A.Y.", () -> {
@@ -716,6 +717,46 @@ public class MainActivity extends Activity {
         Toast.makeText(this, "Erreur copiée dans le presse-papiers", Toast.LENGTH_SHORT).show();
     }
 
+    /**
+     * Diagnostic local partageable sans historique de parole, sans coordonnées
+     * et sans valeurs de clés API. L'état du microphone se lit sur le service.
+     */
+    private void showVoiceDiagnostics() {
+        String report = "FRIDAY " + FridayVersionGuard.thisVersion(this)
+                + "\nService actif : " + (FridayService.isActive() ? "oui" : "non")
+                + "\nAutorisation micro : "
+                + (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                   == PackageManager.PERMISSION_GRANTED ? "accordée" : "manquante")
+                + "\nMicro Android rendu muet : " + (FridayService.isMicSilenced() ? "oui" : "non")
+                + "\nÉtat de l'écoute : " + FridayService.voiceReadiness()
+                + "\nInterruption STOP : " + FridayService.interruptionDiagnostics()
+                + "\nTTS Android : " + FridayService.lastTtsStatus()
+                + "\nMode vocal : " + ("1".equals(prefs.get("listen_once", "0"))
+                        ? "Une question" : "Continu")
+                + "\nRéseau Mistral : " + ("1".equals(prefs.get("web_enabled", "1"))
+                        ? "Web activé" : "Web désactivé")
+                + "\nMode Web : " + prefs.get("web_mode", "always")
+                + "\nTest Web : " + ("1".equals(prefs.get("web_verified", "0"))
+                        ? "source obtenue" : "non confirmé")
+                + "\nDernière erreur à : " + prefs.get("last_error_time", "aucune")
+                + "\n\nAucune clé, aucun GPS, aucun contenu de conversation dans ce diagnostic.";
+        new AlertDialog.Builder(this)
+                .setTitle("FRIDAY · état des composants")
+                .setMessage(report)
+                .setPositiveButton("Fermer", null)
+                .setNeutralButton("Copier le diagnostic", (dialog, which) -> {
+                    android.content.ClipboardManager manager =
+                            (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                    if (manager != null) {
+                        manager.setPrimaryClip(android.content.ClipData.newPlainText(
+                                "friday-diagnostic-sans-secrets", report));
+                        Toast.makeText(this, "Diagnostic copié sans informations personnelles",
+                                Toast.LENGTH_LONG).show();
+                    }
+                })
+                .show();
+    }
+
     private void openMistralPage() {
         try {
             startActivity(new Intent(Intent.ACTION_VIEW,
@@ -971,7 +1012,9 @@ public class MainActivity extends Activity {
                     prefs.put("last_error_time", new java.text.SimpleDateFormat("dd/MM HH:mm:ss", java.util.Locale.FRANCE).format(new java.util.Date()));
                     if (lastErrorLabel != null) lastErrorLabel.setText("Dernière erreur : " + text);
                 }
-                if (kind.equals("status") || kind.equals("error") || kind.equals("tts") || kind.equals("mic_conflict") || kind.equals("interrupted")) status.setText(text);
+                if (kind.equals("status") || kind.equals("error") || kind.equals("tts")
+                        || kind.equals("mic_conflict") || kind.equals("interrupted")
+                        || kind.equals("voice_state")) status.setText(text);
                 if (pageReady) {
                     if (kind.equals("user") || kind.equals("assistant")) replayVoiceHistory();
                     else {
@@ -1132,6 +1175,7 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void configure() { runOnUiThread(() -> configScroll.setVisibility(View.VISIBLE)); }
         @JavascriptInterface public boolean isListening() { return FridayService.isActive(); }
         @JavascriptInterface public boolean isMicSilenced() { return FridayService.isMicSilenced(); }
+        @JavascriptInterface public String voiceReadiness() { return FridayService.voiceReadiness(); }
         @JavascriptInterface public String voiceInterruptTelemetry() {
             if (!"1".equals(prefs.get("barge_in_enabled", "1"))) return "Désactivé dans Réglages";
             return FridayService.interruptionDiagnostics();
