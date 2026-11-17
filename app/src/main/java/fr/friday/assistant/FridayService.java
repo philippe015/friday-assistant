@@ -951,6 +951,34 @@ public class FridayService extends Service {
             }
         } catch (Exception ignored) { }
     }
+    /**
+     * Une panne de synthèse ne doit pas condamner les questions suivantes.
+     * Redémarre le moteur audio sur un thread séparé, sans couper le micro,
+     * annuler la clé Mistral ni modifier les préférences vocales de l'utilisateur.
+     */
+    private void recoverTtsAsync() {
+        if (!running || !ttsRecoveryInProgress.compareAndSet(false, true)) return;
+        new Thread(() -> {
+            try {
+                TextToSpeech old;
+                synchronized (ttsControlLock) {
+                    old = tts;
+                    tts = null;
+                    ttsReady = false;
+                }
+                if (old != null) {
+                    try { old.stop(); old.shutdown(); }
+                    catch (Exception failure) {
+                        Log.w("FRIDAY_TTS", "Fermeture TTS avant reprise", failure);
+                    }
+                }
+                if (running) initTts();
+            } finally {
+                ttsRecoveryInProgress.set(false);
+            }
+        }, "friday-tts-recovery").start();
+    }
+
     private void initTts() {
         // TextToSpeech est asynchrone : attendre le succès réel, pas seulement l'objet Java.
         CountDownLatch ready = new CountDownLatch(1);
