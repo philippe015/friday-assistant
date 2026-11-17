@@ -34,7 +34,7 @@ class WebAlwaysDefaultV386(unittest.TestCase):
         section = ai[ai.index("private static WebReply conversationWithFallback("):
                      ai.index("/** Vérification réelle de l'option Web", ai.index("private static WebReply conversationWithFallback("))]
         self.assertIn("WebReply initial = conversation(cfg, key, model, question, history)", section)
-        self.assertIn("if (initial.executed || initial.references > 0)", section)
+        self.assertIn("if (initial.references > 0", section)
         self.assertIn("return initial;", section)
         self.assertIn("WebToolPolicy.retryRejectedModel(", section)
         self.assertIn("String targeted =", section)
