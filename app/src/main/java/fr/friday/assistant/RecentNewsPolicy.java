@@ -74,18 +74,18 @@ public final class RecentNewsPolicy {
         start.add(Calendar.HOUR_OF_DAY, -hours);
         SimpleDateFormat fmt = new SimpleDateFormat("dd/MM/yyyy HH:mm z", Locale.FRANCE);
         fmt.setTimeZone(zone);
-        return original + "\\n\\n[DEMANDE D'ACTUALITÉ TRÈS RÉCENTE — RECHERCHE WEB OBLIGATOIRE]"
-                + "\\nPériode demandée : de " + fmt.format(start.getTime())
+        return original + "\n\n[DEMANDE D'ACTUALITÉ TRÈS RÉCENTE — RECHERCHE WEB OBLIGATOIRE]"
+                + "\nPériode demandée : de " + fmt.format(start.getTime())
                 + " à " + fmt.format(new Date(nowMs)) + " (dernières " + hours + " heures)."
-                + "\\nRecherche des articles réellement publiés pendant CETTE période."
-                + "\\nPour chaque information, donne le titre, la source, l'URL et"
+                + "\nRecherche des articles réellement publiés pendant CETTE période."
+                + "\nPour chaque information, donne le titre, la source, l'URL et"
                 + " la date/heure de publication quand la source la fournit."
-                + "\\nN'affirme pas qu'un article a moins de " + hours
+                + "\nN'affirme pas qu'un article a moins de " + hours
                 + " heures si son horodatage n'est pas vérifiable."
-                + "\\nSi aucune source récente n'est trouvée, dis-le clairement ;"
+                + "\nSi aucune source récente n'est trouvée, dis-le clairement ;"
                 + " ne remplace pas ces actualités par des faits anciens ou inventés."
-                + "\\nN'affirme pas ne pas disposer d'Internet sans vérifier"
-                + " si l'outil web_search a été utilisé.\\n[FIN DE LA DEMANDE]";
+                + "\nN'affirme pas ne pas disposer d'Internet sans vérifier"
+                + " si l'outil web_search a été utilisé.\n[FIN DE LA DEMANDE]";
     }
 
     /** Une dénégation générique du modèle ne prouve pas que FRIDAY est hors ligne. */
