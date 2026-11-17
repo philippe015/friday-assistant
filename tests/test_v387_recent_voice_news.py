@@ -26,7 +26,7 @@ class RecentVoiceNewsV387(unittest.TestCase):
         self.assertIn("recentNews ? Collections.emptyList() : history", ai)
         self.assertIn('Calendar.HOUR_OF_DAY, -hours', policy)
         self.assertIn("date/heure de publication", policy)
-        self.assertIn("Ne remplace pas", policy.replace("ne remplace pas", "Ne remplace pas"))
+        self.assertIn("ne remplace pas", policy)
 
     def test_retry_when_tool_executed_without_references(self):
         ai = source("NativeAI.java")
