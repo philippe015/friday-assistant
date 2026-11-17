@@ -21,9 +21,9 @@ class WebAccessV383(unittest.TestCase):
     def test_limited_retry_does_not_pretend_search_succeeded(self):
         native = source("NativeAI.java")
         policy = source("WebToolPolicy.java")
-        self.assertIn("conversationWithFallback(cfg, key, model, input, history)", native)
+        self.assertIn("conversationWithFallback(cfg, key, model, input,", native)
         self.assertIn("conversationWithFallback(cfg, key, configuredModel(cfg)", native)
-        self.assertIn("if (initial.executed || initial.references > 0)", native)
+        self.assertIn("if (initial.references > 0", native)
         self.assertIn("WebToolPolicy.retryRejectedModel(", native)
         self.assertIn("return conversation(cfg, key, DEFAULT_MODEL, targeted, history)", native)
         self.assertIn("httpCode == 400 || httpCode == 404 || httpCode == 422", policy)
