@@ -1,3 +1,13 @@
+## FRIDAY v3.8.7 — « Les actualités des 7 dernières heures »
+
+Sur le téléphone Android, FRIDAY traite une question vocale sur des nouvelles publiées pendant les **N dernières heures (1 à 48)** comme une demande de recherche récente. Le système prépare une période exacte avec l'heure du téléphone puis envoie la requête par **Mistral Conversations + web_search**. La réponse doit préciser les sources et, si disponible, les heures de publication.
+
+Si Mistral ne retourne aucune source exploitable, FRIDAY effectue **au plus une relance**. Il ne doit pas reprendre la phrase générique du modèle « je n'ai pas accès au Web » sans expliquer que le test Web a pu réussir séparément. Aucun résultat non sourcé n'est présenté comme une actualité vérifiée.
+
+Exemple vocal : **« Friday, donne-moi les actualités des sept dernières heures et cite les sources avec leurs dates de publication. »**
+
+Le moteur `web_search` reste piloté par Mistral. Un test de recherche réussi confirme l'outil sur cette requête de test uniquement ; il ne garantit ni couverture exhaustive ni précision à l'heure près des actualités. Les requêtes peuvent être facturées. Pas d'accès aux contenus bloqués ni de synchronisation automatique des données privées. Le contrôle de sécurité STOP/anti-écho et la mémoire chiffrée restent en place.
+
 ## FRIDAY v3.8.6 — Accès Internet activé par défaut
 
 FRIDAY propose désormais automatiquement **Recherche Web activée + Mode Toujours** après installation ou migration depuis les anciennes versions. Chaque **question non locale envoyée à Mistral** demande l'outil officiel `web_search` via l'API Conversations. S'il ne s'exécute pas au premier essai, l'application effectue au plus **une deuxième tentative** ciblée avec `mistral-small-latest`. Le résultat indique clairement si des sources ont réellement été obtenues.
