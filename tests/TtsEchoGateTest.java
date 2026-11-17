@@ -6,10 +6,28 @@ public final class TtsEchoGateTest {
     }
     public static void main(String[] args) {
         long end = TtsEchoGate.afterVoice(10000L);
+        // Bug historique v3.8.8 : currentTurn non nul pendant 1-2 minutes
+        // de Web Mistral rendait Vosk sourd bien qu'aucune voix ne soit émise.
+        check(!TtsEchoGate.suppressGeneralAsr(false, 9000L, 0),
+                "Pendant une requête réseau muette, la dictée doit rester active.");
         check(TtsEchoGate.suppressGeneralAsr(true, 9000L, 0),
-                "Ne jamais transcrire les questions pendant une réponse, même avant le TTS.");
+                "Pendant la restitution audio réelle, bloquer le Vosk général.");
         check(TtsEchoGate.suppressGeneralAsr(true, 20000L, end),
-                "Le tour actif prime sur le délai après TTS.");
+                "La restitution TTS prime sur le délai après lecture.");
+        check(TtsEchoGate.useStopRecognizer(true, true),
+                "Décodeur STOP disponible pendant la synthèse.");
+        check(!TtsEchoGate.useStopRecognizer(false, true),
+                "Pas de double Vosk pendant une attente Mistral.");
+        check(!TtsEchoGate.useStopRecognizer(true, false),
+                "Respecter la désactivation utilisateur du STOP.");
+        check(TtsEchoGate.staleNetworkTurn(true, false, 151000L, 1000L, 150000L),
+                "Annuler un modèle silencieux bloqué à l'échéance.");
+        check(!TtsEchoGate.staleNetworkTurn(true, true, 180000L, 1000L, 150000L),
+                "Ne pas couper une réponse déjà en cours de lecture.");
+        check(!TtsEchoGate.staleNetworkTurn(false, false, 180000L, 1000L, 150000L),
+                "Ne pas relancer un tour déjà terminé.");
+        check(!TtsEchoGate.staleNetworkTurn(true, false, 150999L, 1000L, 150000L),
+                "Ne pas expirer trop tôt.");
         check(TtsEchoGate.suppressGeneralAsr(false, 10001L, end),
                 "Ignorer les premiers sons réverbérés après TTS.");
         check(TtsEchoGate.suppressGeneralAsr(false, end - 1, end),
