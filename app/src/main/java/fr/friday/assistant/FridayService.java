@@ -1051,18 +1051,21 @@ public class FridayService extends Service {
             });
             if (!ready.await(15, TimeUnit.SECONDS)) {
                 ttsDiagnostic = "Initialisation de la voix expirée (15 s). Vérifiez le moteur TTS Android.";
+                lastTtsStatus = ttsDiagnostic;
                 event("error", ttsDiagnostic);
                 return;
             }
             if (!running) { if (tts != null) tts.shutdown(); tts = null; return; }
             if (initCode.get() != TextToSpeech.SUCCESS) {
                 ttsDiagnostic = "Moteur de synthèse vocale Android non initialisé (" + initCode.get() + ").";
+                lastTtsStatus = ttsDiagnostic;
                 event("error", ttsDiagnostic);
                 return;
             }
             int language = tts.setLanguage(Locale.FRENCH);
             if (language == TextToSpeech.LANG_MISSING_DATA || language == TextToSpeech.LANG_NOT_SUPPORTED) {
                 ttsDiagnostic = "Voix française manquante : installez la langue française dans le moteur TTS du téléphone.";
+                lastTtsStatus = ttsDiagnostic;
                 event("error", ttsDiagnostic);
                 return;
             }
@@ -1164,6 +1167,7 @@ public class FridayService extends Service {
     }
 
     private synchronized void shutdown() {
+        requestWatchdog.removeCallbacksAndMessages(null);
         ResponseTurn previous = currentTurn;
         currentTurn = null;
         if (previous != null) previous.cancel();
@@ -1174,6 +1178,7 @@ public class FridayService extends Service {
         active = false;
         micSilenced = false;
         interruptDiagnostics = "Micro arrêté";
+        voiceState("Micro arrêté");
         foregroundLocationEnabled = false;
         textQuestions.clear();
         queuedQuestions.set(0);
