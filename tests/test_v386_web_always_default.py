@@ -34,7 +34,7 @@ class WebAlwaysDefaultV386(unittest.TestCase):
         section = ai[ai.index("private static WebReply conversationWithFallback("):
                      ai.index("/** Vérification réelle de l'option Web", ai.index("private static WebReply conversationWithFallback("))]
         self.assertIn("WebReply initial = conversation(cfg, key, model, question, history)", section)
-        self.assertIn("if (initial.executed || initial.references > 0)", section)
+        self.assertIn("if (initial.references > 0", section)
         self.assertIn("return initial;", section)
         self.assertIn("WebToolPolicy.retryRejectedModel(", section)
         self.assertIn("String targeted =", section)
@@ -53,8 +53,8 @@ class WebAlwaysDefaultV386(unittest.TestCase):
 
     def test_version_privacy_and_stop_remain(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 69", gradle)
-        self.assertIn("versionName '3.8.6'", gradle)
+        self.assertIn("versionCode 70", gradle)
+        self.assertIn("versionName '3.8.7'", gradle)
         self.assertIn('cfg.get("memory_share_mistral", "0")', read("PersonalMemory.java"))
         self.assertIn("TtsEchoGate.suppressGeneralAsr(", read("FridayService.java"))
         self.assertIn("stopRecognizer.acceptWaveForm(buffer, count)", read("FridayService.java"))

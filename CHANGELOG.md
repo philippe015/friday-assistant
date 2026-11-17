@@ -1,3 +1,14 @@
+## [3.8.7] — Actualités récentes : la recherche vocale utilise réellement le Web
+
+- **Régression corrigée** : malgré un test Web Mistral réussi, la réponse vocale pouvait se contenter de « je n'ai pas accès aux pages Web » pour des informations très récentes.
+- Reconnaissance des demandes vocales comme **« actualités des 7 dernières heures »**, y compris « sept » écrit en toutes lettres et des transcriptions Vosk imparfaites (« dernier heure »).
+- Calcul de la **fenêtre horaire réelle** à partir de l'heure et du fuseau du téléphone. La requête Mistral demande des résultats publiés sur cette période, des sources et l'heure de publication lorsqu'elle est disponible.
+- Routage préservé par **Conversations + web_search**, aussi en mode voix/streaming. Pour ces demandes, l'historique d'une réponse ancienne disant « pas d'Internet » ne biaise pas la recherche.
+- Si Mistral exécute son outil mais ne fournit aucune URL pour une actualité horaire, FRIDAY déclenche **un seul deuxième essai ciblé**. Si le modèle affirme faussement ne pas avoir accès au Web, FRIDAY ne répète pas aveuglément ce texte et tente également une relance.
+- À défaut de **sources exploitables**, FRIDAY explique que cette recherche n'a pas donné de résultat vérifiable sans remettre en cause le succès du test Web, et n'invente ni actualités ni heures de publication.
+- Le service vocal affiche un statut spécifique pendant la recherche des nouvelles. Le Web mode Toujours v3.8.6, l'anti-écho/STOP, les autorisations GPS et Memory+ chiffrée locale sont conservés.
+- Des sources trouvées ne prouvent pas automatiquement qu'elles ont été publiées dans les heures demandées : FRIDAY doit distinguer dates de publication attestées et absentes. La vérification finale sur téléphone avec une clé Mistral demeure nécessaire.
+
 ## [3.8.6] — Internet toujours activé pour les questions Mistral
 
 - Migration unique à l'installation : **recherche Internet activée** et mode **Toujours** sélectionné automatiquement, y compris si v3.8.5 était en mode Automatique. Les choix ultérieurs de l'utilisateur sont respectés.

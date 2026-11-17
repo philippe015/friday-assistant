@@ -757,6 +757,12 @@ public class FridayService extends Service {
             }
             if (!live(turn)) return;
             String prepared = PythonBrain.prepareQuestion(question);
+            if (local == null && "1".equals(settings.get("web_enabled", "1"))
+                    && RecentNewsPolicy.requiresRecentNews(prepared)) {
+                event("status", "Recherche Internet réelle des actualités des "
+                        + RecentNewsPolicy.requestedHours(prepared)
+                        + " dernières heures. Vérification des sources et dates de publication…");
+            }
             if (!turn.clarificationContext.isEmpty())
                 prepared += "\n\n[CONTEXTE DE LA DEMANDE INTERROMPUE : "
                         + turn.clarificationContext + "]\n[TRAITE LA PRÉCISION ACTUELLE EN "
