@@ -1,3 +1,15 @@
+## [3.8.9] — Stabilisation générale : microphone, Vosk, Mistral et synthèse vocale
+
+- **Correction majeure du silence** : pendant qu'une requête Mistral/Web attend une réponse, la reconnaissance libre Vosk reste maintenant active. L'anti-écho coupe uniquement la dictée pendant une lecture TTS effective et pendant 2,5 secondes après.
+- Le reconnaisseur STOP spécialisé fonctionne pendant la parole, pas en doublon de Vosk pendant les appels réseau ; une nouvelle question commençant par « Friday » peut interrompre une recherche en attente.
+- **Micro Android muet** : une seule reconstruction Vosk par transition muet/prêt, reconstruction contrôlée de la capture après 8 secondes, au plus deux essais, avec repli sur `VOICE_RECOGNITION` en cas de problème `VOICE_COMMUNICATION`.
+- **Requête bloquée** : garde de 150 secondes lorsqu'une requête est toujours en attente et que FRIDAY ne parle pas. Annulation explicite de ce tour, et nouvelle question autorisée.
+- **Panne API** : FRIDAY annonce brièvement à voix haute l'impossibilité de répondre quand le moteur TTS fonctionne, tout en conservant un diagnostic texte.
+- **Diagnostic local partageable** dans les Réglages : état du microphone, du décodeur STOP, du TTS, de la recherche Web et du mode d'écoute, sans copier de clé, de position GPS ni de conversation.
+- Correction de confidentialité : les paramètres des URL consultées ne sont plus écrits dans la télémétrie Web générale.
+- Préservation de la v3.8.8 (TTS direct pour les réponses Web, récupération TTS, anti-écho), de Memory+ Keystore, du GPS sous consentement et des actualités sourcées.
+- Audit explicatif dans `docs/AUDIT_V389_VOICE_CONTINUITY.md`. Tests statiques Python, règles Java, CI Android et APK signé. **Essai prolongé sur appareil indispensable** : aucun test serveur ne reproduit tous les comportements de son microphone.
+
 ## [3.8.8] — Reprise du dialogue après une réponse Web
 
 - Diagnostic du silence après plusieurs questions : le mode voix utilisait une **file de lecture progressive** même lorsque Mistral Conversations/Web avait déjà rendu une réponse complète. En cas de panne de synthèse TTS, le producteur pouvait attendre indéfiniment une file que le consommateur audio avait quittée, laissant le tour actif et la dictée générale suspendue par l'anti-écho.
