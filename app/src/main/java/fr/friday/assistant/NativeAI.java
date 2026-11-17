@@ -631,7 +631,12 @@ public final class NativeAI {
                         + ". Vérifiez l'adresse ou essayez de me demander une recherche Web. "
                         + "Je ne vais pas inventer son contenu.";
             }
-            cfg.put("web_last_status", "Page HTTPS consultée : " + page.url);
+            // La télémétrie est en préférences générales : ne jamais y
+            // enregistrer une URL complète susceptible de contenir des tokens
+            // ou paramètres personnels. La page exacte reste dans la réponse
+            // (historique chiffré) uniquement.
+            cfg.put("web_last_status", "Page HTTPS consultée : "
+                    + java.net.URI.create(page.url).getHost());
             String prompt = question + "\n\n[CONTENU D'UNE PAGE HTTPS PUBLIQUE RÉELLEMENT LUE SUR LE TÉLÉPHONE]\n"
                     + "URL source : " + page.url + "\nTitre : " + page.title + "\n"
                     + "Extrait récupéré :\n" + page.text
