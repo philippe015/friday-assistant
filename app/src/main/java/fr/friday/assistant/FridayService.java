@@ -867,7 +867,19 @@ public class FridayService extends Service {
             }
         } catch (Exception ex) {
             if (live(turn)) {
-                event("error", "Réponse indisponible : " + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
+                String reason = ex.getMessage() == null
+                        ? ex.getClass().getSimpleName() : ex.getMessage();
+                event("error", "Réponse indisponible : " + reason);
+                // Une panne API ne doit pas donner l'impression d'un assistant
+                // définitivement muet. Dire une courte notification locale
+                // sans inventer une réponse Mistral ni interrompre le micro.
+                if ("1".equals(settings.get("voice_enabled", "1")) && ttsReady) {
+                    String notice = "Mistral n'a pas répondu à cette question. "
+                            + "Je reste à votre écoute. Dites Friday pour recommencer.";
+                    spokenText = notice;
+                    speakingNow = true;
+                    if (!speak(notice, turn)) recoverTtsAsync();
+                }
             }
         } finally {
             if (turn.watchdog != null) requestWatchdog.removeCallbacks(turn.watchdog);
