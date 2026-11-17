@@ -320,9 +320,18 @@ public final class NativeAI {
     private static WebReply conversationWithFallback(SecurePrefs cfg, String key, String model,
                                                       String question, List<JSONObject> history)
             throws Exception {
+        boolean freshNews = RecentNewsPolicy.requiresRecentNews(question);
         try {
             WebReply initial = conversation(cfg, key, model, question, history);
-            if (initial.executed || initial.references > 0)
+            // Pour une actualité demandée sur quelques heures, une exécution
+            // sans aucune URL vérifiable n'est pas un résultat exploitable.
+            // Une dénégation générique ("je n'ai pas accès au Web") n'est pas
+            // davantage une preuve de panne : une seule relance est permise.
+            if (initial.references > 0
+                    && !RecentNewsPolicy.genericWebDenial(initial.answer))
+                return initial;
+            if (!freshNews && initial.executed
+                    && !RecentNewsPolicy.genericWebDenial(initial.answer))
                 return initial;
         } catch (HttpStatusFailure failure) {
             // Ne jamais contourner 401, 403, 429 ni rejouer une erreur réseau.
@@ -648,18 +657,37 @@ public final class NativeAI {
                 String input = question;
                 if (WebSearch.isFollowUp(question) && !previous.isEmpty())
                     input += "\n[Question précédente pour comprendre la relance : " + previous + "]";
-                WebReply found = conversationWithFallback(cfg, key, model, input, history);
+                boolean recentNews = RecentNewsPolicy.requiresRecentNews(question);
+                if (recentNews) {
+                    // Ne pas laisser une ancienne réponse vocale "pas d'accès Web"
+                    // contaminer une recherche de nouvelles informations.
+                    input = RecentNewsPolicy.searchPrompt(input, System.currentTimeMillis(),
+                            TimeZone.getDefault());
+                    cfg.put("web_last_status", "Recherche des actualités récentes en cours");
+                }
+                WebReply found = conversationWithFallback(cfg, key, model, input,
+                        recentNews ? Collections.emptyList() : history);
                 cfg.put("web_last_status", found.references > 0
                         ? "Sources Web : " + found.references + " via " + found.model
                         : found.executed ? "Outil Web exécuté via " + found.model + ", sans URL"
                         : "Outil Web non déclenché via " + found.model);
                 // Une demande explicite ne peut pas être présentée comme une
                 // recherche accomplie si le fournisseur n'a pas lancé l'outil.
+                if (recentNews && (found.references == 0
+                        || RecentNewsPolicy.genericWebDenial(found.answer))) {
+                    cfg.put("web_last_status",
+                            "Actualités récentes : aucune source vérifiable malgré deux essais");
+                    return "La connexion Web Mistral est configurée, mais cette recherche "
+                            + "n'a pas fourni de sources vérifiables pour les "
+                            + RecentNewsPolicy.requestedHours(question)
+                            + " dernières heures. Je ne vais pas inventer des actualités. "
+                            + "Le test Web des Réglages est distinct de cette recherche.";
+                }
                 if (!found.executed && found.references == 0)
                     return "Mistral n'a pas effectué de recherche Web pour cette demande. "
-                            + "Le moteur ou le compte ne l'a pas déclenchée. "
-                            + "Ouvrez Réglages > Activer et tester la recherche Web. "
-                            + "Je refuse de présenter une réponse non vérifiée comme une page consultée.";
+                            + "Le moteur ne l'a pas déclenchée malgré une relance. "
+                            + "Le test de connexion peut pourtant être opérationnel. "
+                            + "Je ne vais pas inventer le contenu des pages.";
                 return found.answer;
             } catch (Exception error) {
                 CancelToken cancellation = CANCEL.get();
@@ -667,7 +695,8 @@ public final class NativeAI {
                 cfg.put("web_last_status", "Indisponible : " + webFailure(error));
                 webWarning = "Recherche Web Mistral indisponible : " + webFailure(error)
                         + ". Réponse générée sans vérification Internet.";
-                if (WebSearch.explicit(question))
+                if (WebSearch.explicit(question)
+                        || RecentNewsPolicy.requiresRecentNews(question))
                     return "Recherche Web Mistral impossible : " + webFailure(error)
                             + ". Consultez Réglages > Activer et tester la recherche Web, "
                             + "puis vérifiez votre clé, le modèle et l'accès aux outils Mistral. "
