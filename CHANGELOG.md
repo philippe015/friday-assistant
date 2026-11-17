@@ -1,3 +1,12 @@
+## [3.8.8] — Reprise du dialogue après une réponse Web
+
+- Diagnostic du silence après plusieurs questions : le mode voix utilisait une **file de lecture progressive** même lorsque Mistral Conversations/Web avait déjà rendu une réponse complète. En cas de panne de synthèse TTS, le producteur pouvait attendre indéfiniment une file que le consommateur audio avait quittée, laissant le tour actif et la dictée générale suspendue par l'anti-écho.
+- **Voix Web sans file inutile** : les questions envoyées à Mistral avec recherche Internet utilisent la réponse complète puis une lecture TTS directe, sans thread de streaming audio supplémentaire. Les flux SSE réels conservent la lecture progressive.
+- **File progressive bornée** : plus aucun `queue.offer` bloquant lorsque le moteur audio n'est plus vivant. Le temps d'attente de fin audio est borné et le moteur signale un échec sans perdre le texte.
+- **Reprise vocale** : si la synthèse TTS ne parvient pas à lire une réponse, FRIDAY avertit l'utilisateur et réinitialise le moteur vocal sur un thread indépendant, sans arrêter le microphone ni modifier les réglages Mistral. Une lecture audio déjà commencée n'est pas redoublée.
+- L'interface précise la différence entre **Mode Continu** et **Mode une question**. Après l'expiration du délai de relance (75 secondes par défaut), dire « Friday » est nécessaire même si le micro reste actif.
+- Fonctionnalités Web v3.8.7, STOP, anti-écho et Memory+ chiffrée locale conservées. Tests Java/Python et compilation Android CI. **Validation sur téléphone nécessaire** pour confirmer la stabilité des tours vocaux successifs.
+
 ## [3.8.7] — Actualités récentes : la recherche vocale utilise réellement le Web
 
 - **Régression corrigée** : malgré un test Web Mistral réussi, la réponse vocale pouvait se contenter de « je n'ai pas accès aux pages Web » pour des informations très récentes.

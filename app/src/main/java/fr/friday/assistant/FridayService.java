@@ -74,6 +74,7 @@ public class FridayService extends Service {
     private final AtomicInteger queuedQuestions = new AtomicInteger(0);
     private volatile boolean ttsReady = false;
     private volatile String ttsDiagnostic = "non initialisé";
+    private final AtomicBoolean ttsRecoveryInProgress = new AtomicBoolean(false);
 
     public static boolean isActive() { return active; }
     public static boolean isMicSilenced() { return micSilenced; }
@@ -767,8 +768,16 @@ public class FridayService extends Service {
                 prepared += "\n\n[CONTEXTE DE LA DEMANDE INTERROMPUE : "
                         + turn.clarificationContext + "]\n[TRAITE LA PRÉCISION ACTUELLE EN "
                         + "LIEN AVEC CE SUJET, SANS INVENTER.]";
+            // Le Web Mistral Conversations retourne déjà une réponse complète,
+            // sans phrases SSE intermédiaires. Le passer par la file de lecture
+            // progressive peut garder un thread audio en vie après la réponse
+            // et empêcher Vosk de reprendre la dictée. Ici : chemin TTS direct.
+            boolean webQuestion = "1".equals(settings.get("web_enabled", "1"))
+                    && WebSearch.shouldSearch(settings.get("web_mode", "always"), prepared, "");
+            boolean streaming = "1".equals(settings.get("stream_enabled", "1"))
+                    && !webQuestion;
             String answer = local != null ? local : (
-                "1".equals(settings.get("stream_enabled", "1"))
+                streaming
                 ? streamAndSpeak(prepared, historySnapshot(), locationForApi, turn)
                 : NativeAI.answer(settings, prepared, historySnapshot(), locationForApi, turn.api));
             if (!live(turn)) return;
@@ -791,7 +800,13 @@ public class FridayService extends Service {
             boolean spoken = turn.streamedVoice ? turn.streamingVoiceSucceeded : speak(answer, turn);
             if (!live(turn)) return;
             lastReplyAt = SystemClock.elapsedRealtime();
-            if (spoken) event("status", "Réponse terminée. Protection anti-écho active brièvement avant la prochaine question.");
+            if (spoken) {
+                event("status", "Réponse terminée. Après 2,5 secondes, dites Friday pour une nouvelle question.");
+            } else if ("1".equals(settings.get("voice_enabled", "1"))) {
+                event("error", "Réponse disponible en texte, mais lecture vocale incomplète. "
+                        + "Le moteur TTS va être réinitialisé ; microphone toujours actif.");
+                recoverTtsAsync();
+            }
         } catch (Exception ex) {
             if (live(turn)) {
                 event("error", "Réponse indisponible : " + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
@@ -810,6 +825,9 @@ public class FridayService extends Service {
                 speakingNow = false;
                 spokenText = "";
                 lastReplyAt = finishedAt;
+                if (running && !"1".equals(settings.get("listen_once", "0"))) {
+                    event("barge_diag", "Réponse clôturée · anti-écho temporaire · dictée bientôt active");
+                }
             }
         }
     }
@@ -820,6 +838,7 @@ public class FridayService extends Service {
         final ArrayBlockingQueue<String> queue = new ArrayBlockingQueue<>(12);
         final String end = "\u0000FRIDAY_STREAM_END";
         final AtomicInteger count = new AtomicInteger();
+        final AtomicInteger spokenParts = new AtomicInteger();
         final AtomicBoolean voiceOk = new AtomicBoolean(true);
         final boolean canSpeak = ttsReady && tts != null
                 && "1".equals(settings.get("voice_enabled", "1"));
@@ -838,6 +857,7 @@ public class FridayService extends Service {
                             voiceOk.set(false);
                             break;
                         }
+                        spokenParts.incrementAndGet();
                     }
                 } catch (InterruptedException interrupted) {
                     Thread.currentThread().interrupt();
@@ -849,14 +869,17 @@ public class FridayService extends Service {
         }
         try {
             final boolean useVoice = canSpeak;
+            final Thread speechWorker = audio;
             String result = NativeAI.answerStreaming(settings, question, history,
                 locationForApi, turn.api, piece -> {
                     if (!live(turn)) throw new IllegalStateException("Réponse interrompue");
-                    if (!useVoice) return;
-                    if (count.get() == 0)
+                    // Ne jamais remplir une file dont le consommateur TTS est mort :
+                    // auparavant, un échec TTS pouvait bloquer ce producteur sans fin.
+                    if (!useVoice || speechWorker == null || !speechWorker.isAlive()
+                            || !voiceOk.get()) return;
+                    if (count.getAndIncrement() == 0)
                         event("status", "Mistral diffuse sa réponse progressivement : lecture vocale en cours…");
-                    count.incrementAndGet();
-                    while (live(turn)) {
+                    while (live(turn) && speechWorker.isAlive() && voiceOk.get()) {
                         try {
                             if (queue.offer(piece, 100, TimeUnit.MILLISECONDS)) return;
                         } catch (InterruptedException ex) {
@@ -864,18 +887,34 @@ public class FridayService extends Service {
                             throw new IllegalStateException("Réponse interrompue", ex);
                         }
                     }
-                    throw new IllegalStateException("Réponse interrompue");
+                    if (!live(turn)) throw new IllegalStateException("Réponse interrompue");
+                    // Le texte continue à s'accumuler pour l'historique privé,
+                    // mais aucun thread ne reste bloqué sur l'audio. 
                 });
             if (audio != null) {
+                // Aucun offer() ne doit attendre un consommateur TTS arrêté.
+                long voiceDeadline = SystemClock.elapsedRealtime() + 90000L;
                 if (count.get() == 0) {
-                    // Réponse locale ou chemin Web non-streaming : une seule lecture.
-                    while (live(turn) && !queue.offer(result, 100, TimeUnit.MILLISECONDS)) { }
+                    while (live(turn) && audio.isAlive() && voiceOk.get()
+                            && SystemClock.elapsedRealtime() < voiceDeadline
+                            && !queue.offer(result, 100, TimeUnit.MILLISECONDS)) { }
                 }
-                while (live(turn) && !queue.offer(end, 100, TimeUnit.MILLISECONDS)) { }
-                while (live(turn) && audio.isAlive()) audio.join(150L);
+                while (live(turn) && audio.isAlive() && voiceOk.get()
+                        && SystemClock.elapsedRealtime() < voiceDeadline
+                        && !queue.offer(end, 100, TimeUnit.MILLISECONDS)) { }
+                while (live(turn) && audio.isAlive()
+                        && SystemClock.elapsedRealtime() < voiceDeadline) audio.join(150L);
+                if (audio.isAlive()) {
+                    voiceOk.set(false);
+                    audio.interrupt();
+                    event("error", "Lecture progressive bloquée : file audio libérée. "
+                            + "Les prochaines questions restent disponibles.");
+                }
                 if (!live(turn)) throw new InterruptedException("Réponse interrompue");
-                turn.streamedVoice = true;
-                turn.streamingVoiceSucceeded = voiceOk.get();
+                // Si le TTS n'a prononcé aucun segment, permettre une unique
+                // tentative directe depuis answerTurn (sans répéter du texte déjà lu).
+                turn.streamedVoice = spokenParts.get() > 0;
+                turn.streamingVoiceSucceeded = voiceOk.get() && spokenParts.get() > 0;
             }
             return result;
         } finally {
@@ -912,6 +951,34 @@ public class FridayService extends Service {
             }
         } catch (Exception ignored) { }
     }
+    /**
+     * Une panne de synthèse ne doit pas condamner les questions suivantes.
+     * Redémarre le moteur audio sur un thread séparé, sans couper le micro,
+     * annuler la clé Mistral ni modifier les préférences vocales de l'utilisateur.
+     */
+    private void recoverTtsAsync() {
+        if (!running || !ttsRecoveryInProgress.compareAndSet(false, true)) return;
+        new Thread(() -> {
+            try {
+                TextToSpeech old;
+                synchronized (ttsControlLock) {
+                    old = tts;
+                    tts = null;
+                    ttsReady = false;
+                }
+                if (old != null) {
+                    try { old.stop(); old.shutdown(); }
+                    catch (Exception failure) {
+                        Log.w("FRIDAY_TTS", "Fermeture TTS avant reprise", failure);
+                    }
+                }
+                if (running) initTts();
+            } finally {
+                ttsRecoveryInProgress.set(false);
+            }
+        }, "friday-tts-recovery").start();
+    }
+
     private void initTts() {
         // TextToSpeech est asynchrone : attendre le succès réel, pas seulement l'objet Java.
         CountDownLatch ready = new CountDownLatch(1);

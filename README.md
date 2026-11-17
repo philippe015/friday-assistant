@@ -1,3 +1,13 @@
+## FRIDAY v3.8.8 — Réponse vocale et questions suivantes
+
+Après une réponse longue, FRIDAY doit continuer à écouter. Le circuit Web Mistral utilise maintenant directement la synthèse Android lorsqu'une réponse complète est fournie : la file streaming ne doit plus conserver une requête active après un échec audio. La lecture réellement progressive conserve une file bornée, contrôlée pour ne pas attendre un lecteur TTS mort. En cas d'erreur TTS, le service laisse le texte disponible, annonce le problème et tente de réinitialiser la voix sans couper le microphone.
+
+**Mode Continu** : laisser la case « Mode une question » décochée. Le microphone reste actif ; après 2,5 secondes anti-écho, dites « Friday, ... » pour chaque nouvelle question, surtout au-delà des 75 secondes de suivi sans mot-clé (durée réglable). **Mode une question** : si cette case est cochée, le micro s'arrête volontairement après la réponse.
+
+**Diagnostic sur téléphone** : demander « Friday, donne les actualités des sept dernières heures », attendre la fin, puis dire « Friday, quelle heure est-il ? » et « Friday, parle-moi de la météo de demain avec les sources ». Si FRIDAY n'émet plus de son mais affiche du texte, tester « Répondre à voix haute » et le volume média, puis « Tester la voix ». Si le micro est bloqué, toucher « Interrompre la réponse et écouter » ou redémarrer l'écoute native. Vérifier les erreurs TTS affichées par l'application.
+
+Le Web « Toujours » de v3.8.6, la source des actualités v3.8.7, les autorisations GPS, STOP et Memory+ chiffrée locale sont conservés ; aucune synchronisation automatique des données personnelles vers GitHub.
+
 ## FRIDAY v3.8.7 — « Les actualités des 7 dernières heures »
 
 Sur le téléphone Android, FRIDAY traite une question vocale sur des nouvelles publiées pendant les **N dernières heures (1 à 48)** comme une demande de recherche récente. Le système prépare une période exacte avec l'heure du téléphone puis envoie la requête par **Mistral Conversations + web_search**. La réponse doit préciser les sources et, si disponible, les heures de publication.

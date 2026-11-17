@@ -286,10 +286,12 @@ public class MainActivity extends Activity {
         oneShotEnabled.setTextColor(Color.WHITE);
         oneShotEnabled.setChecked("1".equals(prefs.get("listen_once", "0")));
         config.addView(oneShotEnabled);
-        config.addView(label("Après la réponse, le microphone s'arrête automatiquement. "
-                + "Pendant que FRIDAY parle, le micro reste actif pour « stop » "
-                + "et « j'ai une précision ». Un casque améliore la reconnaissance "
-                + "des commandes et limite l'écho du haut-parleur."));
+        config.addView(label("Mode Continu (case décochée) : le microphone reste actif "
+                + "après chaque réponse. Pour une nouvelle demande, dites « Friday ». "
+                + "Sans mot-clé, les relances ne restent reconnues que pendant la durée "
+                + "de suivi définie dans les réglages (75 secondes par défaut). "
+                + "Mode une question (case cochée) : le microphone s'arrête après la réponse. "
+                + "Pendant que FRIDAY parle, STOP reste disponible ; un casque limite l'écho."));
         voskHintsEnabled = new CheckBox(this);
         voskHintsEnabled.setText("Vocabulaire Vosk spécialisé (expérimental, sur demande)");
         voskHintsEnabled.setTextColor(Color.WHITE);
