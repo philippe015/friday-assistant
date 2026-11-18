@@ -1,4 +1,4 @@
-"""FRIDAY v3.12.0: Bluetooth microphone, permissions and safe fallback."""
+"""FRIDAY v3.12.1: Bluetooth microphone, permissions and safe fallback."""
 from pathlib import Path
 import unittest
 
