@@ -1,3 +1,14 @@
+## [3.10.0] — Jarvis local autonome sur téléphone Android (sans PC)
+
+- **Nouveau moteur IA réellement exécuté sur Android** via `com.google.mediapipe:tasks-genai:0.10.35` et `LlmInference`. La réponse peut être produite **sans Internet, sans ordinateur, sans serveur Termux** après import d'un modèle compatible.
+- **Import du modèle par Android** : un fichier MediaPipe `.task`/`.bin` téléchargé directement sur le téléphone est copié dans `files/local-jarvis/model.task` privé de l'application, avec limite de 4,5 Go, copie temporaire et remplacement contrôlé après copie complète. L'APK ne contient pas les poids du modèle.
+- **Commande vocale Jarvis locale** : « Friday, Jarvis, ... » passe en priorité par le modèle embarqué. Option distincte « toutes les questions générales » pour utiliser Jarvis local sans Mistral ; **aucune transmission implicite au réseau** si la génération locale échoue.
+- **Outils locaux autorisés** : calcul arithmétique déterministe sans code exécutable et réutilisation sur l'appareil des notes Memory+ chiffrées. Aucune exécution shell, aucun accès libre au système.
+- **Test réel de génération hors ligne** et affichage d'un diagnostic en cas de format incompatible, modèle absent ou mémoire insuffisante. Modèle et moteur libérés si échec.
+- Les fonctions micro Vosk français, voix Android, STOP/anti-écho, géolocalisation autorisée et accès Web Mistral des versions antérieures sont conservés.
+- Le runtime Python/Rust complet d'OpenJarvis n'est **pas** embarqué. Il s'agit d'une adaptation native Android de l'architecture agents/outils/mémoire, avec modèle MediaPipe local. L'ancienne passerelle PC v3.9.0 reste facultative.
+- Guide utilisateur : `docs/JARVIS_ANDROID_OFFLINE.md`. Tests de routage/arithmétique Java et garde-fous Python, compilation Android CI et APK signé. **Modèle réel à tester sur téléphone** : la CI ne garantit pas le fonctionnement sur chaque SoC ou version Android.
+
 ## [3.9.0] — Passerelle OpenJarvis pour FRIDAY Android
 
 - **Intégration fonctionnelle, facultative** d'un serveur OpenJarvis sur Manjaro ou autre système compatible via son API officielle compatible OpenAI : `POST /v1/chat/completions`. OpenJarvis Python/Rust/Ollama ne sont **pas** embarqués dans l'APK Android.
