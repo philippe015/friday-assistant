@@ -50,6 +50,9 @@ public final class BluetoothMicRouter {
     }
 
     public String status() { return status; }
+    public boolean isCommunicationRequested() {
+        return communicationSelected || legacyScoRequested;
+    }
 
     private boolean hasHeadsetInput() {
         for (AudioDeviceInfo info : audio.getDevices(AudioManager.GET_DEVICES_INPUTS)) {
