@@ -61,6 +61,8 @@ public class MainActivity extends Activity {
     private WebView hud;
     private TextToSpeech testTts;
     private EditText manualQuestion;
+    private TextView manualAnswerLabel;
+    private final AtomicBoolean typedQuestionRunning = new AtomicBoolean(false);
     private boolean pageReady = false;
     private boolean promptStartAfterPermission = false;
     private BroadcastReceiver events;
@@ -416,6 +418,9 @@ public class MainActivity extends Activity {
         manualQuestion = field("Ex. Bonjour, peux-tu me répondre ?", false);
         config.addView(manualQuestion);
         config.addView(button("Envoyer une question sans microphone", () -> sendQuestion(manualQuestion.getText().toString())));
+        manualAnswerLabel = label("Les questions écrites fonctionnent sans écoute et sans Bluetooth. Le résultat s'affiche ici et dans la conversation.");
+        manualAnswerLabel.setTextIsSelectable(true);
+        config.addView(manualAnswerLabel);
         config.addView(button("Effacer les échanges vocaux locaux", this::clearVoiceHistory));
         config.addView(button("Réglages batterie Android", () -> {
             Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()));
@@ -978,17 +983,91 @@ public class MainActivity extends Activity {
     private void testLocalAnswer() {
         sendQuestion("Quelle heure est-il ?");
     }
+    /** Questions écrites indépendantes de AudioRecord, Vosk et Bluetooth. */
     private void sendQuestion(String question) {
-        if (question == null || question.trim().isEmpty()) {
+        String cleaned = question == null ? "" : VoiceText.withoutWakeWord(question.trim());
+        if (cleaned.isEmpty()) {
             status.setText("Saisissez une question pour le test."); return;
         }
-        if (!FridayService.isActive()) {
-            status.setText("Démarrez d'abord l'écoute native, puis relancez le test."); return;
+        if (cleaned.length() > 5000) {
+            status.setText("Question trop longue (5 000 caractères maximum)."); return;
         }
-        Intent cmd = new Intent(this, FridayService.class).setAction(FridayService.ACTION_ASK_TEXT);
-        cmd.putExtra("question", question.trim());
-        startService(cmd);
-        status.setText("Question envoyée au service natif (sans micro). Consultez la réponse et le diagnostic TTS.");
+        if (!typedQuestionRunning.compareAndSet(false, true)) {
+            status.setText("Une question écrite est déjà en cours. Attendez sa réponse."); return;
+        }
+        boolean offline = JarvisMistralRouting.useLocal(cleaned,
+                "1".equals(prefs.get("local_jarvis_enabled", "0")),
+                "1".equals(prefs.get("local_jarvis_all", "0")));
+        String engineName = offline ? "Jarvis local" : "Mistral";
+        status.setText("Question écrite envoyée à " + engineName + " (microphone non utilisé).");
+        if (manualAnswerLabel != null)
+            manualAnswerLabel.setText("Traitement de la question écrite par " + engineName + "…");
+        final String request = cleaned;
+        new Thread(() -> {
+            String answer = null;
+            String fault = null;
+            boolean persisted = false;
+            try {
+                if (MemoryIntent.kind(request) != MemoryIntent.NONE)
+                    answer = PersonalMemory.command(prefs, request);
+                if (answer == null) answer = PythonBrain.localAnswer(request);
+                if (answer == null) {
+                    if (offline) {
+                        answer = LocalJarvisEngine.answer(getApplicationContext(), prefs, request,
+                                new NativeAI.CancelToken());
+                    } else {
+                        answer = NativeAI.answer(prefs, PythonBrain.prepareQuestion(request),
+                                java.util.Collections.emptyList(), null,
+                                new NativeAI.CancelToken());
+                    }
+                }
+                if (answer == null || answer.trim().isEmpty())
+                    throw new IOException("Le moteur sélectionné a renvoyé une réponse vide.");
+                try {
+                    PrivateConversationHistory.append(getApplicationContext(), prefs, "user", request);
+                    PrivateConversationHistory.append(getApplicationContext(), prefs, "assistant", answer);
+                    persisted = true;
+                } catch (Exception privateStorage) {
+                    android.util.Log.w("FRIDAY_PRIVACY",
+                            "Historique chiffré indisponible pour la question écrite",
+                            privateStorage);
+                }
+            } catch (Exception ex) {
+                String reason = ex.getMessage();
+                fault = "Erreur " + engineName + " : "
+                        + (reason == null || reason.trim().isEmpty()
+                        ? ex.getClass().getSimpleName() : reason);
+            } catch (LinkageError | OutOfMemoryError fatal) {
+                fault = "Erreur " + engineName + " : "
+                        + fatal.getClass().getSimpleName()
+                        + ". Vérifiez le modèle local et la mémoire disponible.";
+            }
+            final String result = answer;
+            final String error = fault;
+            final boolean historySaved = persisted;
+            runOnUiThread(() -> {
+                typedQuestionRunning.set(false);
+                if (error != null) {
+                    prefs.put("last_error", error);
+                    prefs.put("last_error_time", new java.text.SimpleDateFormat(
+                            "dd/MM HH:mm:ss", java.util.Locale.FRANCE).format(new java.util.Date()));
+                    if (lastErrorLabel != null) lastErrorLabel.setText(error);
+                    if (manualAnswerLabel != null) manualAnswerLabel.setText(error);
+                    status.setText(error);
+                    if (pageReady && hud != null)
+                        hud.evaluateJavascript("window.fridayNativeReceive&&window.fridayNativeReceive('error',"
+                                + org.json.JSONObject.quote(error) + ");", null);
+                } else {
+                    if (manualAnswerLabel != null) manualAnswerLabel.setText(result);
+                    status.setText("Réponse écrite " + engineName + " reçue. Le microphone n'a pas été sollicité.");
+                    if (historySaved) replayVoiceHistory();
+                    else if (pageReady && hud != null)
+                        hud.evaluateJavascript("window.fridayTypedReply&&window.fridayTypedReply("
+                                + org.json.JSONObject.quote(request) + ","
+                                + org.json.JSONObject.quote(result) + ");", null);
+                }
+            });
+        }, "friday-typed-request-no-mic").start();
     }
     private void testVoice() {
         if (testTts != null) { testTts.shutdown(); testTts = null; }

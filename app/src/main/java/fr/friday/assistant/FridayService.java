@@ -383,6 +383,8 @@ public class FridayService extends Service {
                     long lastMicLevelAt = 0;
                     long lastBtStatusAt = 0;
                     long noPcmSince = 0;
+                    long wrongRouteLastCheck = 0;
+                    int wrongRouteConfirmations = 0;
                     final long captureStartedAt = SystemClock.elapsedRealtime();
                     String previousBluetoothRoute = "";
                     String completed = "", interim = "";
@@ -429,12 +431,23 @@ public class FridayService extends Service {
                             break;
                         }
                         noPcmSince = 0;
+                        // Sur certains modèles Android, getRoutedDevice() peut
+                        // annoncer brièvement le téléphone pendant la transition
+                        // HFP/SCO. Ne pas désactiver définitivement Bluetooth
+                        // pour UNE mesure erronée : confirmer 3 fois à 1 s.
+                        long routeTick = SystemClock.elapsedRealtime();
                         if (bluetoothMicRouter != null
-                                && SystemClock.elapsedRealtime() - captureStartedAt >= 5000L
-                                && bluetoothMicRouter.wrongInputRouted(ar)) {
-                            bluetoothMicRouter.fallbackToPhone();
-                            bluetoothState("Casque connecté sans micro routé : repli sur micro téléphone");
-                            throw new IllegalStateException("Android utilise le mauvais microphone");
+                                && routeTick - captureStartedAt >= 5000L
+                                && routeTick - wrongRouteLastCheck >= 1000L) {
+                            wrongRouteLastCheck = routeTick;
+                            if (bluetoothMicRouter.wrongInputRouted(ar)) {
+                                wrongRouteConfirmations++;
+                                if (wrongRouteConfirmations >= 3) {
+                                    bluetoothMicRouter.fallbackToPhone();
+                                    bluetoothState("Android refuse le micro du casque après 3 contrôles : micro du téléphone");
+                                    throw new IllegalStateException("Bluetooth connecté mais micro non routé par Android");
+                                }
+                            } else wrongRouteConfirmations = 0;
                         }
                         if (Build.VERSION.SDK_INT >= 29) {
                             long tick = SystemClock.elapsedRealtime();

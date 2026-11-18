@@ -209,8 +209,12 @@ public final class BluetoothMicRouter {
      * Appel exclusivement depuis le thread de capture, jamais l'UI.
      */
     public boolean awaitBluetoothRoute(long timeoutMs) {
-        if (!enabled || Build.VERSION.SDK_INT >= 31 || !legacyScoRequested)
-            return true;
+        if (!enabled || audio == null || !allowed(context)) return true;
+        // Réévaluer et démarrer le profil HFP/SCO à CHAQUE ouverture du micro.
+        // Après une déconnexion, legacyScoRequested est remis à false ;
+        // sinon la version précédente créait AudioRecord AVANT de relancer SCO.
+        selectRoute();
+        if (Build.VERSION.SDK_INT >= 31 || !legacyScoRequested) return true;
         long until = SystemClock.elapsedRealtime() + Math.max(1000L, timeoutMs);
         while (enabled && legacyScoState != AudioManager.SCO_AUDIO_STATE_CONNECTED
                 && SystemClock.elapsedRealtime() < until
@@ -227,7 +231,9 @@ public final class BluetoothMicRouter {
     /** À appeler avant startRecording pour orienter la capture vers la source Bluetooth. */
     public void preferInput(AudioRecord recorder) {
         if (!enabled || !allowed(context) || audio == null || recorder == null) return;
-        selectRoute();
+        // Le profil communication a déjà été sélectionné et confirmé
+        // par awaitBluetoothRoute AVANT la construction d'AudioRecord.
+        // Ne pas relancer SCO dans preferInput : cela coupait le PCM existant.
         try {
             for (AudioDeviceInfo info : audio.getDevices(AudioManager.GET_DEVICES_INPUTS)) {
                 if (info.isSource() && isBluetoothVoiceType(info.getType())) {

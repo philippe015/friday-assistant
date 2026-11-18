@@ -34,13 +34,13 @@ class BluetoothCaptureRecovery(unittest.TestCase):
     def test_actual_micro_route_checked_and_error_detail_visible(self):
         self.assertIn("public boolean wrongInputRouted(AudioRecord recorder)", ROUTER)
         self.assertIn("bluetoothMicRouter.wrongInputRouted(ar)", SERVICE)
-        self.assertIn("Android utilise le mauvais microphone", SERVICE)
+        self.assertIn("Bluetooth connecté mais micro non routé par Android", SERVICE)
         self.assertIn("captureError.getMessage()", SERVICE)
 
     def test_jarvis_mistral_and_signed_release_compatibility(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 80", gradle)
-        self.assertIn("versionName '3.12.2'", gradle)
+        self.assertIn("versionCode 81", gradle)
+        self.assertIn("versionName '3.12.3'", gradle)
         self.assertNotIn("OpenJarvisClient.answer", SERVICE)
 
 if __name__ == "__main__":
