@@ -26,6 +26,7 @@ class BluetoothMicV312(unittest.TestCase):
         self.assertIn("TYPE_BLUETOOTH_SCO",router)
         self.assertIn("TYPE_BLE_HEADSET",router)
         self.assertNotIn("TYPE_BLUETOOTH_A2DP",router)
+        self.assertIn("fallbackToPhone()", router)
         self.assertIn("clearCommunicationDevice()", router)
         self.assertIn("stopBluetoothSco()",router)
         self.assertIn("unregisterAudioDeviceCallback",router)
