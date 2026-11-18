@@ -46,8 +46,8 @@ class WebAccessV383(unittest.TestCase):
 
     def test_version(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertRegex(gradle, r"versionCode (?:66|67|68|69|70|71|72|73|74|75|76)")
-        self.assertRegex(gradle, r"versionName '(?:3\.8\.[3456789]|3\.9\.0|3\.10\.0|3\.11\.0|3\.11\.1)'")
+        self.assertRegex(gradle, r"versionCode (?:66|67|68|69|70|71|72|73|74|75|76|77)")
+        self.assertRegex(gradle, r"versionName '(?:3\.8\.[3456789]|3\.9\.0|3\.10\.0|3\.11\.0|3\.11\.1|3\.11\.2)'")
 
 if __name__ == "__main__":
     unittest.main()

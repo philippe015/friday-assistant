@@ -25,7 +25,7 @@ class VoiceFalseTriggersV311(unittest.TestCase):
         self.assertIn('prefs.get("stream_enabled", "0")', ui)
         self.assertIn('settings.get("stream_enabled", "0")', service)
         self.assertIn('prefs.get("listen_once", "0")', ui)
-        self.assertIn('settings.get("barge_in_enabled", "1")', service)
+        self.assertIn('settings.get("barge_in_enabled", "0")', service)
 
 if __name__ == "__main__":
     unittest.main()

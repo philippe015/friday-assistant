@@ -30,7 +30,8 @@ class FullVoiceAuditV389(unittest.TestCase):
         self.assertIn("if (mutedSince == 0)", area)
         self.assertIn("recognizer.close(); recognizer = createRecognizer(model);", area)
         self.assertEqual(area.count("if (mutedSince == 0)"), 1)
-        self.assertIn("mutedMicroReopens < 2", area)
+        self.assertNotIn("mutedMicroReopens < 2", area)
+        self.assertIn("if (mutedAt - mutedSince >= 8000L)", area)
         self.assertIn("mutedAt - mutedSince >= 8000L", area)
         self.assertIn("mutedMicroReopens == 0", service)
         self.assertIn("MediaRecorder.AudioSource.VOICE_RECOGNITION", service)
@@ -73,8 +74,8 @@ class FullVoiceAuditV389(unittest.TestCase):
 
     def test_version_manifest_permissions_and_no_new_external_provider(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 76", gradle)
-        self.assertIn("versionName '3.11.1'", gradle)
+        self.assertIn("versionCode 77", gradle)
+        self.assertIn("versionName '3.11.2'", gradle)
         manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
         for name in ("android.permission.INTERNET", "android.permission.RECORD_AUDIO",
                      "android.permission.FOREGROUND_SERVICE_MICROPHONE"):

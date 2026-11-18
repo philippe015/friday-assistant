@@ -17,7 +17,7 @@ class StopDetectorIntegration(unittest.TestCase):
         self.assertIn("if (currentTurn != null && bargeEnabled", service)
         self.assertIn("stopSpotter.accept(", service)
         self.assertIn("stopRecognizer.close()", service)
-        self.assertIn("interruptResponse(action == VoiceStopSpotter.Action.CLARIFY", service)
+        self.assertIn("interruptResponse(action == VoiceStopSpotter.Action.STOP_MIC", service)
         self.assertIn('event("barge_diag", interruptDiagnostics)', service)
 
     def test_cockpit_diagnostics_are_live(self):
