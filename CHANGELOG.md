@@ -1,3 +1,14 @@
+## [3.9.0] — Passerelle OpenJarvis pour FRIDAY Android
+
+- **Intégration fonctionnelle, facultative** d'un serveur OpenJarvis sur Manjaro ou autre système compatible via son API officielle compatible OpenAI : `POST /v1/chat/completions`. OpenJarvis Python/Rust/Ollama ne sont **pas** embarqués dans l'APK Android.
+- **Véritable délégation vocale** : après configuration explicite, dire « Friday, Jarvis, ... » ou « Friday, demande à Jarvis ... » envoie la question actuelle au serveur OpenJarvis. La réponse est affichée et prononcée par la voix française de FRIDAY.
+- **Mode général sur consentement** : une case distincte permet de router les questions générales vers OpenJarvis au lieu de Mistral ; cette option est désactivée par défaut. Mistral et sa recherche Web restent fonctionnels sans changement pour les utilisateurs ne configurant pas OpenJarvis.
+- **Réglages Android** : adresse HTTPS, identifiant du modèle local, jeton `OPENJARVIS_API_KEY` chiffré par Android Keystore, activation indépendante et véritable test de génération avec un message sans données personnelles.
+- **Sécurité** : HTTPS obligatoire, certificat vérifié, aucune redirection HTTP, pas d'identifiant dans l'URL, `localhost` rejeté car il désignerait le téléphone ; aucun historique, mémoire Memory+, GPS ou données personnelles ajoutés automatiquement aux demandes OpenJarvis. L'absence du serveur ne déclenche pas de repli caché vers Mistral.
+- **Précautions pour l'ordinateur** : ne pas exposer un agent OpenJarvis capable d'exécuter des commandes ou d'accéder aux fichiers sans authentification et isolation. Commencer avec `--agent simple`.
+- Respect de la licence Apache-2.0 d'OpenJarvis (aucun code serveur tiers inclus). Guide d'installation et de configuration dans `docs/OPENJARVIS_ANDROID_BRIDGE.md`.
+- Tests Java du routage/d'URL, contrôles Python, tests Android CI et APK signé. **La connexion de bout en bout à un serveur personnel et la stabilité audio sur le téléphone restent à valider**.
+
 ## [3.8.9] — Stabilisation générale : microphone, Vosk, Mistral et synthèse vocale
 
 - **Correction majeure du silence** : pendant qu'une requête Mistral/Web attend une réponse, la reconnaissance libre Vosk reste maintenant active. L'anti-écho coupe uniquement la dictée pendant une lecture TTS effective et pendant 2,5 secondes après.
