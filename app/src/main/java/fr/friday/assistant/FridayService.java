@@ -157,6 +157,19 @@ public class FridayService extends Service {
             return START_NOT_STICKY;
         }
         if (running) return START_NOT_STICKY;
+        // Mise a niveau de stabilite : le mode « une question » fermait le
+        // service apres la premiere reponse. Sur la premiere ouverture de
+        // v3.11.2, garantir une ecoute continue et neutraliser les faux STOP
+        // produits par le haut-parleur. L'utilisateur peut re-activer ces
+        // options manuellement ensuite.
+        if (!"1".equals(settings.get("voice_safety_3112", "0"))) {
+            settings.put("listen_once", "0");
+            settings.put("barge_in_enabled", "0");
+            settings.put("stream_enabled", "0");
+            settings.put("voice_safety_3112", "1");
+            event("status", "Stabilisation vocale active : mode continu, STOP vocal et streaming desactives. "
+                    + "Les interruptions manuelles restent disponibles.");
+        }
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED ||
                 !ModelInstaller.installed(this)) {
             event("error", "Autorisez le micro et installez le modèle vocal français.");
@@ -278,7 +291,7 @@ public class FridayService extends Service {
                         AudioFormat.ENCODING_PCM_16BIT);
                     if (minimum <= 0) throw new IllegalStateException("Microphone 16 kHz indisponible");
                     int bytes = Math.max(16384, minimum * 4);
-                    boolean bargeEnabled = "1".equals(settings.get("barge_in_enabled", "1"));
+                    boolean bargeEnabled = "1".equals(settings.get("barge_in_enabled", "0"));
                     // Si Android a rendu VOICE_COMMUNICATION muet, repartir
                     // sur VOICE_RECOGNITION lors de la prochaine session audio.
                     int src = bargeEnabled && mutedMicroReopens == 0
@@ -364,7 +377,6 @@ public class FridayService extends Service {
                             if (running) throw new IllegalStateException("Lecture microphone interrompue : " + count);
                             break;
                         }
-                        consecutiveErrors = 0;
                         if (Build.VERSION.SDK_INT >= 29) {
                             long tick = SystemClock.elapsedRealtime();
                             if (tick - lastPolicyCheck >= 500) {
@@ -395,15 +407,18 @@ public class FridayService extends Service {
                                 confidenceSum = 0; confidenceCount = 0;
                                 earlyCancelled = false; sawSpeakerFeedback = false;
                             }
-                            if (mutedAt - mutedSince >= 8000L && mutedMicroReopens < 2) {
+                            if (mutedAt - mutedSince >= 8000L) {
                                 mutedMicroReopens++;
-                                event("error", "Micro Android muet depuis 8 secondes : "
-                                        + "reconstruction de la capture audio ("
-                                        + mutedMicroReopens + "/2).");
-                                throw new IllegalStateException("Réinitialisation contrôlée de la capture muette");
+                                event("error", "Android maintient le micro muet depuis 8 secondes : "
+                                        + "tentative de recuperation " + mutedMicroReopens
+                                        + ". Fermez toute autre application utilisant le micro.");
+                                // Ne jamais rester pour toujours dans une boucle muette :
+                                // reconstruire AudioRecord avec temporisation progressive.
+                                throw new IllegalStateException("Microphone rendu muet par Android");
                             }
                             continue;
                         }
+                        consecutiveErrors = 0;
                         if (mutedSince != 0 || micSilenced) {
                             mutedSince = 0;
                             micSilenced = false;
@@ -460,11 +475,14 @@ public class FridayService extends Service {
                                 if (action != VoiceStopSpotter.Action.NONE) {
                                     interruptDiagnostics = "Commande reconnue · " + action.name();
                                     event("barge_diag", interruptDiagnostics);
-                                    if (action == VoiceStopSpotter.Action.STOP_MIC) {
-                                        shutdown();
-                                        break;
-                                    }
-                                    interruptResponse(action == VoiceStopSpotter.Action.CLARIFY
+                                    // Durant la lecture, une commande STOP_MIC peut
+                                    // provenir de l'echo de la voix Android. Ne JAMAIS
+                                    // eteindre le micro sur un seul resultat Vosk TTS.
+                                    // L'arret complet reste possible par bouton ou
+                                    // par ordre vocal clair lorsque FRIDAY est silencieuse.
+                                    interruptResponse(action == VoiceStopSpotter.Action.STOP_MIC
+                                            ? "Réponse interrompue. Micro toujours actif ; utilisez Arrêter le micro pour l'éteindre."
+                                            : action == VoiceStopSpotter.Action.CLARIFY
                                             ? "Réponse coupée · je vous écoute pour votre précision."
                                             : "Réponse coupée · microphone toujours actif.");
                                     // L'ancienne réponse ne doit plus polluer le Vosk libre.
@@ -592,9 +610,18 @@ public class FridayService extends Service {
                 } catch (Exception captureError) {
                     if (!running) break;
                     consecutiveErrors++;
-                    event("error", "Microphone interrompu : nouvelle tentative " + consecutiveErrors + "/3.");
-                    if (consecutiveErrors >= 3) throw captureError;
-                    try { Thread.sleep(400L * consecutiveErrors); }
+                    // La v3.11.1 arretait definitivement le service apres trois
+                    // echec AudioRecord, ou restait muette apres deux reprises.
+                    // Cette version reessaie tant que l'utilisateur n'a pas
+                    // demande l'arret du service. Temporisation bornee pour
+                    // eviter une boucle de relance intensive.
+                    long retryMs = Math.min(10000L, 500L * Math.min(consecutiveErrors, 20));
+                    voiceState("Microphone indisponible · nouvelle tentative automatique");
+                    event("error", "Capture vocale interrompue : "
+                            + captureError.getClass().getSimpleName()
+                            + ". Nouvelle tentative dans " + (retryMs / 1000.0)
+                            + " secondes. Verifiez autorisations et autres micros.");
+                    try { Thread.sleep(retryMs); }
                     catch (InterruptedException ignored) { Thread.currentThread().interrupt(); break; }
                 } finally {
                     releaseAudioEffects();
