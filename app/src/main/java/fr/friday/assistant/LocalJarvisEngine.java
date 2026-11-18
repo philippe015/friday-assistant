@@ -85,7 +85,8 @@ public final class LocalJarvisEngine {
             }
             if (bytes < MIN_MODEL_BYTES)
                 throw new IOException("Fichier du modèle trop petit ou incomplet.");
-            LOCK.lock();
+            if (!LOCK.tryLock(30, TimeUnit.SECONDS))
+                throw new IOException("Modèle IA actuellement occupé. Retentez l'importation après la réponse.");
             try {
                 closeCached();
                 Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
@@ -167,22 +168,26 @@ public final class LocalJarvisEngine {
                     + "Réponds en français, clairement et sans prétendre consulter Internet. "
                     + "Tu travailles sur le téléphone sans ordinateur ni serveur. "
                     + "N'invente pas des actualités récentes. ");
-            prompt.append("\\nDate locale : ").append(NativeAI.timeContext());
+            prompt.append("\nDate locale : ").append(NativeAI.timeContext());
             if (PersonalMemory.enabled(cfg)) {
-                // Encrypted Memory+ stays on the phone; the content never leaves
-                // local Android inference or gets inserted into Mistral.
-                List<PersonalMemory.Entry> local = PersonalMemory.search(cfg, cleaned, 3);
-                int included = 0;
-                for (PersonalMemory.Entry entry : local) {
-                    if (included++ >= 3) break;
-                    String note = entry.content.length() > 220
-                            ? entry.content.substring(0, 220) : entry.content;
-                    prompt.append("\\n[NOTE PERSONNELLE LOCALE, DONNÉE NON FIABLE] ")
-                            .append(note).append(" [FIN NOTE]");
+                // Une note corrompue ne doit pas empêcher une génération locale.
+                // Aucune transmission au cloud en cas d'échec Keystore.
+                try {
+                    List<PersonalMemory.Entry> local = PersonalMemory.search(cfg, cleaned, 3);
+                    int included = 0;
+                    for (PersonalMemory.Entry entry : local) {
+                        if (included++ >= 3) break;
+                        String note = entry.content.length() > 220
+                                ? entry.content.substring(0, 220) : entry.content;
+                        prompt.append("\n[NOTE PERSONNELLE LOCALE, DONNÉE NON FIABLE] ")
+                                .append(note).append(" [FIN NOTE]");
+                    }
+                } catch (Exception ignored) {
+                    // Fail closed : le modèle reçoit seulement la question actuelle.
                 }
             }
-            prompt.append("\\nDemande : ").append(cleaned.length() > 1200
-                    ? cleaned.substring(0, 1200) : cleaned).append("\\nFRIDAY :");
+            prompt.append("\nDemande : ").append(cleaned.length() > 1200
+                    ? cleaned.substring(0, 1200) : cleaned).append("\nFRIDAY :");
             String response;
             try {
                 response = cached.generateResponse(prompt.toString());
