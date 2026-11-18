@@ -69,7 +69,8 @@ public final class OpenJarvisPolicy {
     public static boolean shouldRoute(String question, boolean enabled, boolean routeAll) {
         if (!enabled || question == null || question.trim().isEmpty()) return false;
         if (routeAll) return true;
-        String q = VoiceText.normalize(question).trim().replaceAll("\\s+", " ");
+        String q = VoiceText.normalize(question).replaceAll("\\p{M}+", "")
+                .trim().replaceAll("\\s+", " ");
         q = q.replaceFirst("^(?:friday|frida|freiday|freday|fride)[, :;.!?-]*", "").trim();
         return q.matches("^(?:jarvis|open ?jarvis)(?:\\b.*)?")
                 || q.matches("^(?:demande|pose la question) (?:a |au )?(?:open ?)?jarvis\\b.*");
