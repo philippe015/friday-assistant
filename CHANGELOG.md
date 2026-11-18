@@ -1,3 +1,13 @@
+## [3.11.0] — Compatibilité Gemma 4 au format .litertlm directement sur Android
+
+- Corrige l'erreur avec `gemma-4-E2B-it-gpu.litertlm` : la v3.10.0 ne disposait que du moteur MediaPipe pour les `.task`.
+- Ajoute **LiteRT-LM Android 0.18.0** et une implémentation Kotlin d'inférence sur téléphone avec CPU/GPU. Les bibliothèques OpenCL peuvent être requises pour le modèle GPU.
+- Maintient MediaPipe 0.10.35 pour les modèles `.task` existants : les deux moteurs sont distincts.
+- Import Android `.litertlm` / `.task` par le sélecteur de documents, copie privée contrôlée et espace libre vérifié en fonction de la taille.
+- Corrige les liens dans les Réglages : fichiers exacts `gemma3-270m-it-q8.task` et `gemma-4-E2B-it-gpu.litertlm`, et non un dépôt de modèles contenant plusieurs formats.
+- Conserve Vosk/TTS français, STOP, Memory+ chiffrée, outils locaux et Web Mistral.
+- Compilation Android et tests automatisés requis. L'exécution sur le téléphone de l'utilisateur et les besoins RAM/GPU ne peuvent pas être validés à distance.
+
 ## [3.10.0] — Jarvis local autonome sur téléphone Android (sans PC)
 
 - **Nouveau moteur IA réellement exécuté sur Android** via `com.google.mediapipe:tasks-genai:0.10.35` et `LlmInference`. La réponse peut être produite **sans Internet, sans ordinateur, sans serveur Termux** après import d'un modèle compatible.
