@@ -48,7 +48,7 @@ class OpenJarvisIntegrationTest(unittest.TestCase):
     def test_does_not_upload_gps_memory_or_conversation_implicitly(self):
         service=read("FridayService.java")
         client=read("OpenJarvisClient.java")
-        self.assertIn('OpenJarvisClient.answer(settings, prepared, turn.api)', service)
+        self.assertIn('OpenJarvisClient.answer(settings, question, turn.api)', service)
         self.assertIn('locationForApi != null && local == null && !jarvisQuestion', service)
         self.assertNotIn("PersonalMemory.", client)
         self.assertNotIn("locationContext", client)
