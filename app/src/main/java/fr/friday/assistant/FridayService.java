@@ -750,7 +750,7 @@ public class FridayService extends Service {
             }
         };
         requestWatchdog.postDelayed(turn.watchdog, MAX_PENDING_WEB_MS);
-        Thread task = new Thread(() -> answerTurn(request, turn), "friday-mistral-response");
+        Thread task = new Thread(() -> answerTurn(request, turn), "friday-assistant-response");
         turn.thread = task;
         if ("1".equals(settings.get("listen_once", "0")))
             oneShotTriggered = true;
@@ -759,9 +759,14 @@ public class FridayService extends Service {
     private void answerTurn(String question, ResponseTurn turn) {
         if (!live(turn)) return;
         boolean memoryAction = MemoryIntent.kind(question) != MemoryIntent.NONE;
+        boolean requestedOnDevice = LocalJarvisPolicy.shouldRoute(question,
+                "1".equals(settings.get("local_jarvis_enabled", "0")),
+                "1".equals(settings.get("local_jarvis_all", "0")));
         try {
             if (!memoryAction && live(turn)) event("user", question);
-            if (live(turn)) event("status", memoryAction ? "Commande mémoire locale…" : "Réflexion Mistral… Vous pouvez m'interrompre.");
+            if (live(turn)) event("status", memoryAction ? "Commande mémoire locale…"
+                    : requestedOnDevice ? "Jarvis local réfléchit sur le téléphone…"
+                    : "Réflexion Mistral / OpenJarvis… Vous pouvez m'interrompre.");
             String local = PersonalMemory.command(settings, question);
             if (local == null) local = PythonBrain.localAnswer(question);
             if (local == null) local = deviceAnswer(question);
@@ -790,7 +795,10 @@ public class FridayService extends Service {
                         event("location", local);
                     } else {
                         event("location", fix.forUser());
-                        String place = "1".equals(settings.get("address_lookup", "0"))
+                        // Le géocodeur peut utiliser Internet : il est interdit
+                        // d'y recourir pour une demande Jarvis hors ligne.
+                        String place = !requestedOnDevice
+                                && "1".equals(settings.get("address_lookup", "0"))
                                 ? AndroidPlaceResolver.resolve(this, fix) : "";
                         if (!live(turn)) return;
                         // Le GPS Android et l'autorisation de transmettre les coordonnées
@@ -841,9 +849,7 @@ public class FridayService extends Service {
             // L'agent local passe AVANT le pont OpenJarvis/PC et AVANT Mistral.
             // Un seul moteur reçoit une question : aucune fuite implicite vers
             // Mistral si le modèle local ne démarre pas.
-            boolean localJarvis = local == null && LocalJarvisPolicy.shouldRoute(question,
-                    "1".equals(settings.get("local_jarvis_enabled", "0")),
-                    "1".equals(settings.get("local_jarvis_all", "0")));
+            boolean localJarvis = local == null && requestedOnDevice;
             boolean pcJarvis = local == null && !localJarvis
                     && OpenJarvisPolicy.shouldRoute(question,
                     "1".equals(settings.get("openjarvis_enabled", "0")),
