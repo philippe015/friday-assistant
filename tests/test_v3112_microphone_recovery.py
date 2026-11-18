@@ -42,8 +42,8 @@ class MicrophoneRecovery(unittest.TestCase):
 
     def test_version(self):
         gradle=(ROOT/"app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 80", gradle)
-        self.assertIn("versionName '3.12.2'", gradle)
+        self.assertIn("versionCode 81", gradle)
+        self.assertIn("versionName '3.12.3'", gradle)
 
 if __name__ == "__main__":
     unittest.main()
