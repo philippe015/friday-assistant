@@ -148,9 +148,10 @@ public final class LocalJarvisEngine {
                             LlmInference.LlmInferenceOptions.builder()
                                     .setModelPath(model.getAbsolutePath())
                                     .setMaxTokens(1024)
+                                    .setPreferredBackend(LlmInference.Backend.CPU)
                                     .build());
                     cachedModelPath = model.getAbsolutePath();
-                } catch (Exception | UnsatisfiedLinkError unavailable) {
+                } catch (Exception | LinkageError unavailable) {
                     closeCached();
                     throw new IOException("Impossible de charger le modèle local MediaPipe : "
                             + unavailable.getClass().getSimpleName()
@@ -188,7 +189,7 @@ public final class LocalJarvisEngine {
             } catch (OutOfMemoryError memory) {
                 closeCached();
                 throw new IOException("Modèle local trop gourmand pour la RAM du téléphone.", memory);
-            } catch (Exception | UnsatisfiedLinkError failure) {
+            } catch (Exception | LinkageError failure) {
                 closeCached();
                 throw new IOException("Échec d'inférence locale : "
                         + failure.getClass().getSimpleName()
