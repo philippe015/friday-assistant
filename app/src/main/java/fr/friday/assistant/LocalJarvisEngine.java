@@ -33,9 +33,19 @@ public final class LocalJarvisEngine {
     private static final long MAX_MODEL_BYTES = 4_500_000_000L;
     private static final long MIN_MODEL_BYTES = 1_000_000L;
 
+    private static String format(Context context) {
+        return "litertlm".equals(new SecurePrefs(context).get("local_jarvis_format", "task"))
+                ? "litertlm" : "task";
+    }
+
     public static File modelFile(Context context) {
+        return modelFile(context, format(context));
+    }
+
+    private static File modelFile(Context context, String modelFormat) {
         File dir = new File(context.getFilesDir(), "local-jarvis");
-        return new File(dir, "model.task");
+        return new File(dir, "litertlm".equals(modelFormat)
+                ? "model.litertlm" : "model.task");
     }
 
     public static boolean ready(Context context) {
@@ -48,19 +58,27 @@ public final class LocalJarvisEngine {
         if (uri == null || !"content".equals(uri.getScheme()))
             throw new IOException("Sélectionnez un modèle via le sélecteur de documents Android.");
         String display = null;
+        long declaredSize = -1;
         try (Cursor cursor = context.getContentResolver().query(
                 uri, new String[]{OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE},
                 null, null, null)) {
             if (cursor != null && cursor.moveToFirst()) {
                 int index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
                 if (index >= 0) display = cursor.getString(index);
+                int sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE);
+                if (sizeIndex >= 0 && !cursor.isNull(sizeIndex))
+                    declaredSize = cursor.getLong(sizeIndex);
             }
         }
-        if (display == null || !(display.toLowerCase(java.util.Locale.ROOT).endsWith(".task")
-                || display.toLowerCase(java.util.Locale.ROOT).endsWith(".bin"))) {
-            throw new IOException("Modèle incompatible : choisissez un fichier MediaPipe .task ou .bin, pas un GGUF.");
+        String filename = display == null ? "" : display.toLowerCase(java.util.Locale.ROOT);
+        boolean isLitert = filename.endsWith(".litertlm");
+        if (!isLitert && !filename.endsWith(".task") && !filename.endsWith(".bin")) {
+            throw new IOException("Format incompatible. Sélectionnez un vrai fichier .task (MediaPipe) "
+                    + "ou .litertlm (LiteRT-LM). Renommer un GGUF ne le rend pas compatible.");
         }
-        File target = modelFile(context);
+        boolean gpu = isLitert && filename.contains("-gpu");
+        String importFormat = isLitert ? "litertlm" : "task";
+        File target = modelFile(context, importFormat);
         File directory = target.getParentFile();
         if (!directory.exists() && !directory.mkdirs())
             throw new IOException("Impossible de créer le stockage privé du modèle.");
@@ -68,8 +86,12 @@ public final class LocalJarvisEngine {
         long bytes = 0;
         try {
             StatFs storage = new StatFs(directory.getAbsolutePath());
-            if (storage.getAvailableBytes() < 650_000_000L)
-                throw new IOException("Espace libre insuffisant : prévoyez au moins 650 Mo.");
+            long available = storage.getAvailableBytes();
+            if (declaredSize > MAX_MODEL_BYTES)
+                throw new IOException("Modèle dépassant 4,5 Go.");
+            if (available < 650_000_000L
+                    || (declaredSize >= 0 && available < declaredSize + 400_000_000L))
+                throw new IOException("Espace libre insuffisant : prévoyez la taille du modèle plus 400 Mo.");
             try (InputStream in = context.getContentResolver().openInputStream(uri);
                  FileOutputStream out = new FileOutputStream(tmp)) {
                 if (in == null) throw new IOException("Fichier du modèle inaccessible.");
@@ -85,22 +107,31 @@ public final class LocalJarvisEngine {
             }
             if (bytes < MIN_MODEL_BYTES)
                 throw new IOException("Fichier du modèle trop petit ou incomplet.");
-            if (!LOCK.tryLock(30, TimeUnit.SECONDS))
-                throw new IOException("Modèle IA actuellement occupé. Retentez l'importation après la réponse.");
-            try {
-                closeCached();
+            if (isLitert) {
+                if (!LiteRtJarvisEngine.releaseAndWait())
+                    throw new IOException("LiteRT-LM encore occupé. Retentez après la réponse.");
                 Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            } finally {
-                LOCK.unlock();
+            } else {
+                if (!LOCK.tryLock(30, TimeUnit.SECONDS))
+                    throw new IOException("MediaPipe encore occupé. Retentez après la réponse.");
+                try {
+                    closeCached();
+                    Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                } finally {
+                    LOCK.unlock();
+                }
             }
+            SecurePrefs preferences = new SecurePrefs(context);
+            preferences.put("local_jarvis_format", importFormat);
+            preferences.put("local_jarvis_gpu", gpu ? "1" : "0");
+            preferences.put("local_jarvis_model_name", display);
         } finally {
             if (tmp.exists()) tmp.delete();
         }
         return String.format(java.util.Locale.FRANCE,
-                "Modèle importé dans le téléphone : %.1f Mo. "
-                    + "Activez Jarvis local, puis utilisez le bouton Test. "
-                    + "La compatibilité dépend du format et de la mémoire Android.",
-                bytes / 1_000_000.0);
+                "Modèle %s importé sur le téléphone : %.1f Mo (%s). "
+                    + "Lancez le test. La compatibilité GPU et la RAM restent à vérifier.",
+                isLitert ? "LiteRT-LM" : "MediaPipe", bytes / 1_000_000.0, display);
     }
 
     private static void closeCached() {
@@ -115,11 +146,12 @@ public final class LocalJarvisEngine {
         String enabled = "1".equals(cfg.get("local_jarvis_enabled", "0"))
                 ? "activé" : "désactivé";
         File file = modelFile(context);
-        return "Jarvis local " + enabled + " · "
+        String runtime = "litertlm".equals(format(context)) ? "LiteRT-LM" : "MediaPipe";
+        return "Jarvis local " + enabled + " · " + runtime + " · "
                 + (ready(context)
                 ? String.format(java.util.Locale.FRANCE,
                         "modèle installé %.1f Mo", file.length() / 1_000_000.0)
-                : "aucun modèle MediaPipe importé");
+                : "aucun modèle " + runtime + " importé");
     }
 
     /**
