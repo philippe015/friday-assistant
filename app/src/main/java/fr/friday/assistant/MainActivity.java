@@ -42,10 +42,6 @@ public class MainActivity extends Activity {
     private CheckBox webEnabled, webAlways;
     private TextView webDiagnosticLabel;
     private final AtomicBoolean webTestRunning = new AtomicBoolean(false);
-    private CheckBox openJarvisEnabled, openJarvisRouteAll;
-    private EditText openJarvisUrl, openJarvisModel, openJarvisKey;
-    private TextView openJarvisStatusLabel;
-    private final AtomicBoolean openJarvisTestRunning = new AtomicBoolean(false);
     private CheckBox localJarvisEnabled, localJarvisAll;
     private TextView localJarvisStatus;
     private final AtomicBoolean localJarvisImporting = new AtomicBoolean(false);
@@ -96,6 +92,9 @@ public class MainActivity extends Activity {
             prefs.put("provider", "mistral");
             prefs.put("mistral_only_v330", "1");
         }
+        // Réserver FRIDAY à Jarvis Android et Mistral, y compris après mise à jour.
+        prefs.put("openjarvis_enabled", "0");
+        prefs.put("openjarvis_route_all", "0");
         // L'utilisateur a demandé l'accès Web systématique : migration unique
         // des réglages des anciennes versions, sans toucher à la clé Mistral.
         // Les modifications explicites faites ensuite restent respectées.
@@ -174,7 +173,7 @@ public class MainActivity extends Activity {
         outer.addView(configScroll, new LinearLayout.LayoutParams(-1, dp(340)));
         config.addView(label("MOTEUR VOCAL LOCAL · français Vosk (~41 Mo à télécharger une fois)"));
         config.addView(button(ModelInstaller.installed(this) ? "✓ Modèle installé" : "↓ Télécharger le modèle français", this::installModel));
-        config.addView(label("MOTEUR IA · MISTRAL par défaut · OPENJARVIS optionnel"));
+        config.addView(label("MOTEURS IA · Jarvis local sur Android + Mistral (Internet)"));
         mistralModel = field("mistral-small-latest", false);
         mistralModel.setText(prefs.get("mistral_model", "mistral-small-latest"));
         config.addView(label("Modèle Mistral"));
@@ -226,14 +225,14 @@ public class MainActivity extends Activity {
         localJarvisEnabled.setChecked("1".equals(prefs.get("local_jarvis_enabled", "0")));
         config.addView(localJarvisEnabled);
         localJarvisAll = new CheckBox(this);
-        localJarvisAll.setText("Utiliser Jarvis local pour toutes les questions générales (sans cloud)");
+        localJarvisAll.setText("Jarvis local pour les questions générales, Mistral pour Internet");
         localJarvisAll.setTextColor(Color.WHITE);
         localJarvisAll.setChecked("1".equals(prefs.get("local_jarvis_all", "0")));
         config.addView(localJarvisAll);
-        config.addView(label("Par défaut, dites « Friday, Jarvis, explique-moi ... ». "
-                + "Pour passer complètement hors ligne, activez aussi la seconde case. "
-                + "Memory+ reste chiffrée et locale ; les outils du téléphone n'exécutent "
-                + "pas de commandes système dangereuses."));
+        config.addView(label("Avec la deuxième case cochée, Jarvis local traite les questions générales "
+                + "et Mistral les informations récentes, la météo et Internet. "
+                + "Dites « Friday, Jarvis local, ... » pour imposer le mode hors ligne. "
+                + "La mémoire reste chiffrée sur le téléphone."));
         config.addView(button("Importer un modèle IA local (.task / .litertlm)", this::chooseLocalJarvisModel));
         config.addView(button("Gemma 3 léger · MediaPipe .task (304 Mo)",
                 this::openLocalJarvisModels));
@@ -250,49 +249,6 @@ public class MainActivity extends Activity {
                 + "un pilote GPU/OpenCL compatible ; préférez le petit Gemma 3 .task "
                 + "sur un téléphone moins puissant. L'IA locale ne connaît pas les "
                 + "actualités Internet hors connexion."));
-        config.addView(label("OPENJARVIS · connexion facultative avec un ordinateur Linux"));
-        config.addView(label("FRIDAY peut déléguer une question à OpenJarvis installé sur Manjaro. "
-                + "La commande curl | bash ne fonctionne PAS dans l'APK Android. "
-                + "Le serveur OpenJarvis doit être accessible via HTTPS avec un certificat "
-                + "valide et un jeton API. Par défaut rien n'est envoyé à OpenJarvis."));
-        openJarvisEnabled = new CheckBox(this);
-        openJarvisEnabled.setText("Autoriser les questions déléguées à mon serveur OpenJarvis");
-        openJarvisEnabled.setTextColor(Color.WHITE);
-        openJarvisEnabled.setChecked("1".equals(prefs.get("openjarvis_enabled", "0")));
-        config.addView(openJarvisEnabled);
-        openJarvisRouteAll = new CheckBox(this);
-        openJarvisRouteAll.setText("Envoyer les questions générales à OpenJarvis (au lieu de Mistral)");
-        openJarvisRouteAll.setTextColor(Color.WHITE);
-        openJarvisRouteAll.setChecked("1".equals(prefs.get("openjarvis_route_all", "0")));
-        config.addView(openJarvisRouteAll);
-        config.addView(label("Si la deuxième case est décochée, dites « Friday, Jarvis, ... » "
-                + "ou « Friday, demande à Jarvis ... ». La mémoire chiffrée et les "
-                + "coordonnées GPS ne sont jamais ajoutées automatiquement aux requêtes."));
-        openJarvisUrl = field("https://jarvis.mondomaine.fr (HTTPS requis)", false);
-        openJarvisUrl.setText(prefs.get("openjarvis_url", ""));
-        config.addView(label("Adresse HTTPS du serveur OpenJarvis (pas localhost ni HTTP)"));
-        config.addView(openJarvisUrl);
-        openJarvisModel = field("qwen3.5:2b", false);
-        openJarvisModel.setText(prefs.get("openjarvis_model", "qwen3.5:2b"));
-        config.addView(label("Modèle installé dans OpenJarvis/Ollama sur le PC"));
-        config.addView(openJarvisModel);
-        openJarvisKey = field(prefs.hasSecret("openjarvis")
-                ? "Jeton déjà enregistré (laisser vide pour conserver)"
-                : "Jeton OPENJARVIS_API_KEY", true);
-        config.addView(label("Jeton serveur OpenJarvis (chiffré via Android Keystore)"));
-        config.addView(openJarvisKey);
-        config.addView(button("Enregistrer la connexion OpenJarvis", this::saveOpenJarvisFromButton));
-        config.addView(button("Tester mon serveur OpenJarvis", this::testOpenJarvis));
-        openJarvisStatusLabel = label(prefs.get("openjarvis_last_status",
-                "OpenJarvis inactif : aucune connexion ou donnée transférée."));
-        openJarvisStatusLabel.setTextColor(Color.rgb(255, 228, 143));
-        config.addView(openJarvisStatusLabel);
-        config.addView(label("Sécurité : n'exposez pas un serveur OpenJarvis non authentifié "
-                + "sur Internet. Certains agents OpenJarvis peuvent utiliser des outils "
-                + "sur votre PC : préférez un agent simple sans exécution de commandes "
-                + "tant que vous n'avez pas défini les autorisations. "
-                + "Si le serveur est indisponible, FRIDAY affiche une erreur et "
-                + "n'envoie pas automatiquement la même question à Mistral."));
         config.addView(button("Tester la lecture d'une page HTTPS publique", this::testHttpsPage));
         webPageUrl = field("https://www.example.com/", false);
         config.addView(label("Lire une URL HTTPS publique, même microphone arrêté. FRIDAY corrige « https// » en « https:// ». Certains sites interdisent la lecture automatique (403) : leur contenu ne sera pas contourné ni inventé. L'extrait disponible est transmis à Mistral uniquement après votre demande."));
@@ -494,7 +450,6 @@ public class MainActivity extends Activity {
             prefs.put("web_mode", webAlways.isChecked() ? "always" : "auto");
             if (!webEnabled.isChecked()) prefs.put("web_verified", "0");
             saveLocalJarvisPrefs();
-            saveOpenJarvisPrefs();
             prefs.put("silence_ms", bounded(silenceInput, 2100, 900, 6000));
             prefs.put("followup_sec", bounded(followupInput, 75, 15, 180));
             prefs.put("followup_handsfree", followupHandsfreeEnabled.isChecked() ? "1" : "0");
@@ -706,9 +661,9 @@ public class MainActivity extends Activity {
                 if (isFinishing() || isDestroyed()) return;
                 if (success) {
                     localJarvisEnabled.setChecked(true);
-                    localJarvisAll.setChecked(false);
+                    localJarvisAll.setChecked(true);
                     prefs.put("local_jarvis_enabled", "1");
-                    prefs.put("local_jarvis_all", "0");
+                    prefs.put("local_jarvis_all", "1");
                 }
                 localJarvisStatus.setText(result);
                 status.setText(result);
@@ -753,86 +708,6 @@ public class MainActivity extends Activity {
                         .setMessage(result).setPositiveButton("Fermer", null).show();
             });
         }, "friday-local-llm-test").start();
-    }
-
-    /** Explicit opt-in: the phone never probes OpenJarvis before an action. */
-    private void saveOpenJarvisPrefs() {
-        String raw = openJarvisUrl.getText().toString().trim();
-        boolean enabled = openJarvisEnabled.isChecked();
-        if (enabled || !raw.isEmpty()) raw = OpenJarvisPolicy.baseUrl(raw);
-        String model = OpenJarvisPolicy.model(openJarvisModel.getText().toString());
-        String newKey = openJarvisKey.getText().toString().trim();
-        if (enabled && newKey.isEmpty() && !prefs.hasSecret("openjarvis"))
-            throw new IllegalArgumentException("Créez un jeton OPENJARVIS_API_KEY sur Manjaro puis saisissez-le ici.");
-        // Valider tous les champs AVANT les écritures : ne pas activer une connexion invalide.
-        if (!newKey.isEmpty()) prefs.setSecret("openjarvis", newKey);
-        openJarvisKey.setText("");
-        prefs.put("openjarvis_url", raw);
-        prefs.put("openjarvis_model", model);
-        prefs.put("openjarvis_route_all",
-                enabled && openJarvisRouteAll.isChecked() ? "1" : "0");
-        prefs.put("openjarvis_enabled", enabled ? "1" : "0");
-        if (!enabled) {
-            prefs.put("openjarvis_last_status", "OpenJarvis désactivé ; FRIDAY utilise Mistral.");
-        }
-    }
-
-    private void saveOpenJarvisFromButton() {
-        try {
-            saveOpenJarvisPrefs();
-            String message = openJarvisEnabled.isChecked()
-                    ? "Serveur OpenJarvis enregistré. Lancez le test de connexion avant une requête vocale."
-                    : "Connexion OpenJarvis désactivée. Mistral reste le moteur par défaut.";
-            status.setText(message);
-            openJarvisStatusLabel.setText(message);
-            Toast.makeText(this, "Réglages OpenJarvis enregistrés", Toast.LENGTH_SHORT).show();
-        } catch (Exception ex) {
-            String msg = "Configuration OpenJarvis refusée : " + ex.getMessage();
-            status.setText(msg);
-            openJarvisStatusLabel.setText(msg);
-        }
-    }
-
-    /** Teste réellement l'inférence, pas seulement l'ouverture d'une page. */
-    private void testOpenJarvis() {
-        try {
-            saveOpenJarvisPrefs();
-            if (!OpenJarvisClient.configured(prefs)) {
-                openJarvisStatusLabel.setText("Activez OpenJarvis et saisissez HTTPS, modèle et jeton API.");
-                return;
-            }
-            if (!openJarvisTestRunning.compareAndSet(false, true)) {
-                Toast.makeText(this, "Test OpenJarvis déjà en cours.", Toast.LENGTH_LONG).show();
-                return;
-            }
-            final String pending = "Test OpenJarvis : requête de démonstration en cours "
-                    + "(aucune conversation personnelle transmise).";
-            openJarvisStatusLabel.setText(pending);
-            AlertDialog progress = new AlertDialog.Builder(this)
-                    .setTitle("Connexion OpenJarvis")
-                    .setMessage(pending)
-                    .setPositiveButton("Masquer", (d, w) -> { })
-                    .show();
-            new Thread(() -> {
-                String result;
-                try { result = OpenJarvisClient.test(prefs); }
-                catch (Exception ex) { result = "Erreur OpenJarvis : " + ex.getClass().getSimpleName(); }
-                final String text = result;
-                prefs.put("openjarvis_last_status", text);
-                openJarvisTestRunning.set(false);
-                runOnUiThread(() -> {
-                    if (isFinishing() || isDestroyed()) return;
-                    openJarvisStatusLabel.setText(text);
-                    status.setText(text);
-                    if (progress.isShowing()) progress.setMessage(text);
-                    else new AlertDialog.Builder(this)
-                            .setTitle("Résultat du test OpenJarvis").setMessage(text)
-                            .setPositiveButton("Fermer", null).show();
-                });
-            }, "friday-openjarvis-test").start();
-        } catch (Exception ex) {
-            openJarvisStatusLabel.setText("Test impossible : " + ex.getMessage());
-        }
     }
 
     /** Test réseau réel : résultat toujours lisible dans les réglages et en fenêtre. */
