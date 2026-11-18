@@ -482,6 +482,7 @@ public class MainActivity extends Activity {
             prefs.put("web_enabled", webEnabled.isChecked() ? "1" : "0");
             prefs.put("web_mode", webAlways.isChecked() ? "always" : "auto");
             if (!webEnabled.isChecked()) prefs.put("web_verified", "0");
+            saveLocalJarvisPrefs();
             saveOpenJarvisPrefs();
             prefs.put("silence_ms", bounded(silenceInput, 2100, 900, 6000));
             prefs.put("followup_sec", bounded(followupInput, 75, 15, 180));
@@ -607,6 +608,130 @@ public class MainActivity extends Activity {
                 : "✘ Échec de l'enregistrement de la clé");
         status.setText(ok ? "Clé Mistral enregistrée. Vous pouvez détecter les modèles." : "Clé non enregistrée.");
         Toast.makeText(this, ok ? "Clé Mistral enregistrée" : "Clé non enregistrée", Toast.LENGTH_SHORT).show();
+    }
+
+    private void saveLocalJarvisPrefs() {
+        boolean enabled = localJarvisEnabled.isChecked();
+        if (enabled && !LocalJarvisEngine.ready(this))
+            throw new IllegalArgumentException("Importez d'abord un modèle MediaPipe compatible sur ce téléphone.");
+        prefs.put("local_jarvis_enabled", enabled ? "1" : "0");
+        prefs.put("local_jarvis_all",
+                enabled && localJarvisAll.isChecked() ? "1" : "0");
+    }
+
+    private void saveLocalJarvis() {
+        try {
+            saveLocalJarvisPrefs();
+            String state = LocalJarvisEngine.status(this, prefs);
+            localJarvisStatus.setText(state);
+            status.setText(state);
+        } catch (Exception failure) {
+            localJarvisStatus.setText("Configuration locale refusée : " + failure.getMessage());
+        }
+    }
+
+    private void chooseLocalJarvisModel() {
+        if (!localJarvisImporting.compareAndSet(false, true)) {
+            Toast.makeText(this, "Importation du modèle en cours.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        try {
+            Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            picker.addCategory(Intent.CATEGORY_OPENABLE);
+            picker.setType("*/*");
+            startActivityForResult(picker, REQ_LOCAL_LLM_MODEL);
+        } catch (Exception failure) {
+            localJarvisImporting.set(false);
+            localJarvisStatus.setText("Sélecteur de fichiers Android indisponible.");
+        }
+    }
+
+    private void openLocalJarvisModels() {
+        // Modèle au format .task Android ; le site exige parfois une connexion
+        // et l'acceptation de la licence Gemma. Aucun téléchargement opaque.
+        Intent browser = new Intent(Intent.ACTION_VIEW,
+                Uri.parse("https://huggingface.co/litert-community/gemma-3-270m-it/tree/main"));
+        try { startActivity(browser); }
+        catch (Exception e) {
+            localJarvisStatus.setText("Ouvrez la page Hugging Face dans votre navigateur.");
+        }
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQ_LOCAL_LLM_MODEL) return;
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+            localJarvisImporting.set(false);
+            return;
+        }
+        final Uri selected = data.getData();
+        final String pending = "Copie du modèle IA dans le stockage privé du téléphone…";
+        localJarvisStatus.setText(pending);
+        status.setText(pending);
+        new Thread(() -> {
+            String outcome;
+            boolean imported = false;
+            try {
+                outcome = LocalJarvisEngine.importModel(this, selected);
+                imported = true;
+            } catch (Exception error) {
+                outcome = "Importation impossible : " + error.getMessage()
+                        + ". Le modèle précédent est conservé.";
+            }
+            final boolean success = imported;
+            final String result = outcome;
+            localJarvisImporting.set(false);
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                if (success) {
+                    localJarvisEnabled.setChecked(true);
+                    localJarvisAll.setChecked(false);
+                    prefs.put("local_jarvis_enabled", "1");
+                    prefs.put("local_jarvis_all", "0");
+                }
+                localJarvisStatus.setText(result);
+                status.setText(result);
+                new AlertDialog.Builder(this).setTitle("Importation Jarvis local")
+                        .setMessage(result).setPositiveButton("Fermer", null).show();
+            });
+        }, "friday-local-model-import").start();
+    }
+
+    private void testLocalJarvis() {
+        if (!localJarvisTesting.compareAndSet(false, true)) {
+            Toast.makeText(this, "Test local déjà en cours.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        try { saveLocalJarvisPrefs(); }
+        catch (Exception failure) {
+            localJarvisTesting.set(false);
+            localJarvisStatus.setText(failure.getMessage());
+            return;
+        }
+        localJarvisStatus.setText("Jarvis local : modèle en cours de chargement sur le téléphone…");
+        new Thread(() -> {
+            String answer;
+            try {
+                answer = LocalJarvisEngine.answer(this, prefs,
+                        "Jarvis, explique brièvement en français ton rôle sur le téléphone.", null);
+                answer = "MODÈLE LOCAL OPÉRATIONNEL — aucune requête Internet.\\n"
+                        + (answer.length() > 400 ? answer.substring(0, 400) : answer);
+            } catch (Exception failure) {
+                answer = "Test local échoué : " + failure.getMessage();
+            } catch (UnsatisfiedLinkError | ExceptionInInitializerError failure) {
+                answer = "Moteur MediaPipe non pris en charge : "
+                        + failure.getClass().getSimpleName();
+            }
+            final String result = answer;
+            localJarvisTesting.set(false);
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                localJarvisStatus.setText(result);
+                status.setText(result);
+                new AlertDialog.Builder(this).setTitle("Test du modèle IA local")
+                        .setMessage(result).setPositiveButton("Fermer", null).show();
+            });
+        }, "friday-local-llm-test").start();
     }
 
     /** Explicit opt-in: the phone never probes OpenJarvis before an action. */
