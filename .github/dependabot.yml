@@ -5,6 +5,13 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    # L'outillage Android est figé : AGP 8.7.3 + compileSdk 35.
+    # androidx.core >= 1.19 exige AGP 9.1 ; AGP 9 exige Gradle 9 + compileSdk 36.
+    ignore:
+      - dependency-name: "com.android.application"
+        versions: [">=9.0"]
+      - dependency-name: "androidx.core:core"
+        versions: [">=1.19.0"]
 
   - package-ecosystem: "cargo"
     directory: "/native"

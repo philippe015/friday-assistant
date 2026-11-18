@@ -296,6 +296,7 @@ public class FridayService extends Service {
                 AudioRecord ar = null;
                 Recognizer recognizer = null;
                 Recognizer stopRecognizer = null;
+                AudioManager.AudioRecordingCallback recordingCallback = null;
                 VoiceStopSpotter stopSpotter = new VoiceStopSpotter();
                 boolean stopRecognizerUnavailable = false;
                 try {
@@ -355,14 +356,17 @@ public class FridayService extends Service {
                         new java.util.concurrent.atomic.AtomicBoolean(false);
                     if (Build.VERSION.SDK_INT >= 29) {
                         final AudioRecord monitored = ar;
-                        monitored.registerAudioRecordingCallback(getMainExecutor(), new AudioManager.AudioRecordingCallback() {
+                        recordingCallback = new AudioManager.AudioRecordingCallback() {
                             @Override public void onRecordingConfigChanged(java.util.List<AudioRecordingConfiguration> c) {
                                 try {
                                     AudioRecordingConfiguration own = monitored.getActiveRecordingConfiguration();
                                     if (own != null) silencedByPolicy.set(own.isClientSilenced());
                                 } catch (Exception ignored) { }
                             }
-                        });
+                        };
+                        try {
+                            monitored.registerAudioRecordingCallback(getMainExecutor(), recordingCallback);
+                        } catch (RuntimeException ignored) { recordingCallback = null; }
                     }
                     recognizer = createRecognizer(model);
                     ar.startRecording();
@@ -707,6 +711,11 @@ public class FridayService extends Service {
                     catch (InterruptedException ignored) { Thread.currentThread().interrupt(); break; }
                 } finally {
                     if (bluetoothMicRouter != null) bluetoothMicRouter.captureStopped();
+                    if (Build.VERSION.SDK_INT >= 29 && recordingCallback != null && ar != null) {
+                        try { ar.unregisterAudioRecordingCallback(recordingCallback); }
+                        catch (RuntimeException ignored) { }
+                        recordingCallback = null;
+                    }
                     releaseAudioEffects();
                     if (ar != null) {
                         try { if (ar.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) ar.stop(); }
