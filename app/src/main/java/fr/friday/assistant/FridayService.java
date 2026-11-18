@@ -58,6 +58,8 @@ public class FridayService extends Service {
     private int silenceMs = 2100;
     private long followupMs = 75000;
     private volatile boolean wakeArmed = false;  // shared with the Mistral response thread
+    /** Fenetre courte apres un vrai mot-cle seul : Friday ... puis question. */
+    private volatile long wakeOnlyUntil = 0;
     private volatile long bargePendingUntil = 0;
     private volatile long lastSpeechEndedAt = 0;
     /** Protège la dictée normale des derniers sons TTS, même après la fin du tour. */
@@ -177,6 +179,8 @@ public class FridayService extends Service {
         }
         running = true;
         oneShotTriggered = false;
+        wakeArmed = false;
+        wakeOnlyUntil = 0;
         active = true;
         voiceState("Démarrage du microphone et du reconnaisseur français…");
         micSilenced = false;
@@ -701,16 +705,21 @@ public class FridayService extends Service {
             wakeArmed = true;
             question = VoiceText.withoutWakeWord(heard);
             if (question.isEmpty()) {
+                wakeOnlyUntil = now + 12_000L;
                 lastReplyAt = now;
                 event("status", "Friday à l'écoute : posez votre question.");
                 return;
             }
-        } else if (wakeArmed && (now - lastReplyAt <= followupMs || now < clarificationUntil) &&
-                now - lastSpeechEndedAt >= 1200L) {
-            // Court filtrage pour éviter de réinterpréter la fin du haut-parleur.
+        } else if ((now < wakeOnlyUntil ||
+                ("1".equals(settings.get("followup_handsfree", "0")) && wakeArmed &&
+                (now - lastReplyAt <= followupMs || now < clarificationUntil))) &&
+                now - lastSpeechEndedAt >= TtsEchoGate.TAIL_MS) {
+            // Le mode mains libres est desactive par defaut : Vosk peut transcrire
+            // le haut-parleur, une TV ou du bruit en fausse question.
+            // Un "Friday" prononce seul autorise toujours UNE question pendant 12 s.
             question = heard;
         } else {
-            // N'acceptez pas les mots provenant du haut-parleur sans mot-clé.
+            // Sans mot-cle ou invitation explicite, ignorer toute transcription.
             return;
         }
         if (BargeInPolicy.wantsToAddDetails(question)) {
@@ -718,6 +727,7 @@ public class FridayService extends Service {
             return;
         }
         bargePendingUntil = 0;
+        wakeOnlyUntil = 0;
         final String request = question;
         String anchor = "";
         if (!clarificationAnchor.isEmpty() && now < clarificationUntil
@@ -856,7 +866,7 @@ public class FridayService extends Service {
                     "1".equals(settings.get("openjarvis_route_all", "0")));
             boolean webQuestion = "1".equals(settings.get("web_enabled", "1"))
                     && WebSearch.shouldSearch(settings.get("web_mode", "always"), prepared, "");
-            boolean streaming = "1".equals(settings.get("stream_enabled", "1"))
+            boolean streaming = "1".equals(settings.get("stream_enabled", "0"))
                     && !webQuestion && !pcJarvis && !localJarvis;
             if (localJarvis)
                 event("status", "Jarvis local : réflexion sur ce téléphone, aucune connexion externe.");
@@ -1220,6 +1230,8 @@ public class FridayService extends Service {
         spokenText = "";
         running = false;
         oneShotTriggered = false;
+        wakeArmed = false;
+        wakeOnlyUntil = 0;
         active = false;
         micSilenced = false;
         interruptDiagnostics = "Micro arrêté";
