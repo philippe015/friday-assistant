@@ -1,4 +1,4 @@
-"""From v3.12.0, the legacy PC bridge must never be active or exposed."""
+"""From v3.12.1, the legacy PC bridge must never be active or exposed."""
 from pathlib import Path
 import unittest
 
@@ -36,8 +36,8 @@ class OnlyLocalJarvisAndMistral(unittest.TestCase):
 
     def test_apk_version(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 78", gradle)
-        self.assertIn("versionName '3.12.0'", gradle)
+        self.assertIn("versionCode 79", gradle)
+        self.assertIn("versionName '3.12.1'", gradle)
 
 if __name__ == "__main__":
     unittest.main()
