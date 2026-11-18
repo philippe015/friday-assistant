@@ -49,7 +49,8 @@ class OpenJarvisIntegrationTest(unittest.TestCase):
         service=read("FridayService.java")
         client=read("OpenJarvisClient.java")
         self.assertIn('OpenJarvisClient.answer(settings, question, turn.api)', service)
-        self.assertIn('locationForApi != null && local == null && !jarvisQuestion', service)
+        self.assertIn('locationForApi != null && local == null', service)
+        self.assertIn('&& !pcJarvis && !localJarvis', service)
         self.assertNotIn("PersonalMemory.", client)
         self.assertNotIn("locationContext", client)
         self.assertNotIn("historySnapshot()", client)
@@ -67,8 +68,8 @@ class OpenJarvisIntegrationTest(unittest.TestCase):
 
     def test_apk_version(self):
         gradle=(ROOT/"app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 73", gradle)
-        self.assertIn("versionName '3.9.0'", gradle)
+        self.assertIn("versionCode 74", gradle)
+        self.assertIn("versionName '3.10.0'", gradle)
 
 if __name__=="__main__":
     unittest.main()

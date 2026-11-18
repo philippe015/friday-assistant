@@ -10,8 +10,8 @@ android {
         applicationId 'fr.friday.assistant'
         minSdk 26
         targetSdk 35
-        versionCode 73
-        versionName '3.9.0'
+        versionCode 74
+        versionName '3.10.0'
         ndk { abiFilters 'arm64-v8a' }
     }
     compileOptions {
@@ -53,6 +53,9 @@ chaquopy {
 }
 
 dependencies {
+    // LLM exécuté sur le téléphone après import d'un modèle MediaPipe .task/.bin.
+    // Aucun serveur OpenJarvis ni modèle intégré à l'APK.
+    implementation 'com.google.mediapipe:tasks-genai:0.10.35'
     implementation 'com.alphacephei:vosk-android:0.3.75'
     implementation 'androidx.core:core:1.13.1'
     implementation 'androidx.exifinterface:exifinterface:1.3.7'

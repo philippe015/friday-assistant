@@ -1,3 +1,15 @@
+## FRIDAY v3.10.0 — Jarvis entièrement sur le téléphone, sans ordinateur
+
+Cette version intègre un **véritable moteur de langage local Android** avec MediaPipe GenAI. Les fonctions vocales et les notes personnelles restent sur le téléphone : une fois un modèle `.task` compatible importé depuis les téléchargements Android, Jarvis local peut générer des réponses sans Wi-Fi, sans connexion au PC et sans API Mistral. L'APK ne contient pas lui-même les poids du modèle, qui peuvent faire plusieurs centaines de Mo.
+
+**Installation depuis le téléphone** : ouvrir la page des [modèles LiteRT Community Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it/tree/main) ; se connecter et accepter les conditions du modèle si nécessaire ; choisir le fichier `gemma3-270m-it-q8.task` (pas `*-web.task` ni `.litertlm`). Dans FRIDAY, aller dans **Réglages → Jarvis local sur Android → Importer un modèle IA local**, puis activer le moteur et lancer **Tester Jarvis IA locale sans Internet**. Dire ensuite « Friday, Jarvis, explique-moi ... ». La deuxième case permet de passer toutes les questions générales à Jarvis local, sans Mistral.
+
+La mémoire Memory+ chiffrée est accessible en contexte local sur le téléphone, sans synchronisation. Un outil de calcul local est fourni ; il n'y a pas d'exécution arbitraire de programmes. Mistral reste disponible dans son mode habituel pour les actualités et la recherche Web lorsqu'Internet est actif. La connexion OpenJarvis-PC v3.9.0 est toujours facultative mais **n'est pas nécessaire**.
+
+**Limite vérifiable** : cette version intègre le moteur MediaPipe Android et non le programme OpenJarvis Linux complet. Les capacités réelles du modèle dépendent de son fichier, de la RAM, du chipset et de la version d'Android. La compilation et les tests CI ne remplacent pas un essai sur appareil.
+
+[Guide complet : Jarvis IA hors ligne sur Android](docs/JARVIS_ANDROID_OFFLINE.md)
+
 ## Nouveauté FRIDAY v3.9.0 — Connecter OpenJarvis sur Manjaro
 
 FRIDAY peut désormais **communiquer avec OpenJarvis**, un agent externe installé sur un PC Manjaro ou Linux, sans installer son environnement Python/Ollama dans l'APK Android. La liaison utilise son API `POST /v1/chat/completions` derrière un serveur **HTTPS authentifié**. OpenJarvis est **facultatif et désactivé par défaut**, Mistral reste le moteur ordinaire avec accès Web et actualités vocales.
