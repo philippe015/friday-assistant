@@ -32,6 +32,7 @@ public final class BluetoothMicRouter {
     private BroadcastReceiver scoReceiver;
     private boolean communicationSelected;
     private volatile boolean legacyScoRequested;
+    private volatile boolean captureActive;
     private volatile int legacyScoState = AudioManager.SCO_AUDIO_STATE_DISCONNECTED;
     private boolean modeChanged;
     private int originalMode;
@@ -113,11 +114,13 @@ public final class BluetoothMicRouter {
             callback = new AudioDeviceCallback() {
                 @Override public void onAudioDevicesAdded(AudioDeviceInfo[] devices) {
                     for (AudioDeviceInfo d : devices)
-                        if (isBluetoothVoiceType(d.getType())) routeChanged.set(true);
+                        if (isBluetoothVoiceType(d.getType()) && captureActive)
+                            routeChanged.set(true);
                 }
                 @Override public void onAudioDevicesRemoved(AudioDeviceInfo[] devices) {
                     for (AudioDeviceInfo d : devices)
-                        if (isBluetoothVoiceType(d.getType())) routeChanged.set(true);
+                        if (isBluetoothVoiceType(d.getType()) && captureActive)
+                            routeChanged.set(true);
                 }
             };
             audio.registerAudioDeviceCallback(callback, new Handler(Looper.getMainLooper()));
@@ -131,12 +134,14 @@ public final class BluetoothMicRouter {
                             legacyScoState = state;
                             if (state == AudioManager.SCO_AUDIO_STATE_CONNECTED
                                     && previous != state) {
-                                routeChanged.set(true);
+                                // Première connexion SCO avant AudioRecord : ce n'est
+                                // pas un changement de périphérique à reconstruire.
+                                if (captureActive) routeChanged.set(true);
                                 status = "Bluetooth SCO connecté : préparation du microphone";
                             } else if (state == AudioManager.SCO_AUDIO_STATE_DISCONNECTED
                                     && previous == AudioManager.SCO_AUDIO_STATE_CONNECTED) {
                                 legacyScoRequested = false;
-                                routeChanged.set(true);
+                                if (captureActive) routeChanged.set(true);
                                 status = "Bluetooth SCO déconnecté : reprise de la capture";
                             }
                         }
@@ -257,11 +262,28 @@ public final class BluetoothMicRouter {
         return status;
     }
 
-    /** Un branchement/débranchement de casque impose une nouvelle AudioRecord. */
+    /** Acquitte la connexion SCO initiale après ouverture effective d'AudioRecord. */
+    public void captureStarted() {
+        routeChanged.set(false);
+        captureActive = true;
+    }
+
+    /** Un changement après la capture initiale impose seul une reprise. */
+    public void captureStopped() { captureActive = false; }
     public boolean consumeRouteChange() { return routeChanged.getAndSet(false); }
+
+    /** Android peut annoncer SCO connecté tout en enregistrant sur le téléphone. */
+    public boolean wrongInputRouted(AudioRecord recorder) {
+        if (!isCommunicationRequested() || recorder == null
+                || recorder.getRecordingState() != AudioRecord.RECORDSTATE_RECORDING)
+            return false;
+        AudioDeviceInfo actual = recorder.getRoutedDevice();
+        return actual != null && !isBluetoothVoiceType(actual.getType());
+    }
 
     public void close() {
         enabled = false;
+        captureActive = false;
         if (audio != null) {
             if (callback != null) {
                 try { audio.unregisterAudioDeviceCallback(callback); }

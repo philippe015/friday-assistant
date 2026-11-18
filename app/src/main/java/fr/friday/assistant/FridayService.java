@@ -320,8 +320,13 @@ public class FridayService extends Service {
                             : MediaRecorder.AudioSource.VOICE_RECOGNITION;
                     ar = new AudioRecord(src, 16000, AudioFormat.CHANNEL_IN_MONO,
                         AudioFormat.ENCODING_PCM_16BIT, bytes);
-                    if (ar.getState() != AudioRecord.STATE_INITIALIZED && bargeEnabled) {
+                    if (ar.getState() != AudioRecord.STATE_INITIALIZED
+                            && (bargeEnabled || btCommunication)) {
                         ar.release();
+                        if (btCommunication && bluetoothMicRouter != null) {
+                            bluetoothMicRouter.fallbackToPhone();
+                            bluetoothState("Capture VOICE_COMMUNICATION refusée : repli micro téléphone.");
+                        }
                         ar = new AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, 16000,
                             AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bytes);
                     }
@@ -361,8 +366,12 @@ public class FridayService extends Service {
                     }
                     recognizer = createRecognizer(model);
                     ar.startRecording();
-                    if (bluetoothMicRouter != null)
+                    if (bluetoothMicRouter != null) {
+                        // L'accusé SCO initial a pu arriver pendant awaitBluetoothRoute.
+                        // Il ne doit pas provoquer un redémarrage au premier read().
+                        bluetoothMicRouter.captureStarted();
                         bluetoothState(bluetoothMicRouter.routedStatus(ar));
+                    }
                     voiceState("Micro actif : dites Friday pour parler");
                     interruptDiagnostics = bargeEnabled
                             ? "Micro PCM prêt · décodeur STOP démarre à la réponse"
@@ -373,6 +382,8 @@ public class FridayService extends Service {
                     long lastPolicyCheck = 0, lastVoice = 0, lastPartialPublished = 0;
                     long lastMicLevelAt = 0;
                     long lastBtStatusAt = 0;
+                    long noPcmSince = 0;
+                    final long captureStartedAt = SystemClock.elapsedRealtime();
                     String previousBluetoothRoute = "";
                     String completed = "", interim = "";
                     double confidenceSum = 0;
@@ -398,14 +409,32 @@ public class FridayService extends Service {
                             confidenceSum = 0; confidenceCount = 0;
                             earlyCancelled = false; sawSpeakerFeedback = false;
                         }
-                        int count = ar.read(buffer, 0, buffer.length);
+                        // READ_NON_BLOCKING évite qu'un lien HFP défaillant bloque
+                        // définitivement la boucle d'écoute dans AudioRecord.read().
                         if (bluetoothMicRouter != null && bluetoothMicRouter.consumeRouteChange()) {
-                            bluetoothState("Casque Bluetooth branché ou débranché : reconfiguration du microphone");
+                            bluetoothState("Changement réel de périphérique Bluetooth : réouverture du micro");
                             throw new IllegalStateException("Changement de périphérique audio Bluetooth");
                         }
-                        if (count <= 0) {
+                        int count = ar.read(buffer, 0, buffer.length, AudioRecord.READ_NON_BLOCKING);
+                        if (count == 0) {
+                            long nowNoPcm = SystemClock.elapsedRealtime();
+                            if (noPcmSince == 0) noPcmSince = nowNoPcm;
+                            if (nowNoPcm - noPcmSince >= 5000L)
+                                throw new IllegalStateException("Aucune trame audio PCM reçue depuis 5 secondes");
+                            SystemClock.sleep(30L);
+                            continue;
+                        }
+                        if (count < 0) {
                             if (running) throw new IllegalStateException("Lecture microphone interrompue : " + count);
                             break;
+                        }
+                        noPcmSince = 0;
+                        if (bluetoothMicRouter != null
+                                && SystemClock.elapsedRealtime() - captureStartedAt >= 5000L
+                                && bluetoothMicRouter.wrongInputRouted(ar)) {
+                            bluetoothMicRouter.fallbackToPhone();
+                            bluetoothState("Casque connecté sans micro routé : repli sur micro téléphone");
+                            throw new IllegalStateException("Android utilise le mauvais microphone");
                         }
                         if (Build.VERSION.SDK_INT >= 29) {
                             long tick = SystemClock.elapsedRealtime();
@@ -666,13 +695,18 @@ public class FridayService extends Service {
                     // eviter une boucle de relance intensive.
                     long retryMs = Math.min(10000L, 500L * Math.min(consecutiveErrors, 20));
                     voiceState("Microphone indisponible · nouvelle tentative automatique");
+                    String detail = captureError.getMessage();
+                    if (detail == null) detail = "";
+                    if (detail.length() > 120) detail = detail.substring(0, 120);
                     event("error", "Capture vocale interrompue : "
                             + captureError.getClass().getSimpleName()
+                            + (detail.isEmpty() ? "" : " — " + detail)
                             + ". Nouvelle tentative dans " + (retryMs / 1000.0)
-                            + " secondes. Verifiez autorisations et autres micros.");
+                            + " secondes. Vérifiez autorisations et autres micros.");
                     try { Thread.sleep(retryMs); }
                     catch (InterruptedException ignored) { Thread.currentThread().interrupt(); break; }
                 } finally {
+                    if (bluetoothMicRouter != null) bluetoothMicRouter.captureStopped();
                     releaseAudioEffects();
                     if (ar != null) {
                         try { if (ar.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) ar.stop(); }
