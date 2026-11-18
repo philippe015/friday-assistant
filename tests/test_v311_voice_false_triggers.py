@@ -9,6 +9,7 @@ class VoiceFalseTriggersV311(unittest.TestCase):
     def test_followups_require_opt_in(self):
         src = (JAVA / "FridayService.java").read_text(encoding="utf-8")
         self.assertIn('settings.get("followup_handsfree", "0")', src)
+        self.assertIn('BargeInPolicy.startsWithWake(heard) && RustWake.detect(heard)', src)
         self.assertIn("now < wakeOnlyUntil", src)
         self.assertIn("now - lastSpeechEndedAt >= TtsEchoGate.TAIL_MS", src)
         self.assertIn("wakeOnlyUntil = now + 12_000L", src)
