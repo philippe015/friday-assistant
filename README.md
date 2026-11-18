@@ -1,3 +1,13 @@
+## Nouveauté FRIDAY v3.9.0 — Connecter OpenJarvis sur Manjaro
+
+FRIDAY peut désormais **communiquer avec OpenJarvis**, un agent externe installé sur un PC Manjaro ou Linux, sans installer son environnement Python/Ollama dans l'APK Android. La liaison utilise son API `POST /v1/chat/completions` derrière un serveur **HTTPS authentifié**. OpenJarvis est **facultatif et désactivé par défaut**, Mistral reste le moteur ordinaire avec accès Web et actualités vocales.
+
+Ouvrez Réglages → OPENJARVIS, activez la connexion, entrez l'URL HTTPS, le modèle réellement présent sur le PC et le jeton de serveur `OPENJARVIS_API_KEY`. Le jeton est conservé chiffré sur le téléphone. Appuyez sur « Tester mon serveur OpenJarvis », puis dites : **« Friday, Jarvis, explique-moi ... »**. Cochez l'option de routage général uniquement si vous consentez à envoyer les questions générales à ce PC.
+
+**Aucune mémoire chiffrée, aucun historique privé ni position GPS n'est joint automatiquement à ces appels.** En cas d'échec, l'application indique le problème au lieu d'envoyer silencieusement la question à Mistral. Les performances du modèle et les éventuels outils d'OpenJarvis dépendent de la configuration et des permissions du serveur.
+
+Voir le [guide complet](docs/OPENJARVIS_ANDROID_BRIDGE.md), l'[API officielle OpenJarvis](https://open-jarvis.github.io/OpenJarvis/deployment/api-server/) et la [licence Apache 2.0](https://github.com/open-jarvis/OpenJarvis/blob/main/LICENSE). **Le projet OpenJarvis complet n'est pas embarqué** dans l'APK : cette version ajoute une passerelle vérifiable.
+
 ## FRIDAY v3.8.9 — Dialogue continu et diagnostic complet
 
 Un défaut de la v3.8.8 bloquait la reconnaissance vocale **pendant les recherches Web**, même quand le haut-parleur était silencieux. La v3.8.9 garde désormais le microphone et Vosk actifs en attendant Mistral. Dites **« Friday, ... »** pour envoyer une nouvelle question, même si une recherche précédente n'a pas fini. Pendant la synthèse vocale, seul STOP / précision reste actif, puis la dictée se rouvre après l'anti-écho.
