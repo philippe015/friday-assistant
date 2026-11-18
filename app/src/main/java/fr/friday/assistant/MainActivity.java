@@ -216,10 +216,10 @@ public class MainActivity extends Activity {
                 + "Si la clé, le modèle ou le compte refuse l'outil, le code d'erreur est expliqué. "
                 + "Le test peut être facturé."));
         config.addView(label("JARVIS LOCAL SUR ANDROID · sans ordinateur ni serveur"));
-        config.addView(label("Moteur IA exécuté sur le téléphone avec MediaPipe. "
-                + "Téléchargez une fois un modèle .task ou .bin compatible, puis importez-le. "
-                + "Ensuite, les questions locales fonctionnent sans Internet. "
-                + "Les actualités Internet restent disponibles via Mistral."));
+        config.addView(label("Deux moteurs IA locaux : MediaPipe pour .task et LiteRT-LM "
+                + "pour .litertlm (dont Gemma 4 E2B). Aucun ordinateur nécessaire. "
+                + "Téléchargez un modèle une fois, puis importez-le depuis Android. "
+                + "Les actualités récentes restent disponibles avec Mistral via Internet."));
         localJarvisEnabled = new CheckBox(this);
         localJarvisEnabled.setText("Activer Jarvis IA local sur ce téléphone");
         localJarvisEnabled.setTextColor(Color.WHITE);
@@ -234,18 +234,22 @@ public class MainActivity extends Activity {
                 + "Pour passer complètement hors ligne, activez aussi la seconde case. "
                 + "Memory+ reste chiffrée et locale ; les outils du téléphone n'exécutent "
                 + "pas de commandes système dangereuses."));
-        config.addView(button("Importer un modèle IA local (.task / .bin)", this::chooseLocalJarvisModel));
-        config.addView(button("Télécharger un modèle compatible sur le téléphone",
+        config.addView(button("Importer un modèle IA local (.task / .litertlm)", this::chooseLocalJarvisModel));
+        config.addView(button("Gemma 3 léger · MediaPipe .task (304 Mo)",
                 this::openLocalJarvisModels));
+        config.addView(button("Gemma 4 E2B GPU · LiteRT-LM .litertlm (2,34 Go)",
+                this::openLocalJarvisGemma4Models));
         config.addView(button("Tester Jarvis IA locale sans Internet", this::testLocalJarvis));
         config.addView(button("Enregistrer Jarvis local", this::saveLocalJarvis));
         localJarvisStatus = label(LocalJarvisEngine.status(this, prefs));
         localJarvisStatus.setTextColor(Color.rgb(255, 228, 143));
         config.addView(localJarvisStatus);
-        config.addView(label("Modèles : choisissez un fichier .task Android (pas *-web.task, "
-                + "GGUF ni .litertlm). La vitesse et la compatibilité dépendent de la RAM "
-                + "et de la puce de votre téléphone. Le modèle ne fait pas de recherches "
-                + "Web hors connexion. Le pont OpenJarvis pour PC reste facultatif."));
+        config.addView(label("Formats reconnus : .task Android MediaPipe ou .litertlm "
+                + "LiteRT-LM. Les modèles GGUF et les tâches *-web.task ne sont pas "
+                + "acceptés. Gemma 4 E2B GPU demande beaucoup de mémoire et "
+                + "un pilote GPU/OpenCL compatible ; préférez le petit Gemma 3 .task "
+                + "sur un téléphone moins puissant. L'IA locale ne connaît pas les "
+                + "actualités Internet hors connexion."));
         config.addView(label("OPENJARVIS · connexion facultative avec un ordinateur Linux"));
         config.addView(label("FRIDAY peut déléguer une question à OpenJarvis installé sur Manjaro. "
                 + "La commande curl | bash ne fonctionne PAS dans l'APK Android. "
@@ -647,13 +651,22 @@ public class MainActivity extends Activity {
     }
 
     private void openLocalJarvisModels() {
-        // Modèle au format .task Android ; le site exige parfois une connexion
-        // et l'acceptation de la licence Gemma. Aucun téléchargement opaque.
+        // Link to ONE actual compatible file, not a repository with mixed formats.
         Intent browser = new Intent(Intent.ACTION_VIEW,
-                Uri.parse("https://huggingface.co/litert-community/gemma-3-270m-it/tree/main"));
+                Uri.parse("https://huggingface.co/litert-community/gemma-3-270m-it/blob/main/gemma3-270m-it-q8.task"));
         try { startActivity(browser); }
         catch (Exception e) {
-            localJarvisStatus.setText("Ouvrez la page Hugging Face dans votre navigateur.");
+            localJarvisStatus.setText("Ouvrez Hugging Face et téléchargez gemma3-270m-it-q8.task.");
+        }
+    }
+
+    private void openLocalJarvisGemma4Models() {
+        // Separate runtime. Never suggest that the MediaPipe API loads .litertlm.
+        Intent browser = new Intent(Intent.ACTION_VIEW,
+                Uri.parse("https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/blob/main/gemma-4-E2B-it-gpu.litertlm"));
+        try { startActivity(browser); }
+        catch (Exception e) {
+            localJarvisStatus.setText("Ouvrez Hugging Face et téléchargez gemma-4-E2B-it-gpu.litertlm.");
         }
     }
 
