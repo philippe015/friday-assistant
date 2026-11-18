@@ -49,7 +49,7 @@ class WebUrlV382(unittest.TestCase):
         self.assertIn('android:allowBackup="false"', manifest)
         gradle = (ROOT / "app/build.gradle").read_text()
         self.assertRegex(gradle, r"versionCode (?:65|66|67|68|69|70|71|72|73|74|75|76)")
-        self.assertRegex(gradle, r"versionName '(?:3\.8\.[23456789]|3\.9\.0|3\.10\.0|3\.11\.0)'")
+        self.assertRegex(gradle, r"versionName '(?:3\.8\.[23456789]|3\.9\.0|3\.10\.0|3\.11\.0|3\.11\.1)'")
 
 if __name__ == "__main__":
     unittest.main()
