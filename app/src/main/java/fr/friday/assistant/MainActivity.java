@@ -57,7 +57,7 @@ public class MainActivity extends Activity {
     private boolean recordAfterMicPermission = false;
     private EditText memoryEditor, memorySearchInput;
     private EditText silenceInput, followupInput, ttsInput, voskHintsEditor;
-    private CheckBox bargeEnabled;
+    private CheckBox bargeEnabled, followupHandsfreeEnabled;
     private LinearLayout config;
     private ScrollView configScroll;
     private WebView hud;
@@ -346,6 +346,12 @@ public class MainActivity extends Activity {
         followupInput = field("75", false);
         followupInput.setInputType(InputType.TYPE_CLASS_NUMBER);
         followupInput.setText(prefs.get("followup_sec", "75")); config.addView(followupInput);
+        followupHandsfreeEnabled = new CheckBox(this);
+        followupHandsfreeEnabled.setText("Autoriser les relances sans dire Friday (risque de fausses questions)");
+        followupHandsfreeEnabled.setTextColor(Color.WHITE);
+        followupHandsfreeEnabled.setChecked("1".equals(prefs.get("followup_handsfree", "0")));
+        config.addView(followupHandsfreeEnabled);
+        config.addView(label("Conseil : laissez cette option desactivee. Dites Friday a chaque question ; dire Friday seul puis la question reste possible pendant 12 s."));
         bargeEnabled = new CheckBox(this);
         bargeEnabled.setText("Activer STOP vocal pendant la réponse (« stop », « Friday stop », « j’ai une précision »)");
         bargeEnabled.setTextColor(Color.WHITE);
@@ -363,7 +369,7 @@ public class MainActivity extends Activity {
         streamingEnabled = new CheckBox(this);
         streamingEnabled.setText("Réponse Mistral progressive (streaming + synthèse vocale au fil des phrases)");
         streamingEnabled.setTextColor(Color.WHITE);
-        streamingEnabled.setChecked("1".equals(prefs.get("stream_enabled", "1")));
+        streamingEnabled.setChecked("1".equals(prefs.get("stream_enabled", "0")));
         config.addView(streamingEnabled);
         config.addView(label("La recherche Web de Mistral peut encore attendre la réponse complète. "
                 + "Désactivez cette option si le réseau coupe les flux SSE."));
@@ -375,8 +381,8 @@ public class MainActivity extends Activity {
         config.addView(oneShotEnabled);
         config.addView(label("Mode Continu (case décochée) : le microphone reste actif "
                 + "après chaque réponse. Pour une nouvelle demande, dites « Friday ». "
-                + "Sans mot-clé, les relances ne restent reconnues que pendant la durée "
-                + "de suivi définie dans les réglages (75 secondes par défaut). "
+                + "Sans mot-clé, les relances sont désactivées par défaut pour éviter les "
+                + "questions fantômes ; elles sont possibles seulement si l'option correspondante est cochée. " 
                 + "Mode une question (case cochée) : le microphone s'arrête après la réponse. "
                 + "Pendant que FRIDAY parle, STOP reste disponible ; un casque limite l'écho."));
         voskHintsEnabled = new CheckBox(this);
@@ -490,6 +496,7 @@ public class MainActivity extends Activity {
             saveOpenJarvisPrefs();
             prefs.put("silence_ms", bounded(silenceInput, 2100, 900, 6000));
             prefs.put("followup_sec", bounded(followupInput, 75, 15, 180));
+            prefs.put("followup_handsfree", followupHandsfreeEnabled.isChecked() ? "1" : "0");
             prefs.put("barge_in_enabled", bargeEnabled.isChecked() ? "1" : "0");
             prefs.put("tts_speed", bounded(ttsInput, 100, 70, 150));
             prefs.put("voice_enabled", voiceEnabled.isChecked() ? "1" : "0");
