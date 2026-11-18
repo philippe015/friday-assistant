@@ -26,6 +26,7 @@ javac -encoding UTF-8 -d "$TMP_TEST" \
   app/src/main/java/fr/friday/assistant/WebSearch.java \
   app/src/main/java/fr/friday/assistant/OpenJarvisPolicy.java \
   app/src/main/java/fr/friday/assistant/LocalJarvisPolicy.java \
+  app/src/main/java/fr/friday/assistant/JarvisMistralRouting.java \
   app/src/main/java/fr/friday/assistant/LocalJarvisArithmetic.java \
   app/src/main/java/fr/friday/assistant/RecentNewsPolicy.java \
   app/src/main/java/fr/friday/assistant/WebToolPolicy.java \
@@ -38,6 +39,6 @@ javac -encoding UTF-8 -d "$TMP_TEST" \
   app/src/main/java/fr/friday/assistant/MemoryIntent.java \
   app/src/main/java/fr/friday/assistant/MemoryRules.java \
   app/src/main/java/fr/friday/assistant/FridayVersionPolicy.java \
-  tests/LocalJarvisPolicyTest.java tests/OpenJarvisPolicyTest.java tests/WebPageReaderTest.java tests/WebToolPolicyTest.java tests/MemoryRulesTest.java tests/MicSignalMeterTest.java tests/VoiceStopSpotterTest.java tests/TtsEchoGateTest.java tests/VoiceVocabularyTest.java tests/SpeechSentenceBufferTest.java tests/HttpRetryPolicyTest.java tests/AssistantIdentityTest.java tests/WebSearchTest.java tests/RecentNewsPolicyTest.java tests/VoiceTextTest.java tests/BargeInPolicyTest.java tests/LocationIntentTest.java tests/MemoryIntentTest.java tests/FridayVersionPolicyTest.java
-for name in LocalJarvisPolicyTest OpenJarvisPolicyTest fr.friday.assistant.WebPageReaderTest WebToolPolicyTest MemoryRulesTest MicSignalMeterTest VoiceStopSpotterTest TtsEchoGateTest VoiceVocabularyTest SpeechSentenceBufferTest HttpRetryPolicyTest AssistantIdentityTest WebSearchTest RecentNewsPolicyTest VoiceTextTest BargeInPolicyTest fr.friday.assistant.LocationIntentTest MemoryIntentTest fr.friday.assistant.FridayVersionPolicyTest; do java -cp "$TMP_TEST" "$name"; done
+  tests/LocalJarvisPolicyTest.java tests/JarvisMistralRoutingTest.java tests/OpenJarvisPolicyTest.java tests/WebPageReaderTest.java tests/WebToolPolicyTest.java tests/MemoryRulesTest.java tests/MicSignalMeterTest.java tests/VoiceStopSpotterTest.java tests/TtsEchoGateTest.java tests/VoiceVocabularyTest.java tests/SpeechSentenceBufferTest.java tests/HttpRetryPolicyTest.java tests/AssistantIdentityTest.java tests/WebSearchTest.java tests/RecentNewsPolicyTest.java tests/VoiceTextTest.java tests/BargeInPolicyTest.java tests/LocationIntentTest.java tests/MemoryIntentTest.java tests/FridayVersionPolicyTest.java
+for name in LocalJarvisPolicyTest JarvisMistralRoutingTest OpenJarvisPolicyTest fr.friday.assistant.WebPageReaderTest WebToolPolicyTest MemoryRulesTest MicSignalMeterTest VoiceStopSpotterTest TtsEchoGateTest VoiceVocabularyTest SpeechSentenceBufferTest HttpRetryPolicyTest AssistantIdentityTest WebSearchTest RecentNewsPolicyTest VoiceTextTest BargeInPolicyTest fr.friday.assistant.LocationIntentTest MemoryIntentTest fr.friday.assistant.FridayVersionPolicyTest; do java -cp "$TMP_TEST" "$name"; done
 echo 'Tests F.R.I.D.A.Y. réussis (Java, Python, Rust, JS).'

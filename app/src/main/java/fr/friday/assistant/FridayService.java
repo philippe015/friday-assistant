@@ -42,6 +42,7 @@ public class FridayService extends Service {
     private static volatile String interruptDiagnostics = "Micro non démarré";
     private static volatile String voiceReadiness = "Micro arrêté";
     private static volatile String lastTtsStatus = "Voix non initialisée";
+    private static volatile String bluetoothMicState = "Bluetooth non vérifié";
     private static volatile boolean foregroundLocationEnabled = false;
     private static final long MAX_PENDING_WEB_MS = 150000L;
     private final Handler requestWatchdog = new Handler(Looper.getMainLooper());
@@ -49,6 +50,7 @@ public class FridayService extends Service {
     private volatile boolean oneShotTriggered = false;
     private Thread worker;
     private AudioRecord recorder;
+    private BluetoothMicRouter bluetoothMicRouter;
     private TextToSpeech tts;
     /** Stop et démarrage TTS doivent être atomiques entre les threads réseau et micro. */
     private final Object ttsControlLock = new Object();
@@ -87,6 +89,12 @@ public class FridayService extends Service {
     public static String interruptionDiagnostics() { return interruptDiagnostics; }
     public static String voiceReadiness() { return voiceReadiness; }
     public static String lastTtsStatus() { return lastTtsStatus; }
+    public static String bluetoothMicStatus() { return bluetoothMicState; }
+    private void bluetoothState(String state) {
+        if (state == null || state.equals(bluetoothMicState)) return;
+        bluetoothMicState = state;
+        event("bluetooth_mic", state);
+    }
     private void voiceState(String state) {
         if (!state.equals(voiceReadiness)) {
             voiceReadiness = state;
@@ -195,6 +203,10 @@ public class FridayService extends Service {
         wakeArmed = false;
         wakeOnlyUntil = 0;
         active = true;
+        // Microphone Bluetooth uniquement apres permission, avec repli local.
+        bluetoothMicRouter = new BluetoothMicRouter(this);
+        bluetoothMicRouter.start("1".equals(settings.get("bluetooth_mic_enabled", "1")));
+        bluetoothState(bluetoothMicRouter.status());
         voiceState("Démarrage du microphone et du reconnaisseur français…");
         micSilenced = false;
         interruptDiagnostics = "Initialisation du décodeur d'interruption";
@@ -294,7 +306,9 @@ public class FridayService extends Service {
                     boolean bargeEnabled = "1".equals(settings.get("barge_in_enabled", "0"));
                     // Si Android a rendu VOICE_COMMUNICATION muet, repartir
                     // sur VOICE_RECOGNITION lors de la prochaine session audio.
-                    int src = bargeEnabled && mutedMicroReopens == 0
+                    boolean btCommunication = bluetoothMicRouter != null
+                            && bluetoothMicRouter.isCommunicationRequested();
+                    int src = (btCommunication || (bargeEnabled && mutedMicroReopens == 0))
                             ? MediaRecorder.AudioSource.VOICE_COMMUNICATION
                             : MediaRecorder.AudioSource.VOICE_RECOGNITION;
                     ar = new AudioRecord(src, 16000, AudioFormat.CHANNEL_IN_MONO,
@@ -307,6 +321,7 @@ public class FridayService extends Service {
                     if (ar.getState() != AudioRecord.STATE_INITIALIZED)
                         throw new IllegalStateException("Échec ouverture microphone");
                     recorder = ar;
+                    if (bluetoothMicRouter != null) bluetoothMicRouter.preferInput(ar);
                     echoProtection = false;
                     if (bargeEnabled) {
                         try {
@@ -339,6 +354,8 @@ public class FridayService extends Service {
                     }
                     recognizer = createRecognizer(model);
                     ar.startRecording();
+                    if (bluetoothMicRouter != null)
+                        bluetoothState(bluetoothMicRouter.routedStatus(ar));
                     voiceState("Micro actif : dites Friday pour parler");
                     interruptDiagnostics = bargeEnabled
                             ? "Micro PCM prêt · décodeur STOP démarre à la réponse"
@@ -348,6 +365,8 @@ public class FridayService extends Service {
                     byte[] buffer = new byte[4096];
                     long lastPolicyCheck = 0, lastVoice = 0, lastPartialPublished = 0;
                     long lastMicLevelAt = 0;
+                    long lastBtStatusAt = 0;
+                    String previousBluetoothRoute = "";
                     String completed = "", interim = "";
                     double confidenceSum = 0;
                     int confidenceCount = 0;
@@ -373,6 +392,10 @@ public class FridayService extends Service {
                             earlyCancelled = false; sawSpeakerFeedback = false;
                         }
                         int count = ar.read(buffer, 0, buffer.length);
+                        if (bluetoothMicRouter != null && bluetoothMicRouter.consumeRouteChange()) {
+                            bluetoothState("Casque Bluetooth branché ou débranché : reconfiguration du microphone");
+                            throw new IllegalStateException("Changement de périphérique audio Bluetooth");
+                        }
                         if (count <= 0) {
                             if (running) throw new IllegalStateException("Lecture microphone interrompue : " + count);
                             break;
@@ -419,6 +442,17 @@ public class FridayService extends Service {
                             continue;
                         }
                         consecutiveErrors = 0;
+                        if (bluetoothMicRouter != null) {
+                            long btCheckAt = SystemClock.elapsedRealtime();
+                            if (btCheckAt - lastBtStatusAt >= 3000L) {
+                                lastBtStatusAt = btCheckAt;
+                                String route = bluetoothMicRouter.routedStatus(ar);
+                                if (!route.equals(previousBluetoothRoute)) {
+                                    previousBluetoothRoute = route;
+                                    bluetoothState(route);
+                                }
+                            }
+                        }
                         if (mutedSince != 0 || micSilenced) {
                             mutedSince = 0;
                             micSilenced = false;
@@ -610,6 +644,14 @@ public class FridayService extends Service {
                 } catch (Exception captureError) {
                     if (!running) break;
                     consecutiveErrors++;
+                    if (consecutiveErrors >= 3 && bluetoothMicRouter != null
+                            && bluetoothMicRouter.isCommunicationRequested()) {
+                        // Certains casques acceptent le profil HFP mais refusent
+                        // AudioRecord. Ne pas condamner le micro du téléphone.
+                        bluetoothMicRouter.fallbackToPhone();
+                        bluetoothState(bluetoothMicRouter.status());
+                        consecutiveErrors = 0;
+                    }
                     // La v3.11.1 arretait definitivement le service apres trois
                     // echec AudioRecord, ou restait muette apres deux reprises.
                     // Cette version reessaie tant que l'utilisateur n'a pas
@@ -773,15 +815,11 @@ public class FridayService extends Service {
         latestQuestion = request;
         ResponseTurn turn = new ResponseTurn(anchor);
         currentTurn = turn;
-        boolean localJarvis = LocalJarvisPolicy.shouldRoute(request,
+        boolean localJarvis = JarvisMistralRouting.useLocal(request,
                 "1".equals(settings.get("local_jarvis_enabled", "0")),
                 "1".equals(settings.get("local_jarvis_all", "0")));
-        boolean usePcJarvis = !localJarvis && OpenJarvisPolicy.shouldRoute(request,
-                "1".equals(settings.get("openjarvis_enabled", "0")),
-                "1".equals(settings.get("openjarvis_route_all", "0")));
         voiceState("Question reçue · "
-                + (localJarvis ? "Jarvis sur le téléphone, sans réseau"
-                : usePcJarvis ? "OpenJarvis PC" : "Mistral")
+                + (localJarvis ? "Jarvis sur le téléphone, sans réseau" : "Mistral")
                 + " · micro disponible pour une nouvelle question avec Friday");
         // Protège contre un fournisseur/API bloqué : aucun tour muet ne doit
         // garder l'écoute occupée indéfiniment. Un TTS en lecture n'est pas coupé.
@@ -804,14 +842,14 @@ public class FridayService extends Service {
     private void answerTurn(String question, ResponseTurn turn) {
         if (!live(turn)) return;
         boolean memoryAction = MemoryIntent.kind(question) != MemoryIntent.NONE;
-        boolean requestedOnDevice = LocalJarvisPolicy.shouldRoute(question,
+        boolean requestedOnDevice = JarvisMistralRouting.useLocal(question,
                 "1".equals(settings.get("local_jarvis_enabled", "0")),
                 "1".equals(settings.get("local_jarvis_all", "0")));
         try {
             if (!memoryAction && live(turn)) event("user", question);
             if (live(turn)) event("status", memoryAction ? "Commande mémoire locale…"
                     : requestedOnDevice ? "Jarvis local réfléchit sur le téléphone…"
-                    : "Réflexion Mistral / OpenJarvis… Vous pouvez m'interrompre.");
+                    : "Réflexion Mistral… Vous pouvez m'interrompre.");
             String local = PersonalMemory.command(settings, question);
             if (local == null) local = PythonBrain.localAnswer(question);
             if (local == null) local = deviceAnswer(question);
@@ -888,37 +926,23 @@ public class FridayService extends Service {
                 prepared += "\n\n[CONTEXTE DE LA DEMANDE INTERROMPUE : "
                         + turn.clarificationContext + "]\n[TRAITE LA PRÉCISION ACTUELLE EN "
                         + "LIEN AVEC CE SUJET, SANS INVENTER.]";
-            // OpenJarvis est un service facultatif distinct sur l'ordinateur.
-            // Aucun historique, aucune mémoire personnelle, aucun GPS n'est
-            // envoyé au serveur distant : uniquement la question demandée.
-            // L'agent local passe AVANT le pont OpenJarvis/PC et AVANT Mistral.
-            // Un seul moteur reçoit une question : aucune fuite implicite vers
-            // Mistral si le modèle local ne démarre pas.
+            // Deux moteurs uniquement. Jamais d'appel au serveur OpenJarvis.
+            // Un échec d'inférence locale n'envoie pas la question à Mistral.
             boolean localJarvis = local == null && requestedOnDevice;
-            boolean pcJarvis = local == null && !localJarvis
-                    && OpenJarvisPolicy.shouldRoute(question,
-                    "1".equals(settings.get("openjarvis_enabled", "0")),
-                    "1".equals(settings.get("openjarvis_route_all", "0")));
             boolean webQuestion = "1".equals(settings.get("web_enabled", "1"))
                     && WebSearch.shouldSearch(settings.get("web_mode", "always"), prepared, "");
             boolean streaming = "1".equals(settings.get("stream_enabled", "0"))
-                    && !webQuestion && !pcJarvis && !localJarvis;
+                    && !webQuestion && !localJarvis;
             if (localJarvis)
                 event("status", "Jarvis local : réflexion sur ce téléphone, aucune connexion externe.");
-            else if (pcJarvis)
-                event("status", "OpenJarvis PC : requête vers votre serveur HTTPS protégé.");
             String answer = local != null ? local : localJarvis
                     ? LocalJarvisEngine.answer(this, settings, question, turn.api)
-                    : pcJarvis
-                    // Aucune mémoire, aucun GPS, aucun historique transféré au PC.
-                    ? OpenJarvisClient.answer(settings, question, turn.api)
                     : streaming
                     ? streamAndSpeak(prepared, historySnapshot(), locationForApi, turn)
                     : NativeAI.answer(settings, prepared, historySnapshot(), locationForApi, turn.api);
             if (!live(turn)) return;
             // Preuve d'une transmission API ponctuelle réussie, sans conserver les coordonnées.
-            if (locationForApi != null && local == null
-                    && !pcJarvis && !localJarvis) {
+            if (locationForApi != null && local == null && !localJarvis) {
                 settings.put("gps_last_shared", String.valueOf(System.currentTimeMillis()));
                 event("gps_api", "Coordonnées GPS transmises à Mistral pour cette question (API répondante).");
             }
@@ -1277,6 +1301,11 @@ public class FridayService extends Service {
         if (recorder != null) {
             try { recorder.stop(); } catch (Exception ignored) {}
         }
+        if (bluetoothMicRouter != null) {
+            bluetoothMicRouter.close();
+            bluetoothMicRouter = null;
+        }
+        bluetoothState("Microphone arrêté");
         ttsReady = false;
         synchronized (ttsControlLock) {
             if (tts != null) {

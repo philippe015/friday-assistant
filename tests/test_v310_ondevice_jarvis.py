@@ -37,13 +37,14 @@ class JarvisOnDeviceV310(unittest.TestCase):
 
     def test_local_priority_preserves_mistral_without_hidden_cloud_fallback(self):
         service = java("FridayService.java")
-        self.assertIn('LocalJarvisPolicy.shouldRoute(question,', service)
-        self.assertIn("boolean pcJarvis = local == null && !localJarvis", service)
+        self.assertIn('JarvisMistralRouting.useLocal(question,', service)
+        self.assertIn('JarvisMistralRouting.useLocal(request,', service)
         self.assertIn("LocalJarvisEngine.answer(this, settings, question, turn.api)", service)
-        self.assertIn("OpenJarvisClient.answer(settings, question, turn.api)", service)
+        self.assertNotIn("OpenJarvisClient.answer(", service)
+        self.assertNotIn("OpenJarvisPolicy.shouldRoute(", service)
         self.assertIn("NativeAI.answer(settings, prepared, historySnapshot()", service)
-        self.assertIn("!webQuestion && !pcJarvis && !localJarvis", service)
-        self.assertIn("locationForApi != null && local == null\n                    && !pcJarvis && !localJarvis", service)
+        self.assertIn("!webQuestion && !localJarvis", service)
+        self.assertIn("locationForApi != null && local == null && !localJarvis", service)
 
     def test_local_off_by_default_private_model(self):
         ui = java("MainActivity.java")
@@ -61,8 +62,8 @@ class JarvisOnDeviceV310(unittest.TestCase):
 
     def test_version(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 77", gradle)
-        self.assertIn("versionName '3.11.2'", gradle)
+        self.assertIn("versionCode 78", gradle)
+        self.assertIn("versionName '3.12.0'", gradle)
 
 if __name__ == "__main__":
     unittest.main()

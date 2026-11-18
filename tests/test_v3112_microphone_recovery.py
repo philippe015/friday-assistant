@@ -19,7 +19,9 @@ class MicrophoneRecovery(unittest.TestCase):
         self.assertIn("if (mutedAt - mutedSince >= 8000L)", SERVICE)
         self.assertNotIn("mutedMicroReopens < 2)", SERVICE)
         self.assertIn('throw new IllegalStateException("Microphone rendu muet par Android")', SERVICE)
-        self.assertIn("consecutiveErrors = 0;\n                        if (mutedSince != 0 || micSilenced)", SERVICE)
+        self.assertIn("consecutiveErrors = 0;", SERVICE)
+        self.assertIn("if (mutedSince != 0 || micSilenced)", SERVICE)
+        self.assertIn("bluetoothMicRouter.routedStatus(ar)", SERVICE)
 
     def test_capture_errors_no_longer_kill_service(self):
         self.assertNotIn("if (consecutiveErrors >= 3) throw captureError", SERVICE)
@@ -40,8 +42,8 @@ class MicrophoneRecovery(unittest.TestCase):
 
     def test_version(self):
         gradle=(ROOT/"app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 77", gradle)
-        self.assertIn("versionName '3.11.2'", gradle)
+        self.assertIn("versionCode 78", gradle)
+        self.assertIn("versionName '3.12.0'", gradle)
 
 if __name__ == "__main__":
     unittest.main()
