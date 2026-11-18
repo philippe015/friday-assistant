@@ -644,6 +644,14 @@ public class FridayService extends Service {
                 } catch (Exception captureError) {
                     if (!running) break;
                     consecutiveErrors++;
+                    if (consecutiveErrors >= 3 && bluetoothMicRouter != null
+                            && bluetoothMicRouter.isCommunicationRequested()) {
+                        // Certains casques acceptent le profil HFP mais refusent
+                        // AudioRecord. Ne pas condamner le micro du téléphone.
+                        bluetoothMicRouter.fallbackToPhone();
+                        bluetoothState(bluetoothMicRouter.status());
+                        consecutiveErrors = 0;
+                    }
                     // La v3.11.1 arretait definitivement le service apres trois
                     // echec AudioRecord, ou restait muette apres deux reprises.
                     // Cette version reessaie tant que l'utilisateur n'a pas
