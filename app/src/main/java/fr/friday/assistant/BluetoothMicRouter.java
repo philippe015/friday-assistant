@@ -77,7 +77,7 @@ public final class BluetoothMicRouter {
             return adapter != null && adapter.isEnabled()
                     && adapter.getProfileConnectionState(BluetoothProfile.HEADSET)
                             == BluetoothProfile.STATE_CONNECTED;
-        } catch (SecurityException | RuntimeException denied) {
+        } catch (RuntimeException denied) {
             return false;
         }
     }
