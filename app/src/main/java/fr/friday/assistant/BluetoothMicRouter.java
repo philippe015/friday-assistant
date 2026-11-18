@@ -54,6 +54,12 @@ public final class BluetoothMicRouter {
         return communicationSelected || legacyScoRequested;
     }
 
+    /** En cas de refus répété d'AudioRecord Bluetooth, conserver l'écoute du téléphone. */
+    public void fallbackToPhone() {
+        close();
+        status = "Échec de capture Bluetooth : micro du téléphone pour cette session";
+    }
+
     private boolean hasHeadsetInput() {
         for (AudioDeviceInfo info : audio.getDevices(AudioManager.GET_DEVICES_INPUTS)) {
             if (info.isSource() && isBluetoothVoiceType(info.getType())) return true;
