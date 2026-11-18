@@ -303,6 +303,13 @@ public class FridayService extends Service {
                         AudioFormat.ENCODING_PCM_16BIT);
                     if (minimum <= 0) throw new IllegalStateException("Microphone 16 kHz indisponible");
                     int bytes = Math.max(16384, minimum * 4);
+                    if (bluetoothMicRouter != null) {
+                        // Android 8-11 : le micro SCO ne peut pas etre choisi avant
+                        // la confirmation asynchrone du lien HFP. Sinon AudioRecord
+                        // s'ouvre silencieusement sur le microphone interne.
+                        bluetoothMicRouter.awaitBluetoothRoute(6000L);
+                        bluetoothState(bluetoothMicRouter.status());
+                    }
                     boolean bargeEnabled = "1".equals(settings.get("barge_in_enabled", "0"));
                     // Si Android a rendu VOICE_COMMUNICATION muet, repartir
                     // sur VOICE_RECOGNITION lors de la prochaine session audio.
@@ -1185,7 +1192,13 @@ public class FridayService extends Service {
             }
             tts.setAudioAttributes(new AudioAttributes.Builder()
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .setUsage(AudioAttributes.USAGE_MEDIA).build());
+                    // HFP/SCO route la voix sur le flux de communication,
+                    // contrairement a USAGE_MEDIA qui peut basculer en A2DP
+                    // et rendre le microphone du casque indisponible.
+                    .setUsage(bluetoothMicRouter != null
+                            && bluetoothMicRouter.isCommunicationRequested()
+                            ? AudioAttributes.USAGE_VOICE_COMMUNICATION
+                            : AudioAttributes.USAGE_MEDIA).build());
             if (!running) { tts.shutdown(); tts = null; return; }
             tts.setSpeechRate(settingInt("tts_speed", 100, 70, 150) / 100f);
             tts.setPitch(1.0f);
@@ -1217,6 +1230,18 @@ public class FridayService extends Service {
         if (chunks.isEmpty()) {
             event("error", "Réponse vide : rien à prononcer.");
             return false;
+        }
+        // Reconfigurer la sortie si le casque a ete connecte ou retire
+        // pendant la session, sans faire redemarrer le micro.
+        synchronized (ttsControlLock) {
+            if (tts != null && ttsReady) {
+                tts.setAudioAttributes(new AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .setUsage(bluetoothMicRouter != null
+                                && bluetoothMicRouter.isCommunicationRequested()
+                                ? AudioAttributes.USAGE_VOICE_COMMUNICATION
+                                : AudioAttributes.USAGE_MEDIA).build());
+            }
         }
         int index = 0;
         for (String part : chunks) {

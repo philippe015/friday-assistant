@@ -1,6 +1,8 @@
 package fr.friday.assistant;
 
 import android.Manifest;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothProfile;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -13,6 +15,7 @@ import android.media.AudioRecord;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -28,7 +31,8 @@ public final class BluetoothMicRouter {
     private AudioDeviceCallback callback;
     private BroadcastReceiver scoReceiver;
     private boolean communicationSelected;
-    private boolean legacyScoRequested;
+    private volatile boolean legacyScoRequested;
+    private volatile int legacyScoState = AudioManager.SCO_AUDIO_STATE_DISCONNECTED;
     private boolean modeChanged;
     private int originalMode;
     private boolean enabled;
@@ -51,13 +55,31 @@ public final class BluetoothMicRouter {
 
     public String status() { return status; }
     public boolean isCommunicationRequested() {
-        return communicationSelected || legacyScoRequested;
+        return communicationSelected || (enabled && (legacyScoRequested
+                || legacyScoState == AudioManager.SCO_AUDIO_STATE_CONNECTED));
     }
 
     /** En cas de refus répété d'AudioRecord Bluetooth, conserver l'écoute du téléphone. */
     public void fallbackToPhone() {
         close();
         status = "Échec de capture Bluetooth : micro du téléphone pour cette session";
+    }
+
+    /**
+     * Sur Android 8-11, la source TYPE_BLUETOOTH_SCO n'est souvent exposée
+     * qu'APRES l'activation du lien SCO. Vérifier d'abord le profil HFP,
+     * pas la liste des microphones (sinon la connexion n'est jamais tentée).
+     */
+    public static boolean legacyHandsfreeConnected(Context context) {
+        if (Build.VERSION.SDK_INT >= 31) return false;
+        try {
+            BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
+            return adapter != null && adapter.isEnabled()
+                    && adapter.getProfileConnectionState(BluetoothProfile.HEADSET)
+                            == BluetoothProfile.STATE_CONNECTED;
+        } catch (RuntimeException denied) {
+            return false;
+        }
     }
 
     private boolean hasHeadsetInput() {
@@ -105,14 +127,26 @@ public final class BluetoothMicRouter {
                     @Override public void onReceive(Context c, Intent intent) {
                         if (AudioManager.ACTION_SCO_AUDIO_STATE_UPDATED.equals(intent.getAction())) {
                             int state = intent.getIntExtra(AudioManager.EXTRA_SCO_AUDIO_STATE, -1);
+                            int previous = legacyScoState;
+                            legacyScoState = state;
                             if (state == AudioManager.SCO_AUDIO_STATE_CONNECTED
-                                    || state == AudioManager.SCO_AUDIO_STATE_DISCONNECTED)
+                                    && previous != state) {
                                 routeChanged.set(true);
+                                status = "Bluetooth SCO connecté : préparation du microphone";
+                            } else if (state == AudioManager.SCO_AUDIO_STATE_DISCONNECTED
+                                    && previous == AudioManager.SCO_AUDIO_STATE_CONNECTED) {
+                                legacyScoRequested = false;
+                                routeChanged.set(true);
+                                status = "Bluetooth SCO déconnecté : reprise de la capture";
+                            }
                         }
                     }
                 };
-                context.registerReceiver(scoReceiver,
+                Intent sticky = context.registerReceiver(scoReceiver,
                         new IntentFilter(AudioManager.ACTION_SCO_AUDIO_STATE_UPDATED));
+                if (sticky != null)
+                    legacyScoState = sticky.getIntExtra(AudioManager.EXTRA_SCO_AUDIO_STATE,
+                            AudioManager.SCO_AUDIO_STATE_DISCONNECTED);
             }
             selectRoute();
         } catch (RuntimeException ex) {
@@ -141,22 +175,48 @@ public final class BluetoothMicRouter {
                 status = communicationSelected
                         ? "Casque Bluetooth sélectionné, vérification du microphone en cours"
                         : "Android refuse le profil mains libres : micro du téléphone";
-            } else if (hasHeadsetInput() && audio.isBluetoothScoAvailableOffCall()) {
+            } else if ((legacyHandsfreeConnected(context) || hasHeadsetInput())
+                    && audio.isBluetoothScoAvailableOffCall()) {
                 setCommunicationMode();
-                if (!legacyScoRequested) {
+                if (legacyScoState != AudioManager.SCO_AUDIO_STATE_CONNECTED
+                        && !legacyScoRequested) {
+                    legacyScoRequested = true;
                     audio.startBluetoothSco();
                     audio.setBluetoothScoOn(true);
-                    legacyScoRequested = true;
                 }
-                status = "Liaison SCO demandée, attente du micro du casque";
+                status = legacyScoState == AudioManager.SCO_AUDIO_STATE_CONNECTED
+                        ? "Profil HFP/SCO connecté, micro du casque à vérifier"
+                        : "Profil HFP détecté, établissement de la liaison SCO...";
             } else {
-                status = "Bluetooth A2DP seul ou casque absent : micro du téléphone";
+                status = "Casque absent, profil Appels HFP désactivé ou SCO non disponible : micro du téléphone";
             }
         } catch (SecurityException denied) {
             status = "Autorisation Bluetooth refusée : micro du téléphone";
         } catch (RuntimeException unavailable) {
             status = "Profil mains libres indisponible : micro du téléphone";
         }
+    }
+
+    /**
+     * Le lien SCO est asynchrone. Attendre sa confirmation AVANT de créer
+     * AudioRecord sur Android <= 11. En cas d'échec, libérer le mode appel
+     * et conserver le microphone du téléphone sans boucle de redémarrage.
+     * Appel exclusivement depuis le thread de capture, jamais l'UI.
+     */
+    public boolean awaitBluetoothRoute(long timeoutMs) {
+        if (!enabled || Build.VERSION.SDK_INT >= 31 || !legacyScoRequested)
+            return true;
+        long until = SystemClock.elapsedRealtime() + Math.max(1000L, timeoutMs);
+        while (enabled && legacyScoState != AudioManager.SCO_AUDIO_STATE_CONNECTED
+                && SystemClock.elapsedRealtime() < until
+                && !Thread.currentThread().isInterrupted()) {
+            SystemClock.sleep(100L);
+        }
+        if (legacyScoState == AudioManager.SCO_AUDIO_STATE_CONNECTED) return true;
+        fallbackToPhone();
+        status = "Casque HFP détecté mais liaison SCO impossible : micro du téléphone. "
+                + "Vérifier Appels pour ce casque, puis redémarrer l'écoute.";
+        return false;
     }
 
     /** À appeler avant startRecording pour orienter la capture vers la source Bluetooth. */
@@ -228,6 +288,7 @@ public final class BluetoothMicRouter {
         }
         communicationSelected = false;
         legacyScoRequested = false;
+        legacyScoState = AudioManager.SCO_AUDIO_STATE_DISCONNECTED;
         modeChanged = false;
         routeChanged.set(false);
         status = "Microphone arrêté";

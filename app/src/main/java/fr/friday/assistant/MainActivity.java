@@ -327,6 +327,7 @@ public class MainActivity extends Activity {
         bluetoothMicStatus = label(FridayService.bluetoothMicStatus());
         config.addView(bluetoothMicStatus);
         config.addView(button("Vérifier le microphone Bluetooth", this::checkBluetoothMicrophone));
+        config.addView(label("Pour un casque Bluetooth classique, activez « Appels » dans les parametres Bluetooth Android du casque. Sur Android 8-11, FRIDAY doit etablir le profil mains libres SCO avant de pouvoir identifier son micro. Le son de la musique seul (A2DP) ne garantit pas la presence d'un micro accessible."));
         config.addView(label("Connectez le casque dans les paramètres Android puis autorisez "
                 + "Appareils à proximité sur Android 12+. Le profil A2DP seul ne fournit pas "
                 + "de microphone mains libres. Redémarrez l'écoute après un changement."));
@@ -1150,6 +1151,8 @@ public class MainActivity extends Activity {
                     break;
                 }
             }
+            if (!supported && Build.VERSION.SDK_INT < 31)
+                supported = BluetoothMicRouter.legacyHandsfreeConnected(this);
             if (!supported && Build.VERSION.SDK_INT >= 31) {
                 for (android.media.AudioDeviceInfo d : audio.getAvailableCommunicationDevices()) {
                     if (d.isSink() && BluetoothMicRouter.isBluetoothVoiceType(d.getType())) {
@@ -1163,8 +1166,8 @@ public class MainActivity extends Activity {
             return;
         }
         String report = supported
-                ? "Casque mains libres détecté. Démarrez l'écoute pour confirmer le routage."
-                : "Aucun micro mains libres détecté. Vérifiez le profil d'appel du casque.";
+                ? "Casque mains libres détecté. Démarrez l'écoute : FRIDAY attendra la liaison SCO avant la capture, puis vérifiera le microphone actif."
+                : "Aucun profil mains libres HFP/SCO détecté. Ouvrez Bluetooth > votre casque > activez Appels, puis relancez l'écoute.";
         bluetoothMicStatus.setText(report);
         status.setText(report);
     }
