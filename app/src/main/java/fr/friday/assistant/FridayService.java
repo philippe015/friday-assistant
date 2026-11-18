@@ -675,6 +675,11 @@ public class FridayService extends Service {
             shutdown(); return;
         }
         if (BargeInPolicy.wantsToAddDetails(heard)) {
+            // Sans invitation ni reponse active, ignorer une precision captee
+            // dans le bruit ambiant (sinon elle rearme le dialogue).
+            if (currentTurn == null && !BargeInPolicy.startsWithWake(heard)
+                    && now >= wakeOnlyUntil
+                    && !"1".equals(settings.get("followup_handsfree", "0"))) return;
             if (currentTurn != null) interruptResponse("Réponse interrompue pour votre précision.");
             else {
                 wakeArmed = true;
@@ -693,7 +698,10 @@ public class FridayService extends Service {
             interruptResponse("Réponse stoppée immédiatement. Je reste à l'écoute.");
             return;
         }
-        boolean activated = RustWake.detect(heard);
+        // La bibliotheque native peut detecter « Friday » n'importe ou dans
+        // une phrase (ex. « nous sommes vendredi »). Le mot-cle doit etre
+        // au DEBUT : sinon une radio ou une conversation devient une question.
+        boolean activated = BargeInPolicy.startsWithWake(heard) && RustWake.detect(heard);
         boolean activeResponse = currentTurn != null;
         if (activeResponse) {
             if (!"1".equals(settings.get("barge_in_enabled", "1")) ||
