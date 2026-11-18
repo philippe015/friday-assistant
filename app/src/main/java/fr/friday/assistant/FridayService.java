@@ -728,12 +728,16 @@ public class FridayService extends Service {
         latestQuestion = request;
         ResponseTurn turn = new ResponseTurn(anchor);
         currentTurn = turn;
-        boolean useJarvis = OpenJarvisPolicy.shouldRoute(request,
+        boolean localJarvis = LocalJarvisPolicy.shouldRoute(request,
+                "1".equals(settings.get("local_jarvis_enabled", "0")),
+                "1".equals(settings.get("local_jarvis_all", "0")));
+        boolean usePcJarvis = !localJarvis && OpenJarvisPolicy.shouldRoute(request,
                 "1".equals(settings.get("openjarvis_enabled", "0")),
                 "1".equals(settings.get("openjarvis_route_all", "0")));
         voiceState("Question reçue · "
-                + (useJarvis ? "OpenJarvis local" : "Mistral")
-                + " recherche · micro disponible pour une nouvelle question avec Friday");
+                + (localJarvis ? "Jarvis sur le téléphone, sans réseau"
+                : usePcJarvis ? "OpenJarvis PC" : "Mistral")
+                + " · micro disponible pour une nouvelle question avec Friday");
         // Protège contre un fournisseur/API bloqué : aucun tour muet ne doit
         // garder l'écoute occupée indéfiniment. Un TTS en lecture n'est pas coupé.
         turn.watchdog = () -> {
@@ -834,25 +838,36 @@ public class FridayService extends Service {
             // OpenJarvis est un service facultatif distinct sur l'ordinateur.
             // Aucun historique, aucune mémoire personnelle, aucun GPS n'est
             // envoyé au serveur distant : uniquement la question demandée.
-            boolean jarvisQuestion = local == null && OpenJarvisPolicy.shouldRoute(question,
+            // L'agent local passe AVANT le pont OpenJarvis/PC et AVANT Mistral.
+            // Un seul moteur reçoit une question : aucune fuite implicite vers
+            // Mistral si le modèle local ne démarre pas.
+            boolean localJarvis = local == null && LocalJarvisPolicy.shouldRoute(question,
+                    "1".equals(settings.get("local_jarvis_enabled", "0")),
+                    "1".equals(settings.get("local_jarvis_all", "0")));
+            boolean pcJarvis = local == null && !localJarvis
+                    && OpenJarvisPolicy.shouldRoute(question,
                     "1".equals(settings.get("openjarvis_enabled", "0")),
                     "1".equals(settings.get("openjarvis_route_all", "0")));
             boolean webQuestion = "1".equals(settings.get("web_enabled", "1"))
                     && WebSearch.shouldSearch(settings.get("web_mode", "always"), prepared, "");
             boolean streaming = "1".equals(settings.get("stream_enabled", "1"))
-                    && !webQuestion && !jarvisQuestion;
-            if (jarvisQuestion)
-                event("status", "OpenJarvis : requête ponctuelle vers votre serveur HTTPS protégé.");
-            String answer = local != null ? local : jarvisQuestion
-                    // Uniquement la question formulée à cet instant : jamais
-                    // le contexte ajouté par FRIDAY ni les autres tours.
+                    && !webQuestion && !pcJarvis && !localJarvis;
+            if (localJarvis)
+                event("status", "Jarvis local : réflexion sur ce téléphone, aucune connexion externe.");
+            else if (pcJarvis)
+                event("status", "OpenJarvis PC : requête vers votre serveur HTTPS protégé.");
+            String answer = local != null ? local : localJarvis
+                    ? LocalJarvisEngine.answer(this, settings, question, turn.api)
+                    : pcJarvis
+                    // Aucune mémoire, aucun GPS, aucun historique transféré au PC.
                     ? OpenJarvisClient.answer(settings, question, turn.api)
                     : streaming
                     ? streamAndSpeak(prepared, historySnapshot(), locationForApi, turn)
                     : NativeAI.answer(settings, prepared, historySnapshot(), locationForApi, turn.api);
             if (!live(turn)) return;
             // Preuve d'une transmission API ponctuelle réussie, sans conserver les coordonnées.
-            if (locationForApi != null && local == null && !jarvisQuestion) {
+            if (locationForApi != null && local == null
+                    && !pcJarvis && !localJarvis) {
                 settings.put("gps_last_shared", String.valueOf(System.currentTimeMillis()));
                 event("gps_api", "Coordonnées GPS transmises à Mistral pour cette question (API répondante).");
             }
