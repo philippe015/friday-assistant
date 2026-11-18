@@ -42,6 +42,7 @@ public class FridayService extends Service {
     private static volatile String interruptDiagnostics = "Micro non démarré";
     private static volatile String voiceReadiness = "Micro arrêté";
     private static volatile String lastTtsStatus = "Voix non initialisée";
+    private static volatile String bluetoothMicState = "Bluetooth non vérifié";
     private static volatile boolean foregroundLocationEnabled = false;
     private static final long MAX_PENDING_WEB_MS = 150000L;
     private final Handler requestWatchdog = new Handler(Looper.getMainLooper());
@@ -88,6 +89,12 @@ public class FridayService extends Service {
     public static String interruptionDiagnostics() { return interruptDiagnostics; }
     public static String voiceReadiness() { return voiceReadiness; }
     public static String lastTtsStatus() { return lastTtsStatus; }
+    public static String bluetoothMicStatus() { return bluetoothMicState; }
+    private void bluetoothState(String state) {
+        if (state == null || state.equals(bluetoothMicState)) return;
+        bluetoothMicState = state;
+        event("bluetooth_mic", state);
+    }
     private void voiceState(String state) {
         if (!state.equals(voiceReadiness)) {
             voiceReadiness = state;
@@ -199,7 +206,7 @@ public class FridayService extends Service {
         // Microphone Bluetooth uniquement apres permission, avec repli local.
         bluetoothMicRouter = new BluetoothMicRouter(this);
         bluetoothMicRouter.start("1".equals(settings.get("bluetooth_mic_enabled", "1")));
-        event("bluetooth_mic", bluetoothMicRouter.status());
+        bluetoothState(bluetoothMicRouter.status());
         voiceState("Démarrage du microphone et du reconnaisseur français…");
         micSilenced = false;
         interruptDiagnostics = "Initialisation du décodeur d'interruption";
@@ -348,7 +355,7 @@ public class FridayService extends Service {
                     recognizer = createRecognizer(model);
                     ar.startRecording();
                     if (bluetoothMicRouter != null)
-                        event("bluetooth_mic", bluetoothMicRouter.routedStatus(ar));
+                        bluetoothState(bluetoothMicRouter.routedStatus(ar));
                     voiceState("Micro actif : dites Friday pour parler");
                     interruptDiagnostics = bargeEnabled
                             ? "Micro PCM prêt · décodeur STOP démarre à la réponse"
@@ -386,7 +393,7 @@ public class FridayService extends Service {
                         }
                         int count = ar.read(buffer, 0, buffer.length);
                         if (bluetoothMicRouter != null && bluetoothMicRouter.consumeRouteChange()) {
-                            event("bluetooth_mic", "Casque Bluetooth branche ou debranche : reconfiguration du microphone");
+                            bluetoothState("Casque Bluetooth branché ou débranché : reconfiguration du microphone");
                             throw new IllegalStateException("Changement de périphérique audio Bluetooth");
                         }
                         if (count <= 0) {
@@ -442,7 +449,7 @@ public class FridayService extends Service {
                                 String route = bluetoothMicRouter.routedStatus(ar);
                                 if (!route.equals(previousBluetoothRoute)) {
                                     previousBluetoothRoute = route;
-                                    event("bluetooth_mic", route);
+                                    bluetoothState(route);
                                 }
                             }
                         }
@@ -1290,6 +1297,7 @@ public class FridayService extends Service {
             bluetoothMicRouter.close();
             bluetoothMicRouter = null;
         }
+        bluetoothState("Microphone arrêté");
         ttsReady = false;
         synchronized (ttsControlLock) {
             if (tts != null) {
