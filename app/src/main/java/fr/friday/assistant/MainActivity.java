@@ -169,7 +169,7 @@ public class MainActivity extends Activity {
         outer.addView(configScroll, new LinearLayout.LayoutParams(-1, dp(340)));
         config.addView(label("MOTEUR VOCAL LOCAL · français Vosk (~41 Mo à télécharger une fois)"));
         config.addView(button(ModelInstaller.installed(this) ? "✓ Modèle installé" : "↓ Télécharger le modèle français", this::installModel));
-        config.addView(label("MOTEUR IA · MISTRAL (fournisseur unique)"));
+        config.addView(label("MOTEUR IA · MISTRAL par défaut · OPENJARVIS optionnel"));
         mistralModel = field("mistral-small-latest", false);
         mistralModel.setText(prefs.get("mistral_model", "mistral-small-latest"));
         config.addView(label("Modèle Mistral"));
