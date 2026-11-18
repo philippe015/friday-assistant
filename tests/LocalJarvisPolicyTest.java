@@ -15,6 +15,8 @@ public final class LocalJarvisPolicyTest {
         ok(LocalJarvisPolicy.cleanQuestion("Friday, demande à Jarvis de calculer")
                  .equals("de calculer"),"délégation nettoyée");
         ok(LocalJarvisArithmetic.tryAnswer("calcule 2+3*4").contains("14"),"priorités");
+        ok(LocalJarvisArithmetic.tryAnswer("combien font deux plus trois fois quatre").contains("14"),"voix française");
+        ok(LocalJarvisArithmetic.tryAnswer("calcule dix divisé par deux").contains("5"),"division vocale");
         ok(LocalJarvisArithmetic.tryAnswer("calcule (2+3)*4").contains("20"),"parenthèses");
         ok(LocalJarvisArithmetic.tryAnswer("calcule 9/0").contains("invalide"),"division zéro");
         ok(LocalJarvisArithmetic.tryAnswer("bonjour") == null,"pas de calcul inventé");
