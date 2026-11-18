@@ -45,7 +45,7 @@ class FullVoiceAuditV389(unittest.TestCase):
         self.assertIn("requestWatchdog.removeCallbacksAndMessages(null)", service)
         self.assertIn("interruptResponse(", service)
         self.assertIn("if (!speak(notice, turn)) recoverTtsAsync()", service)
-        self.assertIn("Mistral n'a pas répondu à cette question", service)
+        self.assertIn("Le moteur sélectionné n'a pas répondu à cette question", service)
 
     def test_service_continuous_and_error_reporting(self):
         service = code("FridayService.java")
@@ -73,8 +73,8 @@ class FullVoiceAuditV389(unittest.TestCase):
 
     def test_version_manifest_permissions_and_no_new_external_provider(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 72", gradle)
-        self.assertIn("versionName '3.8.9'", gradle)
+        self.assertIn("versionCode 73", gradle)
+        self.assertIn("versionName '3.9.0'", gradle)
         manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
         for name in ("android.permission.INTERNET", "android.permission.RECORD_AUDIO",
                      "android.permission.FOREGROUND_SERVICE_MICROPHONE"):
