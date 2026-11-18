@@ -1,3 +1,15 @@
+## [3.12.3] — stabilité de la capture microphone
+
+- **Libération du callback d'enregistrement audio** : `AudioRecordingCallback` était enregistré
+  à chaque ouverture d'`AudioRecord` mais jamais libéré avant `release()`. Sur certaines
+  surcouches Android, cela pouvait déclencher un rappel sur un enregistreur déjà fermé ou une
+  fuite à chaque reprise du micro (Bluetooth / interruption). Le callback est désormais
+  désenregistré explicitement avant la fermeture, avec garde API 29+.
+- **Dependabot stabilisé** : `com.android.application >= 9` et `androidx.core >= 1.19` sont
+  ignorés — ces montées exigent respectivement Gradle 9 + compileSdk 36, et AGP 9.1, incompatibles
+  avec l'outillage actuel (AGP 8.7.3 + compileSdk 35). Les PR de dépendances ne font plus échouer
+  la compilation.
+
 ## [3.11.0] — Compatibilité Gemma 4 au format .litertlm directement sur Android
 
 - Corrige l'erreur avec `gemma-4-E2B-it-gpu.litertlm` : la v3.10.0 ne disposait que du moteur MediaPipe pour les `.task`.
