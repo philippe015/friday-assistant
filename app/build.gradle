@@ -1,6 +1,7 @@
 plugins {
     id 'com.android.application'
     id 'com.chaquo.python'
+    id 'org.jetbrains.kotlin.android'
 }
 
 android {
@@ -10,14 +11,15 @@ android {
         applicationId 'fr.friday.assistant'
         minSdk 26
         targetSdk 35
-        versionCode 74
-        versionName '3.10.0'
+        versionCode 75
+        versionName '3.11.0'
         ndk { abiFilters 'arm64-v8a' }
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+    kotlinOptions { jvmTarget = '17' }
     signingConfigs {
         release {
             def ks = System.getenv("KEYSTORE_PATH")
@@ -56,6 +58,7 @@ dependencies {
     // LLM exécuté sur le téléphone après import d'un modèle MediaPipe .task/.bin.
     // Aucun serveur OpenJarvis ni modèle intégré à l'APK.
     implementation 'com.google.mediapipe:tasks-genai:0.10.35'
+    implementation 'com.google.ai.edge.litertlm:litertlm-android:0.18.0'
     implementation 'com.alphacephei:vosk-android:0.3.75'
     implementation 'androidx.core:core:1.13.1'
     implementation 'androidx.exifinterface:exifinterface:1.3.7'
