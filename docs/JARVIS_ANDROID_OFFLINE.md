@@ -1,13 +1,20 @@
-# Mise à jour FRIDAY v3.11.0 — Gemma 4 .litertlm directement sur Android
+# FRIDAY Android — compatibilité des modèles IA locaux
 
-**La v3.10.0 refusait `gemma-4-E2B-it-gpu.litertlm` car elle n'avait que MediaPipe.** La v3.11.0 introduit un deuxième moteur Android officiel, **LiteRT-LM**, sans ordinateur ni serveur. L'import distingue maintenant automatiquement les deux extensions et mémorise le moteur actif.
+La v3.11.0 ajoute LiteRT-LM à MediaPipe. Pour les téléphones Android ARM64 compatibles, **privilégier d'abord le CPU**, sans exiger OpenCL/GPU. L'application accepte `.task` (MediaPipe) et `.litertlm` (LiteRT-LM), mais les extensions seules ne prouvent pas qu'un modèle fonctionne.
 
-- **Modèle léger / MediaPipe (.task)** : [gemma3-270m-it-q8.task](https://huggingface.co/litert-community/gemma-3-270m-it/blob/main/gemma3-270m-it-q8.task), environ 304 Mo. Une connexion Hugging Face et l'acceptation des conditions de Gemma peuvent être nécessaires.
-- **Modèle plus puissant / LiteRT-LM (.litertlm)** : [gemma-4-E2B-it-gpu.litertlm](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/blob/main/gemma-4-E2B-it-gpu.litertlm), environ 2,34 Go. Le processeur graphique, la mémoire RAM et les pilotes OpenCL du téléphone doivent être compatibles. Le fichier est copié en stockage privé de l'application, sans envoi au cloud.
+| Niveau | Fichier exact | Taille approximative | Moteur |
+|---|---|---|---|
+| Essai léger | [`gemma3-270m-it-q8.task`](https://huggingface.co/litert-community/gemma-3-270m-it/blob/main/gemma3-270m-it-q8.task) | 304 Mo | MediaPipe CPU |
+| LiteRT-LM plus léger | [`Qwen3-0.6B.litertlm`](https://huggingface.co/litert-community/Qwen3-0.6B/blob/main/Qwen3-0.6B.litertlm) | 614 Mo | LiteRT-LM CPU/GPU |
+| Plus puissant | [`gemma-4-E2B-it.litertlm`](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/blob/main/gemma-4-E2B-it.litertlm) | 2,59 Go | LiteRT-LM CPU/GPU |
 
-**Depuis le téléphone uniquement :** télécharger l'un des fichiers, lancer FRIDAY → Réglages → Jarvis local → Importer un modèle IA local, sélectionner le téléchargement, puis tester la génération. La compatibilité réelle ne peut être confirmée que sur l'appareil. Ne pas renommer les fichiers ni sélectionner les versions `*-web.task`, GGUF ou NPU spécifiques à d'autres puces.
+**Pourquoi ne plus proposer `gemma-4-E2B-it-gpu.litertlm` par défaut ?** Ce fichier de 2,34 Go est documenté notamment pour les déploiements Web. Le fichier sans suffixe GPU est le modèle standard décrit pour Android CPU et GPU. La v3.11.0 déjà publiée contient l'ancien bouton ; ouvrir manuellement le lien du modèle standard ci-dessus. Les nouveaux boutons de choix sont prévus dans la prochaine compilation, et non dans l'APK déjà publiée.
 
-La version garde les commandes vocales, la voix française, Memory+ chiffrée et Mistral/Web pour les actualités. Elle **n'embarque pas le projet Python/Rust OpenJarvis complet** ; elle dispose d'un moteur IA Android fonctionnant localement après l'importation.
+**Installation sans ordinateur :** télécharger un seul modèle depuis le navigateur du téléphone, ouvrir FRIDAY → Réglages → Jarvis local → Importer un modèle IA local, choisir le fichier téléchargé, activer Jarvis local et effectuer **Tester Jarvis IA locale sans Internet**. Ne pas désinstaller l'application existante. L'import copie le modèle dans le stockage privé et nécessite assez d'espace libre pour la copie. Aucun modèle n'est contenu dans l'APK.
+
+**Compatibilité :** application Android 8+ ARM64 uniquement selon la configuration actuelle. CPU par défaut pour les modèles LiteRT-LM sans `-gpu`; accélération GPU dépendante du chipset/pilote. Éviter `*-web.task`, les fichiers GGUF et les versions NPU spécifiques à une puce. Les performances sur le téléphone restent à valider par un vrai test. Les actualités nécessitent toujours Mistral + Internet.
+
+La voix française, Memory+ chiffrée et l'arrêt vocal STOP sont conservés. Le runtime Python/Rust OpenJarvis complet n'est pas intégré dans l'APK.
 
 ---
 
