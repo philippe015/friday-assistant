@@ -43,7 +43,7 @@ object LiteRtJarvisEngine {
             cancellation?.check()
             if (activeEngine == null || activePath != file.absolutePath) {
                 closeLocked()
-                val isGpu = file.name.contains("-gpu", ignoreCase = true)
+                val isGpu = SecurePrefs(context).get("local_jarvis_gpu", "0") == "1"
                 val config = EngineConfig(
                     modelPath = file.absolutePath,
                     backend = if (isGpu) Backend.GPU() else Backend.CPU(),
