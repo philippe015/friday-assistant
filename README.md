@@ -1,3 +1,15 @@
+## FRIDAY v3.11.0 — Gemma 4 .litertlm pris en charge sur Android
+
+FRIDAY prend en charge deux moteurs de langage fonctionnant sur le téléphone :
+- **MediaPipe** pour `gemma3-270m-it-q8.task` ([fichier compatible](https://huggingface.co/litert-community/gemma-3-270m-it/blob/main/gemma3-270m-it-q8.task)).
+- **LiteRT-LM** pour `gemma-4-E2B-it-gpu.litertlm` ([fichier compatible](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/blob/main/gemma-4-E2B-it-gpu.litertlm)).
+
+Télécharger le modèle depuis Android, puis ouvrir **Réglages → Jarvis local → Importer un modèle IA local**. FRIDAY choisit le moteur d'après le format et garde le fichier dans son stockage privé. Gemma 4 GPU pèse environ 2,34 Go et peut échouer sans assez de RAM ou de pilotes GPU/OpenCL. Le modèle MediaPipe de 304 Mo est plus adapté pour un premier essai.
+
+Un test de génération sur le téléphone reste indispensable. La reconnaissance vocale, Memory+, Mistral Web et STOP sont conservés.
+
+[Guide détaillé](docs/JARVIS_ANDROID_OFFLINE.md)
+
 ## FRIDAY v3.10.0 — Jarvis entièrement sur le téléphone, sans ordinateur
 
 Cette version intègre un **véritable moteur de langage local Android** avec MediaPipe GenAI. Les fonctions vocales et les notes personnelles restent sur le téléphone : une fois un modèle `.task` compatible importé depuis les téléchargements Android, Jarvis local peut générer des réponses sans Wi-Fi, sans connexion au PC et sans API Mistral. L'APK ne contient pas lui-même les poids du modèle, qui peuvent faire plusieurs centaines de Mo.

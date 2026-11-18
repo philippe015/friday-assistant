@@ -73,8 +73,8 @@ class FullVoiceAuditV389(unittest.TestCase):
 
     def test_version_manifest_permissions_and_no_new_external_provider(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 74", gradle)
-        self.assertIn("versionName '3.10.0'", gradle)
+        self.assertIn("versionCode 75", gradle)
+        self.assertIn("versionName '3.11.0'", gradle)
         manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
         for name in ("android.permission.INTERNET", "android.permission.RECORD_AUDIO",
                      "android.permission.FOREGROUND_SERVICE_MICROPHONE"):

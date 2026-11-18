@@ -1,3 +1,16 @@
+# Mise à jour FRIDAY v3.11.0 — Gemma 4 .litertlm directement sur Android
+
+**La v3.10.0 refusait `gemma-4-E2B-it-gpu.litertlm` car elle n'avait que MediaPipe.** La v3.11.0 introduit un deuxième moteur Android officiel, **LiteRT-LM**, sans ordinateur ni serveur. L'import distingue maintenant automatiquement les deux extensions et mémorise le moteur actif.
+
+- **Modèle léger / MediaPipe (.task)** : [gemma3-270m-it-q8.task](https://huggingface.co/litert-community/gemma-3-270m-it/blob/main/gemma3-270m-it-q8.task), environ 304 Mo. Une connexion Hugging Face et l'acceptation des conditions de Gemma peuvent être nécessaires.
+- **Modèle plus puissant / LiteRT-LM (.litertlm)** : [gemma-4-E2B-it-gpu.litertlm](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/blob/main/gemma-4-E2B-it-gpu.litertlm), environ 2,34 Go. Le processeur graphique, la mémoire RAM et les pilotes OpenCL du téléphone doivent être compatibles. Le fichier est copié en stockage privé de l'application, sans envoi au cloud.
+
+**Depuis le téléphone uniquement :** télécharger l'un des fichiers, lancer FRIDAY → Réglages → Jarvis local → Importer un modèle IA local, sélectionner le téléchargement, puis tester la génération. La compatibilité réelle ne peut être confirmée que sur l'appareil. Ne pas renommer les fichiers ni sélectionner les versions `*-web.task`, GGUF ou NPU spécifiques à d'autres puces.
+
+La version garde les commandes vocales, la voix française, Memory+ chiffrée et Mistral/Web pour les actualités. Elle **n'embarque pas le projet Python/Rust OpenJarvis complet** ; elle dispose d'un moteur IA Android fonctionnant localement après l'importation.
+
+---
+
 # FRIDAY v3.10.0 — Jarvis IA autonome sur téléphone Android
 
 ## Objectif et périmètre vérifiable
