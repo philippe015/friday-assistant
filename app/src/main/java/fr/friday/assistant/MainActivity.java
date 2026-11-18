@@ -932,6 +932,12 @@ public class MainActivity extends Activity {
                 + "\nÉtat de l'écoute : " + FridayService.voiceReadiness()
                 + "\nInterruption STOP : " + FridayService.interruptionDiagnostics()
                 + "\nTTS Android : " + FridayService.lastTtsStatus()
+                + "\nMicro Bluetooth : " + FridayService.bluetoothMicStatus()
+                + "\nMicro Bluetooth demandé : "
+                + ("1".equals(prefs.get("bluetooth_mic_enabled", "1")) ? "oui" : "non")
+                + "\nAutorisation Bluetooth : "
+                + (BluetoothMicRouter.allowed(this) ? "accordée / non requise" : "manquante")
+                + "\nMoteurs IA : Jarvis local et Mistral uniquement"
                 + "\nMode vocal : " + ("1".equals(prefs.get("listen_once", "0"))
                         ? "Une question" : "Continu")
                 + "\nRéseau Mistral : " + ("1".equals(prefs.get("web_enabled", "1"))
