@@ -355,8 +355,9 @@ public class MainActivity extends Activity {
         bargeEnabled = new CheckBox(this);
         bargeEnabled.setText("Activer STOP vocal pendant la réponse (« stop », « Friday stop », « j’ai une précision »)");
         bargeEnabled.setTextColor(Color.WHITE);
-        bargeEnabled.setChecked("1".equals(prefs.get("barge_in_enabled", "1")));
+        bargeEnabled.setChecked("1".equals(prefs.get("barge_in_enabled", "0")));
         config.addView(bargeEnabled);
+        config.addView(label("Stabilite v3.11.2 : STOP vocal desactive par defaut pour eviter les interruptions dues a l'echo du haut-parleur. Le bouton Interrompre reste disponible. Re-activez cette case uniquement apres avoir verifie le comportement avec un casque."));
         config.addView(label("Anti-écho v3.8.9 : Vosk reste actif pendant les recherches Web en attente. Il se suspend uniquement quand FRIDAY parle et pendant 2,5 secondes après. Le micro reste disponible pour les commandes STOP et précision grâce au décodeur séparé. Posez une nouvelle question après cette courte pause. Si Android bloque le micro, utilisez le bouton Interrompre."));
         config.addView(label("VITESSE VOCALE · 100 = normale (70 à 150)"));
         ttsInput = field("100", false);
