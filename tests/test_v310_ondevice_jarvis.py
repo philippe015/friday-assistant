@@ -14,7 +14,7 @@ class JarvisOnDeviceV310(unittest.TestCase):
         self.assertIn("com.google.mediapipe:tasks-genai:0.10.35", gradle)
         self.assertIn('LlmInference.createFromOptions(context,', src)
         self.assertIn('.setModelPath(model.getAbsolutePath())', src)
-        self.assertIn('.generateResponse(prompt.toString())', src)
+        self.assertIn('.generateResponse(prompt)', src)
         self.assertIn("LocalJarvisArithmetic.tryAnswer(cleaned)", src)
         self.assertIn('PersonalMemory.search(cfg, cleaned, 3)', src)
         self.assertNotIn("HttpURLConnection", src)
@@ -33,7 +33,7 @@ class JarvisOnDeviceV310(unittest.TestCase):
         self.assertIn("REQ_LOCAL_LLM_MODEL", ui)
         self.assertIn("LocalJarvisEngine.importModel(this, selected)", ui)
         self.assertIn("LocalJarvisEngine.answer(this, prefs,", ui)
-        self.assertIn("Télécharger un modèle compatible sur le téléphone", ui)
+        self.assertIn("Gemma 3 léger · MediaPipe .task", ui)
 
     def test_local_priority_preserves_mistral_without_hidden_cloud_fallback(self):
         service = java("FridayService.java")
