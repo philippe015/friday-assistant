@@ -77,7 +77,7 @@ jobs:
           else
             gh release create v3.12.3 dist/FRIDAY-v3.12.3-release.apk \
               --repo "$GITHUB_REPOSITORY" --verify-tag \
-              --title "F.R.I.D.A.Y. v3.12.3 - Saisie ecrite independante et stabilite Bluetooth" \
-              --notes "FRIDAY v3.12.3 : les questions ecrites passent directement par Jarvis local ou Mistral, sans microphone, Vosk ni Bluetooth. Les erreurs sont distinguees par moteur et affichees dans les reglages, les reponses dans la conversation et le diagnostic. Le profil mains libres HFP/SCO est reconnecte avant chaque nouvelle capture ; la sortie n'est abandonnee qu'apres trois constats de mauvais routage. Le stockage personnel chiffre reste local. APK signe compile par GitHub Actions. Le micro Bluetooth doit etre valide sur un casque reel."
+              --title "F.R.I.D.A.Y. v3.12.3 - Micro stable, saisie texte sans micro et dependances stabilisees" \
+              --notes "FRIDAY v3.12.3 : liberation du callback AudioRecord avant release() (evite fuite et rappel sur enregistreur ferme lors des reprises Bluetooth/interruptions), saisie texte independante du micro et reconnexion Bluetooth, Dependabot stabilise (AGP et androidx.core figes pour eviter les PR non compilables). Jarvis local, Mistral et Web conserves. Tests Java/Python/Rust/JS et compilation Android passes. Validation materielle recommandee."
           fi
           gh release view v3.12.3 --repo "$GITHUB_REPOSITORY" --json url,assets
