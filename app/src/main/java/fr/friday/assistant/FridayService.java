@@ -849,7 +849,7 @@ public class FridayService extends Service {
                     ? OpenJarvisClient.answer(settings, question, turn.api)
                     : streaming
                     ? streamAndSpeak(prepared, historySnapshot(), locationForApi, turn)
-                    : NativeAI.answer(settings, prepared, historySnapshot(), locationForApi, turn.api));
+                    : NativeAI.answer(settings, prepared, historySnapshot(), locationForApi, turn.api);
             if (!live(turn)) return;
             // Preuve d'une transmission API ponctuelle réussie, sans conserver les coordonnées.
             if (locationForApi != null && local == null && !jarvisQuestion) {
