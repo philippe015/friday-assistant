@@ -34,7 +34,7 @@ class BluetoothCaptureRecovery(unittest.TestCase):
     def test_actual_micro_route_checked_and_error_detail_visible(self):
         self.assertIn("public boolean wrongInputRouted(AudioRecord recorder)", ROUTER)
         self.assertIn("bluetoothMicRouter.wrongInputRouted(ar)", SERVICE)
-        self.assertIn("Android utilise le mauvais microphone", SERVICE)
+        self.assertIn("Bluetooth connecté mais micro non routé par Android", SERVICE)
         self.assertIn("captureError.getMessage()", SERVICE)
 
     def test_jarvis_mistral_and_signed_release_compatibility(self):
