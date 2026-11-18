@@ -46,6 +46,10 @@ public class MainActivity extends Activity {
     private EditText openJarvisUrl, openJarvisModel, openJarvisKey;
     private TextView openJarvisStatusLabel;
     private final AtomicBoolean openJarvisTestRunning = new AtomicBoolean(false);
+    private CheckBox localJarvisEnabled, localJarvisAll;
+    private TextView localJarvisStatus;
+    private final AtomicBoolean localJarvisImporting = new AtomicBoolean(false);
+    private final AtomicBoolean localJarvisTesting = new AtomicBoolean(false);
     private TextView voiceSampleStatus;
     private volatile boolean voiceRecording = false;
     private volatile boolean voicePreview = false;
@@ -66,6 +70,7 @@ public class MainActivity extends Activity {
     private static final int REQ_LOCATION = 19;
     private static final int REQ_PHOTO = 82;
     private static final int REQ_VOICE_SAMPLE = 83;
+    private static final int REQ_LOCAL_LLM_MODEL = 84;
     private volatile String cachedLocation = "";
     private File captureFile;
     private TextToSpeech webVoice;
@@ -210,6 +215,37 @@ public class MainActivity extends Activity {
                 + "Un succès nécessite une URL source renvoyée par Mistral. "
                 + "Si la clé, le modèle ou le compte refuse l'outil, le code d'erreur est expliqué. "
                 + "Le test peut être facturé."));
+        config.addView(label("JARVIS LOCAL SUR ANDROID · sans ordinateur ni serveur"));
+        config.addView(label("Moteur IA exécuté sur le téléphone avec MediaPipe. "
+                + "Téléchargez une fois un modèle .task ou .bin compatible, puis importez-le. "
+                + "Ensuite, les questions locales fonctionnent sans Internet. "
+                + "Les actualités Internet restent disponibles via Mistral."));
+        localJarvisEnabled = new CheckBox(this);
+        localJarvisEnabled.setText("Activer Jarvis IA local sur ce téléphone");
+        localJarvisEnabled.setTextColor(Color.WHITE);
+        localJarvisEnabled.setChecked("1".equals(prefs.get("local_jarvis_enabled", "0")));
+        config.addView(localJarvisEnabled);
+        localJarvisAll = new CheckBox(this);
+        localJarvisAll.setText("Utiliser Jarvis local pour toutes les questions générales (sans cloud)");
+        localJarvisAll.setTextColor(Color.WHITE);
+        localJarvisAll.setChecked("1".equals(prefs.get("local_jarvis_all", "0")));
+        config.addView(localJarvisAll);
+        config.addView(label("Par défaut, dites « Friday, Jarvis, explique-moi ... ». "
+                + "Pour passer complètement hors ligne, activez aussi la seconde case. "
+                + "Memory+ reste chiffrée et locale ; les outils du téléphone n'exécutent "
+                + "pas de commandes système dangereuses."));
+        config.addView(button("Importer un modèle IA local (.task / .bin)", this::chooseLocalJarvisModel));
+        config.addView(button("Télécharger un modèle compatible sur le téléphone",
+                this::openLocalJarvisModels));
+        config.addView(button("Tester Jarvis IA locale sans Internet", this::testLocalJarvis));
+        config.addView(button("Enregistrer Jarvis local", this::saveLocalJarvis));
+        localJarvisStatus = label(LocalJarvisEngine.status(this, prefs));
+        localJarvisStatus.setTextColor(Color.rgb(255, 228, 143));
+        config.addView(localJarvisStatus);
+        config.addView(label("Modèles : choisissez un fichier .task Android (pas *-web.task, "
+                + "GGUF ni .litertlm). La vitesse et la compatibilité dépendent de la RAM "
+                + "et de la puce de votre téléphone. Le modèle ne fait pas de recherches "
+                + "Web hors connexion. Le pont OpenJarvis pour PC reste facultatif."));
         config.addView(label("OPENJARVIS · connexion facultative avec un ordinateur Linux"));
         config.addView(label("FRIDAY peut déléguer une question à OpenJarvis installé sur Manjaro. "
                 + "La commande curl | bash ne fonctionne PAS dans l'APK Android. "
