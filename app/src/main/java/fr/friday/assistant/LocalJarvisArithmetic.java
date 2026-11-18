@@ -15,7 +15,19 @@ public final class LocalJarvisArithmetic {
                 .replaceFirst("^(?:friday|jarvis|open ?jarvis)[\\s,.:;!?-]*", "")
                 .replaceFirst("^(?:calcule|calculer|calcules|combien font|combien fait|quelle est la valeur de)\\s+", "");
         if (input.equals(question.trim().toLowerCase(Locale.FRENCH))) return null;
-        input = input.replace(',', '.').replaceAll("[?=]$", "").trim()
+        // Vosk retranscrit souvent les opérateurs et chiffres en toutes lettres.
+        input = java.text.Normalizer.normalize(input, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "");
+        String[] words = {"zero","un","deux","trois","quatre","cinq","six",
+                "sept","huit","neuf","dix","onze","douze","treize","quatorze",
+                "quinze","seize","dix-sept","dix-huit","dix-neuf","vingt"};
+        for (int i = words.length - 1; i >= 0; i--)
+            input = input.replaceAll("(?iu)\\b" + words[i] + "\\b", String.valueOf(i));
+        input = input.replaceAll("(?iu)\\b(?:fois|multiplie par|multiplie avec)\\b", "*")
+                .replaceAll("(?iu)\\b(?:divise par|sur)\\b", "/")
+                .replaceAll("(?iu)\\bplus\\b", "+")
+                .replaceAll("(?iu)\\bmoins\\b", "-")
+                .replace(',', '.').replaceAll("[?=]$", "").trim()
                 .replace('×', '*').replace('÷', '/').replace('−', '-')
                 .replaceAll("\\s+", "");
         if (input.length() < 3 || input.length() > 90
