@@ -12,7 +12,7 @@ class VoiceContinuityV388(unittest.TestCase):
                       src.index("// Preuve d'une transmission API ponctuelle réussie")]
         self.assertIn('boolean webQuestion = "1".equals(settings.get("web_enabled", "1"))', section)
         self.assertIn('WebSearch.shouldSearch(settings.get("web_mode", "always"), prepared, "")', section)
-        self.assertIn('boolean streaming = "1".equals(settings.get("stream_enabled", "1"))', section)
+        self.assertIn('boolean streaming = "1".equals(settings.get("stream_enabled", "0"))', section)
         self.assertIn('&& !webQuestion', section)
         self.assertIn('streamAndSpeak(prepared, historySnapshot(), locationForApi, turn)', section)
         self.assertIn('NativeAI.answer(settings, prepared, historySnapshot(), locationForApi, turn.api)', section)
@@ -46,8 +46,8 @@ class VoiceContinuityV388(unittest.TestCase):
 
     def test_version_and_privacy(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 75", gradle)
-        self.assertIn("versionName '3.11.0'", gradle)
+        self.assertIn("versionCode 76", gradle)
+        self.assertIn("versionName '3.11.1'", gradle)
         personal = (JAVA / "PersonalMemory.java").read_text(encoding="utf-8")
         self.assertIn('cfg.get("memory_share_mistral", "0")', personal)
         ai = (JAVA / "NativeAI.java").read_text(encoding="utf-8")
