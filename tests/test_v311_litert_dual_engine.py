@@ -55,7 +55,10 @@ class LiteRTDualEngineV311(unittest.TestCase):
     def test_two_exact_model_links_no_repository_ambiguity(self):
         ui = read("MainActivity.java")
         self.assertIn("gemma3-270m-it-q8.task", ui)
-        self.assertIn("gemma-4-E2B-it-gpu.litertlm", ui)
+        self.assertIn("gemma-4-E2B-it.litertlm", ui)
+        self.assertIn("Qwen3-0.6B.litertlm", ui)
+        self.assertIn("openLocalJarvisQwenModels", ui)
+        self.assertNotIn("gemma-4-E2B-it-gpu.litertlm", ui)
         self.assertIn("openLocalJarvisGemma4Models", ui)
         self.assertIn("Importer un modèle IA local (.task / .litertlm)", ui)
         self.assertIn("GGUF", ui)

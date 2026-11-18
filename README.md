@@ -1,14 +1,17 @@
-## FRIDAY v3.11.0 — Gemma 4 .litertlm pris en charge sur Android
+## FRIDAY v3.11.0 — IA locale Android et compatibilité des modèles
 
-FRIDAY prend en charge deux moteurs de langage fonctionnant sur le téléphone :
-- **MediaPipe** pour `gemma3-270m-it-q8.task` ([fichier compatible](https://huggingface.co/litert-community/gemma-3-270m-it/blob/main/gemma3-270m-it-q8.task)).
-- **LiteRT-LM** pour `gemma-4-E2B-it-gpu.litertlm` ([fichier compatible](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/blob/main/gemma-4-E2B-it-gpu.litertlm)).
+FRIDAY intègre deux moteurs locaux (Android ARM64) : MediaPipe pour les fichiers `.task` et LiteRT-LM pour les fichiers `.litertlm`. Le modèle est téléchargé séparément sur le téléphone, puis importé dans **Réglages → Jarvis local → Importer un modèle IA local**.
 
-Télécharger le modèle depuis Android, puis ouvrir **Réglages → Jarvis local → Importer un modèle IA local**. FRIDAY choisit le moteur d'après le format et garde le fichier dans son stockage privé. Gemma 4 GPU pèse environ 2,34 Go et peut échouer sans assez de RAM ou de pilotes GPU/OpenCL. Le modèle MediaPipe de 304 Mo est plus adapté pour un premier essai.
+**Choix de modèles recommandés, par compatibilité croissante en ressources :**
+- [Gemma 3 270M — `gemma3-270m-it-q8.task`](https://huggingface.co/litert-community/gemma-3-270m-it/blob/main/gemma3-270m-it-q8.task) (304 Mo, MediaPipe CPU ; téléchargement pouvant nécessiter l'acceptation d'une licence).
+- [Qwen3 0.6B — `Qwen3-0.6B.litertlm`](https://huggingface.co/litert-community/Qwen3-0.6B/blob/main/Qwen3-0.6B.litertlm) (614 Mo, LiteRT-LM CPU/GPU).
+- [Gemma 4 E2B — `gemma-4-E2B-it.litertlm`](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/blob/main/gemma-4-E2B-it.litertlm) (2,59 Go, LiteRT-LM CPU/GPU).
 
-Un test de génération sur le téléphone reste indispensable. La reconnaissance vocale, Memory+, Mistral Web et STOP sont conservés.
+**Attention à la version déjà publiée :** l'APK v3.11.0 contient encore un ancien bouton pointant vers `gemma-4-E2B-it-gpu.litertlm`, variante dédiée notamment au Web. Pour une meilleure compatibilité Android, utilisez plutôt le modèle standard `gemma-4-E2B-it.litertlm` via son lien ci-dessus. Le code source en cours de correction propose désormais Qwen3 et le modèle standard. Le nouveau bouton ne sera pas présent dans l'APK v3.11.0 avant une prochaine compilation/publication.
 
-[Guide détaillé](docs/JARVIS_ANDROID_OFFLINE.md)
+Par défaut, l'import d'un fichier LiteRT-LM sans suffixe `-gpu` sélectionne le **CPU**, moins exigeant en compatibilité de pilotes. Le GPU requiert un appareil et des bibliothèques adaptés. La génération sur le téléphone n'est **pas encore certifiée** sur tous les appareils ; un test réel hors connexion est obligatoire. Mistral Web, la reconnaissance et la voix française, Memory+ et STOP restent séparés.
+
+[Guide Jarvis Android hors ligne](docs/JARVIS_ANDROID_OFFLINE.md)
 
 ## FRIDAY v3.10.0 — Jarvis entièrement sur le téléphone, sans ordinateur
 

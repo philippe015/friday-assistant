@@ -237,7 +237,9 @@ public class MainActivity extends Activity {
         config.addView(button("Importer un modèle IA local (.task / .litertlm)", this::chooseLocalJarvisModel));
         config.addView(button("Gemma 3 léger · MediaPipe .task (304 Mo)",
                 this::openLocalJarvisModels));
-        config.addView(button("Gemma 4 E2B GPU · LiteRT-LM .litertlm (2,34 Go)",
+        config.addView(button("Qwen3 0,6B léger · LiteRT-LM CPU .litertlm (614 Mo)",
+                this::openLocalJarvisQwenModels));
+        config.addView(button("Gemma 4 E2B · LiteRT-LM CPU/GPU .litertlm (2,59 Go)",
                 this::openLocalJarvisGemma4Models));
         config.addView(button("Tester Jarvis IA locale sans Internet", this::testLocalJarvis));
         config.addView(button("Enregistrer Jarvis local", this::saveLocalJarvis));
@@ -246,9 +248,10 @@ public class MainActivity extends Activity {
         config.addView(localJarvisStatus);
         config.addView(label("Formats reconnus : .task Android MediaPipe ou .litertlm "
                 + "LiteRT-LM. Les modèles GGUF et les tâches *-web.task ne sont pas "
-                + "acceptés. Gemma 4 E2B GPU demande beaucoup de mémoire et "
-                + "un pilote GPU/OpenCL compatible ; préférez le petit Gemma 3 .task "
-                + "sur un téléphone moins puissant. L'IA locale ne connaît pas les "
+                + "acceptés. Pour privilégier la compatibilité, choisissez d'abord "
+                + "Gemma 3 .task ou Qwen3 .litertlm (CPU). Gemma 4 standard "
+                + "demande davantage de stockage et de RAM ; le GPU dépend du téléphone. "
+                + "L'IA locale ne connaît pas les "
                 + "actualités Internet hors connexion."));
         config.addView(label("OPENJARVIS · connexion facultative avec un ordinateur Linux"));
         config.addView(label("FRIDAY peut déléguer une question à OpenJarvis installé sur Manjaro. "
@@ -660,13 +663,23 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void openLocalJarvisGemma4Models() {
-        // Separate runtime. Never suggest that the MediaPipe API loads .litertlm.
+    private void openLocalJarvisQwenModels() {
+        // Modele plus leger, CPU possible; meilleur premier essai LiteRT-LM.
         Intent browser = new Intent(Intent.ACTION_VIEW,
-                Uri.parse("https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/blob/main/gemma-4-E2B-it-gpu.litertlm"));
+                Uri.parse("https://huggingface.co/litert-community/Qwen3-0.6B/blob/main/Qwen3-0.6B.litertlm"));
         try { startActivity(browser); }
         catch (Exception e) {
-            localJarvisStatus.setText("Ouvrez Hugging Face et téléchargez gemma-4-E2B-it-gpu.litertlm.");
+            localJarvisStatus.setText("Ouvrez Hugging Face et téléchargez Qwen3-0.6B.litertlm.");
+        }
+    }
+
+    private void openLocalJarvisGemma4Models() {
+        // Choisir la version Android CPU/GPU, et non la variante -gpu ciblant le Web.
+        Intent browser = new Intent(Intent.ACTION_VIEW,
+                Uri.parse("https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/blob/main/gemma-4-E2B-it.litertlm"));
+        try { startActivity(browser); }
+        catch (Exception e) {
+            localJarvisStatus.setText("Ouvrez Hugging Face et téléchargez gemma-4-E2B-it.litertlm.");
         }
     }
 
