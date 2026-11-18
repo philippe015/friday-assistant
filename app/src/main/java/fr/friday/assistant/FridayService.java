@@ -728,7 +728,12 @@ public class FridayService extends Service {
         latestQuestion = request;
         ResponseTurn turn = new ResponseTurn(anchor);
         currentTurn = turn;
-        voiceState("Question reçue · Mistral recherche · micro disponible pour une nouvelle question avec Friday");
+        boolean useJarvis = OpenJarvisPolicy.shouldRoute(request,
+                "1".equals(settings.get("openjarvis_enabled", "0")),
+                "1".equals(settings.get("openjarvis_route_all", "0")));
+        voiceState("Question reçue · "
+                + (useJarvis ? "OpenJarvis local" : "Mistral")
+                + " recherche · micro disponible pour une nouvelle question avec Friday");
         // Protège contre un fournisseur/API bloqué : aucun tour muet ne doit
         // garder l'écoute occupée indéfiniment. Un TTS en lecture n'est pas coupé.
         turn.watchdog = () -> {
@@ -826,21 +831,26 @@ public class FridayService extends Service {
                 prepared += "\n\n[CONTEXTE DE LA DEMANDE INTERROMPUE : "
                         + turn.clarificationContext + "]\n[TRAITE LA PRÉCISION ACTUELLE EN "
                         + "LIEN AVEC CE SUJET, SANS INVENTER.]";
-            // Le Web Mistral Conversations retourne déjà une réponse complète,
-            // sans phrases SSE intermédiaires. Le passer par la file de lecture
-            // progressive peut garder un thread audio en vie après la réponse
-            // et empêcher Vosk de reprendre la dictée. Ici : chemin TTS direct.
+            // OpenJarvis est un service facultatif distinct sur l'ordinateur.
+            // Aucun historique, aucune mémoire personnelle, aucun GPS n'est
+            // envoyé au serveur distant : uniquement la question demandée.
+            boolean jarvisQuestion = local == null && OpenJarvisPolicy.shouldRoute(prepared,
+                    "1".equals(settings.get("openjarvis_enabled", "0")),
+                    "1".equals(settings.get("openjarvis_route_all", "0")));
             boolean webQuestion = "1".equals(settings.get("web_enabled", "1"))
                     && WebSearch.shouldSearch(settings.get("web_mode", "always"), prepared, "");
             boolean streaming = "1".equals(settings.get("stream_enabled", "1"))
-                    && !webQuestion;
-            String answer = local != null ? local : (
-                streaming
-                ? streamAndSpeak(prepared, historySnapshot(), locationForApi, turn)
-                : NativeAI.answer(settings, prepared, historySnapshot(), locationForApi, turn.api));
+                    && !webQuestion && !jarvisQuestion;
+            if (jarvisQuestion)
+                event("status", "OpenJarvis : requête ponctuelle vers votre serveur HTTPS protégé.");
+            String answer = local != null ? local : jarvisQuestion
+                    ? OpenJarvisClient.answer(settings, prepared, turn.api)
+                    : streaming
+                    ? streamAndSpeak(prepared, historySnapshot(), locationForApi, turn)
+                    : NativeAI.answer(settings, prepared, historySnapshot(), locationForApi, turn.api));
             if (!live(turn)) return;
             // Preuve d'une transmission API ponctuelle réussie, sans conserver les coordonnées.
-            if (locationForApi != null && local == null) {
+            if (locationForApi != null && local == null && !jarvisQuestion) {
                 settings.put("gps_last_shared", String.valueOf(System.currentTimeMillis()));
                 event("gps_api", "Coordonnées GPS transmises à Mistral pour cette question (API répondante).");
             }
@@ -874,7 +884,7 @@ public class FridayService extends Service {
                 // définitivement muet. Dire une courte notification locale
                 // sans inventer une réponse Mistral ni interrompre le micro.
                 if ("1".equals(settings.get("voice_enabled", "1")) && ttsReady) {
-                    String notice = "Mistral n'a pas répondu à cette question. "
+                    String notice = "Le moteur sélectionné n'a pas répondu à cette question. "
                             + "Je reste à votre écoute. Dites Friday pour recommencer.";
                     spokenText = notice;
                     speakingNow = true;
