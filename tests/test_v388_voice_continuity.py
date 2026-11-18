@@ -12,7 +12,7 @@ class VoiceContinuityV388(unittest.TestCase):
                       src.index("// Preuve d'une transmission API ponctuelle réussie")]
         self.assertIn('boolean webQuestion = "1".equals(settings.get("web_enabled", "1"))', section)
         self.assertIn('WebSearch.shouldSearch(settings.get("web_mode", "always"), prepared, "")', section)
-        self.assertIn('boolean streaming = "1".equals(settings.get("stream_enabled", "1"))', section)
+        self.assertIn('boolean streaming = "1".equals(settings.get("stream_enabled", "0"))', section)
         self.assertIn('&& !webQuestion', section)
         self.assertIn('streamAndSpeak(prepared, historySnapshot(), locationForApi, turn)', section)
         self.assertIn('NativeAI.answer(settings, prepared, historySnapshot(), locationForApi, turn.api)', section)
