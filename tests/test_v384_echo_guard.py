@@ -23,7 +23,7 @@ class EchoRegression(unittest.TestCase):
         src = (JAVA / "FridayService.java").read_text(encoding="utf-8")
         self.assertIn("stopRecognizer.setGrammar(VoiceStopSpotter.GRAMMAR)", src)
         self.assertIn("stopSpotter.accept(", src)
-        self.assertIn("interruptResponse(action == VoiceStopSpotter.Action.CLARIFY", src)
+        self.assertIn("interruptResponse(action == VoiceStopSpotter.Action.STOP_MIC", src)
         start = src.index("private synchronized void interruptResponse(String status)")
         end = src.index("private static double[] confidenceStats", start)
         interrupt = src[start:end]
