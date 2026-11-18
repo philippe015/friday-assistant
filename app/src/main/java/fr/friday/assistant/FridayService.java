@@ -834,7 +834,7 @@ public class FridayService extends Service {
             // OpenJarvis est un service facultatif distinct sur l'ordinateur.
             // Aucun historique, aucune mémoire personnelle, aucun GPS n'est
             // envoyé au serveur distant : uniquement la question demandée.
-            boolean jarvisQuestion = local == null && OpenJarvisPolicy.shouldRoute(prepared,
+            boolean jarvisQuestion = local == null && OpenJarvisPolicy.shouldRoute(question,
                     "1".equals(settings.get("openjarvis_enabled", "0")),
                     "1".equals(settings.get("openjarvis_route_all", "0")));
             boolean webQuestion = "1".equals(settings.get("web_enabled", "1"))
@@ -844,7 +844,9 @@ public class FridayService extends Service {
             if (jarvisQuestion)
                 event("status", "OpenJarvis : requête ponctuelle vers votre serveur HTTPS protégé.");
             String answer = local != null ? local : jarvisQuestion
-                    ? OpenJarvisClient.answer(settings, prepared, turn.api)
+                    // Uniquement la question formulée à cet instant : jamais
+                    // le contexte ajouté par FRIDAY ni les autres tours.
+                    ? OpenJarvisClient.answer(settings, question, turn.api)
                     : streaming
                     ? streamAndSpeak(prepared, historySnapshot(), locationForApi, turn)
                     : NativeAI.answer(settings, prepared, historySnapshot(), locationForApi, turn.api));
