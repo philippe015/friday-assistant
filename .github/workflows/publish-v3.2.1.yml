@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout de la version corrigee
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Verification version du projet
         shell: bash

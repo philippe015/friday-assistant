@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout version 3.2.2
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Vérifier la version du code
         run: |
