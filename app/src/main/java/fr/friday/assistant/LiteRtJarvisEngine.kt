@@ -43,25 +43,41 @@ object LiteRtJarvisEngine {
             cancellation?.check()
             if (activeEngine == null || activePath != file.absolutePath) {
                 closeLocked()
-                val isGpu = SecurePrefs(context).get("local_jarvis_gpu", "0") == "1"
-                val config = EngineConfig(
-                    modelPath = file.absolutePath,
-                    backend = if (isGpu) Backend.GPU() else Backend.CPU(),
-                    cacheDir = context.cacheDir.absolutePath
-                )
-                val candidate = Engine(config)
-                try {
-                    candidate.initialize()
-                } catch (failure: Exception) {
-                    // The documentation explicitly forbids closing an engine
-                    // that failed initialize(), so it is not cached or closed.
+                val prefs = SecurePrefs(context)
+                val wantsGpu = prefs.get("local_jarvis_gpu", "0") == "1"
+                // Compatibilité : essayer GPU puis repli CPU si le pilote GPU/OpenCL
+                // est absent ou si le modèle GPU ne charge pas. Ne jamais appeler
+                // close() sur un moteur dont initialize() a échoué (doc LiteRT).
+                val backends = if (wantsGpu) listOf(Backend.GPU(), Backend.CPU())
+                               else listOf(Backend.CPU())
+                var selected: Engine? = null
+                var lastFailure: Exception? = null
+                for (backend in backends) {
+                    try {
+                        val config = EngineConfig(
+                            modelPath = file.absolutePath,
+                            backend = backend,
+                            cacheDir = context.cacheDir.absolutePath,
+                            maxNumTokens = 2048
+                        )
+                        val candidate = Engine(config)
+                        candidate.initialize()
+                        selected = candidate
+                        prefs.put("local_jarvis_gpu", if (backend is Backend.GPU) "1" else "0")
+                        break
+                    } catch (failure: Exception) {
+                        lastFailure = failure
+                    }
+                }
+                if (selected == null) {
                     throw IOException(
-                        "Impossible d'initialiser LiteRT-LM. Vérifiez la RAM, le modèle et " +
-                            (if (isGpu) "le pilote GPU/OpenCL du téléphone." else "la compatibilité CPU."),
-                        failure
+                        "Impossible d'initialiser LiteRT-LM" +
+                            (if (wantsGpu) " (GPU puis CPU)" else " (CPU)") +
+                            ". Vérifiez la RAM, le modèle et le pilote GPU/OpenCL du téléphone.",
+                        lastFailure
                     )
                 }
-                activeEngine = candidate
+                activeEngine = selected
                 activePath = file.absolutePath
             }
             cancellation?.check()

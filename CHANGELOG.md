@@ -1,3 +1,11 @@
+## [3.12.5] — compatibilité Jarvis local (LiteRT-LM)
+
+- **Repli GPU → CPU** : si le modèle `.litertlm` GPU ne charge pas (pilote OpenCL absent
+  ou téléphone incompatible), FRIDAY tente automatiquement le backend **CPU** au lieu
+  d'échouer. Le réglage `local_jarvis_gpu` est corrigé en conséquence.
+- **`maxNumTokens = 2048`** pour LiteRT-LM : évite les réponses tronquées (« la voix se coupe »)
+  sur les longues générations locales.
+
 ## [3.12.4] — correctif du modèle Mistral par défaut
 
 - **`mistral-small-latest` renvoyait `429` sur certaines offres** (modèle non inclus),
