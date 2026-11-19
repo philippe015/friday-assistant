@@ -1,51 +1,30 @@
-"""Test statique de migration : aucun appel DeepSeek dans le code exécuté."""
+"""FRIDAY 3.13.0: Mistral is retired; Jarvis only (local on-device inference)."""
 from pathlib import Path
 import unittest
-
-ROOT = Path(__file__).resolve().parents[1]
-JAVA = ROOT / "app/src/main/java/fr/friday/assistant"
-
-class MistralOnlyTest(unittest.TestCase):
-    def test_no_deepseek_endpoint_or_branding(self):
-        runtime = [
-            JAVA / "NativeAI.java",
-            JAVA / "FridayService.java",
-            ROOT / "app/src/main/assets/index.html",
-        ]
-        for filename in runtime:
-            with self.subTest(filename=filename.name):
-                text = filename.read_text(encoding="utf-8").lower()
-                self.assertNotIn("deepseek", text)
-                self.assertNotIn("platform.deepseek", text)
-
-    def test_legacy_key_removed_without_erasing_mistral_key(self):
-        code = (JAVA / "MainActivity.java").read_text(encoding="utf-8")
-        self.assertIn('prefs.setSecret("openai", "");', code)
-        self.assertNotIn('prefs.setSecret("mistral", "");', code)
-        self.assertIn('prefs.put("mistral_only_v330", "1")', code)
-        self.assertIn('prefs.secret("mistral")', code)
-        self.assertIn('https://api.mistral.ai/v1', code)
-
-    def test_api_provider_and_web_search(self):
-        code = (JAVA / "NativeAI.java").read_text(encoding="utf-8")
-        self.assertIn("https://api.mistral.ai/v1", code)
-        self.assertIn('"/chat/completions"', code)
-        self.assertIn('"/conversations"', code)
-        self.assertIn('"web_search"', code)
-        self.assertIn('"tool_reference"', code)
-        self.assertIn('settings.secret("mistral")', code)
-        self.assertNotIn('secret("openai")', code)
-        self.assertNotIn('api.deepseek.com', code)
-
+ROOT=Path(__file__).resolve().parents[1]
+SRC=ROOT/"app/src/main/java/fr/friday/assistant"
+class JarvisOnlyProvider(unittest.TestCase):
+    def test_no_deepseek_or_new_cloud_provider(self):
+        for f in ["NativeAI.java","FridayService.java"]:
+            text=(SRC/f).read_text(encoding="utf-8").lower()
+            self.assertNotIn("api.deepseek.com",text)
+            self.assertNotIn("openai.com/v1/",text)
+    def test_retired_provider_key_is_cleared(self):
+        ui=(SRC/"MainActivity.java").read_text(encoding="utf-8")
+        self.assertIn('prefs.setSecret("mistral", "");',ui)
+        self.assertIn('prefs.put("provider", "jarvis_local")',ui)
+        self.assertIn('prefs.put("mode", "jarvis_local")',ui)
+        self.assertIn('prefs.put("local_jarvis_all", "1")',ui)
+    def test_no_mistral_request_may_succeed_even_via_legacy_entrypoint(self):
+        ai=(SRC/"NativeAI.java").read_text(encoding="utf-8")
+        self.assertIn("private static boolean cloudDisabled() { return true; }",ai)
+        for signature in ["public static String answer(","public static List<String> listModels(",
+                          "public static String testWeb(","public static String answerStreaming(",
+                          "private static JSONObject postOnce("]:
+            self.assertIn(signature,ai)
+        self.assertGreaterEqual(ai.count("blockCloud();"),5)
     def test_version(self):
-        version = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        import re
-        code = re.search(r"versionCode (\d+)", version)
-        name = re.search(r"versionName '(\d+)\.(\d+)\.(\d+)'", version)
-        self.assertIsNotNone(code)
-        self.assertIsNotNone(name)
-        self.assertGreaterEqual(int(code.group(1)), 54)
-        self.assertGreaterEqual(tuple(int(x) for x in name.groups()), (3, 3, 0))
-
-if __name__ == "__main__":
-    unittest.main()
+        gradle=(ROOT/"app/build.gradle").read_text(encoding="utf-8")
+        self.assertIn("versionCode 85",gradle)
+        self.assertIn("versionName '3.13.0'",gradle)
+if __name__=="__main__": unittest.main()
