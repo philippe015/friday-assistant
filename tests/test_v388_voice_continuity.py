@@ -10,9 +10,9 @@ class VoiceContinuityV388(unittest.TestCase):
         src=(JAVA/"FridayService.java").read_text(encoding="utf-8")
         section=src[src.index("String prepared = PythonBrain.prepareQuestion(question)"):
                     src.index("// Aucune coordonnée GPS n'est envoyée")]
-        self.assertIn("Jarvis seul : aucune branche Mistral",section)
+        self.assertIn("Recherche publique HTTPS facultative",section)
         self.assertIn("LocalJarvisEngine.answer(this, settings, question, turn.api)",section)
-        self.assertNotIn("WebSearch.shouldSearch(",section)
+        self.assertIn("JarvisInternet.shouldResearch(settings, question)",section)
         self.assertNotIn("NativeAI.answer(",section)
         self.assertNotIn("streamAndSpeak(prepared",section)
 

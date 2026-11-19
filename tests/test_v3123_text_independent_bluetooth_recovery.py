@@ -21,7 +21,7 @@ class WrittenInputIndependent(unittest.TestCase):
         self.assertIn('fault = "Erreur " + engineName',typed)
         self.assertIn("manualAnswerLabel.setText(result)",typed)
         self.assertIn("PrivateConversationHistory.append(",typed)
-        self.assertIn("playWebVoice(result);",typed)
+        self.assertIn("playWebVoice(spokenResult);",typed)
         self.assertIn("window.fridayTypedReply=function(question,answer)",HTML)
     def test_bluetooth_not_in_public_settings(self):
         self.assertNotIn("bluetoothMicEnabled",MAIN)

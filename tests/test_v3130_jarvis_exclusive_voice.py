@@ -18,7 +18,7 @@ class JarvisExclusiveVoice(unittest.TestCase):
         self.assertNotIn("JarvisMistralRouting.useLocal(", typed)
         self.assertIn("LocalJarvisEngine.answer(", typed)
         self.assertIn('String engineName = "Jarvis local";', typed)
-        self.assertIn('playWebVoice(result);', typed)
+        self.assertIn('playWebVoice(spokenResult);', typed)
         self.assertIn('prefs.get("voice_enabled", "1")', typed)
 
     def test_tts_reads_long_replies_in_french(self):
