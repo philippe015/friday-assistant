@@ -6,16 +6,15 @@ ROOT = Path(__file__).resolve().parents[1]
 JAVA = ROOT / "app/src/main/java/fr/friday/assistant"
 
 class VoiceContinuityV388(unittest.TestCase):
-    def test_web_queries_bypass_unneeded_streaming_audio_thread(self):
-        src = (JAVA / "FridayService.java").read_text(encoding="utf-8")
-        section = src[src.index("String prepared = PythonBrain.prepareQuestion(question)"):
-                      src.index("// Preuve d'une transmission API ponctuelle réussie")]
-        self.assertIn('boolean webQuestion = "1".equals(settings.get("web_enabled", "1"))', section)
-        self.assertIn('WebSearch.shouldSearch(settings.get("web_mode", "always"), prepared, "")', section)
-        self.assertIn('boolean streaming = "1".equals(settings.get("stream_enabled", "0"))', section)
-        self.assertIn('&& !webQuestion', section)
-        self.assertIn('streamAndSpeak(prepared, historySnapshot(), locationForApi, turn)', section)
-        self.assertIn('NativeAI.answer(settings, prepared, historySnapshot(), locationForApi, turn.api)', section)
+    def test_local_jarvis_does_not_launch_remote_streaming(self):
+        src=(JAVA/"FridayService.java").read_text(encoding="utf-8")
+        section=src[src.index("String prepared = PythonBrain.prepareQuestion(question)"):
+                    src.index("// Aucune coordonnée GPS n'est envoyée")]
+        self.assertIn("Jarvis seul : aucune branche Mistral",section)
+        self.assertIn("LocalJarvisEngine.answer(this, settings, question, turn.api)",section)
+        self.assertNotIn("WebSearch.shouldSearch(",section)
+        self.assertNotIn("NativeAI.answer(",section)
+        self.assertNotIn("streamAndSpeak(prepared",section)
 
     def test_stream_audio_queue_does_not_wait_for_dead_worker(self):
         src = (JAVA / "FridayService.java").read_text(encoding="utf-8")
@@ -46,8 +45,8 @@ class VoiceContinuityV388(unittest.TestCase):
 
     def test_version_and_privacy(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 84", gradle)
-        self.assertIn("versionName '3.12.6'", gradle)
+        self.assertIn("versionCode 85", gradle)
+        self.assertIn("versionName '3.13.0'", gradle)
         personal = (JAVA / "PersonalMemory.java").read_text(encoding="utf-8")
         self.assertIn('cfg.get("memory_share_mistral", "0")', personal)
         ai = (JAVA / "NativeAI.java").read_text(encoding="utf-8")

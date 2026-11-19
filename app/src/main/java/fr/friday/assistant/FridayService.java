@@ -878,11 +878,9 @@ public class FridayService extends Service {
         latestQuestion = request;
         ResponseTurn turn = new ResponseTurn(anchor);
         currentTurn = turn;
-        boolean localJarvis = JarvisMistralRouting.useLocal(request,
-                "1".equals(settings.get("local_jarvis_enabled", "0")),
-                "1".equals(settings.get("local_jarvis_all", "0")));
+        boolean localJarvis = true; // Mode exclusif Jarvis pour toute demande vocale.
         voiceState("Question reçue · "
-                + (localJarvis ? "Jarvis sur le téléphone, sans réseau" : "Mistral")
+                + "Jarvis sur le téléphone, sans réseau"
                 + " · micro disponible pour une nouvelle question avec Friday");
         // Protège contre un fournisseur/API bloqué : aucun tour muet ne doit
         // garder l'écoute occupée indéfiniment. Un TTS en lecture n'est pas coupé.
@@ -890,7 +888,7 @@ public class FridayService extends Service {
             if (live(turn) && TtsEchoGate.staleNetworkTurn(
                     true, speakingNow, SystemClock.elapsedRealtime(),
                     turn.startedAt, MAX_PENDING_WEB_MS)) {
-                event("error", "Délai de recherche Mistral dépassé. "
+                event("error", "Délai de réponse Jarvis local dépassé. "
                         + "Vous pouvez poser une nouvelle question.");
                 interruptResponse("Recherche expirée · microphone disponible · dites Friday.");
             }
@@ -905,17 +903,14 @@ public class FridayService extends Service {
     private void answerTurn(String question, ResponseTurn turn) {
         if (!live(turn)) return;
         boolean memoryAction = MemoryIntent.kind(question) != MemoryIntent.NONE;
-        boolean requestedOnDevice = JarvisMistralRouting.useLocal(question,
-                "1".equals(settings.get("local_jarvis_enabled", "0")),
-                "1".equals(settings.get("local_jarvis_all", "0")));
+        boolean requestedOnDevice = true; // Aucune réponse IA distante.
         try {
             if (!memoryAction && live(turn)) event("user", question);
             if (live(turn)) event("status", memoryAction ? "Commande mémoire locale…"
-                    : requestedOnDevice ? "Jarvis local réfléchit sur le téléphone…"
-                    : "Réflexion Mistral… Vous pouvez m'interrompre.");
+                    : "Jarvis local réfléchit sur le téléphone…");
             String local = PersonalMemory.command(settings, question);
-            if (local == null) local = PythonBrain.localAnswer(question);
-            if (local == null) local = deviceAnswer(question);
+            // Les commandes strictement locales conservent leur fonctionnement.
+            // Toutes les autres questions passent par le modèle Jarvis installé.
             String locationForApi = null;
             if (local == null && LocationIntent.nearby(question)) {
                 if (!"1".equals(settings.get("location_enabled", "0"))) {
@@ -949,7 +944,7 @@ public class FridayService extends Service {
                         if (!live(turn)) return;
                         // Le GPS Android et l'autorisation de transmettre les coordonnées
                         // à Mistral sont deux choix indépendants. Ne jamais les confondre.
-                        boolean sharingAllowed = "1".equals(settings.get("location_share", "0"));
+                        boolean sharingAllowed = false; // Jarvis local uniquement : pas de GPS transmis.
                         if (sharingAllowed) {
                             locationForApi = fix.forAi()
                                     + (place.isEmpty() ? "" :
@@ -965,12 +960,12 @@ public class FridayService extends Service {
                         } else if (LocationIntent.direct(question)) {
                             local = AndroidPlaceResolver.userText(fix, place)
                                     + " La position reste uniquement sur votre téléphone : "
-                                    + "le partage des coordonnées avec Mistral n'est pas autorisé. "
+                                    + "les coordonnées GPS restent uniquement sur cet appareil. "
                                     + "Pour l'activer, choisissez « Configurer le GPS pour "
                                     + "les réponses locales » dans les réglages.";
                         } else {
                             local = "J'ai trouvé votre position sur le téléphone, mais "
-                                    + "son partage avec Mistral n'est pas autorisé. "
+                                    + "les recherches en ligne sont désactivées. "
                                     + "Autorisez le partage ponctuel GPS dans les réglages "
                                     + "pour rechercher des informations autour de vous.";
                         }
@@ -979,36 +974,20 @@ public class FridayService extends Service {
             }
             if (!live(turn)) return;
             String prepared = PythonBrain.prepareQuestion(question);
-            if (local == null && "1".equals(settings.get("web_enabled", "1"))
-                    && RecentNewsPolicy.requiresRecentNews(prepared)) {
-                event("status", "Recherche Internet réelle des actualités des "
-                        + RecentNewsPolicy.requestedHours(prepared)
-                        + " dernières heures. Vérification des sources et dates de publication…");
-            }
+            if (local == null && RecentNewsPolicy.requiresRecentNews(prepared))
+                event("status", "Jarvis hors ligne : actualités récentes non vérifiables sans Internet.");
             if (!turn.clarificationContext.isEmpty())
                 prepared += "\n\n[CONTEXTE DE LA DEMANDE INTERROMPUE : "
                         + turn.clarificationContext + "]\n[TRAITE LA PRÉCISION ACTUELLE EN "
                         + "LIEN AVEC CE SUJET, SANS INVENTER.]";
-            // Deux moteurs uniquement. Jamais d'appel au serveur OpenJarvis.
-            // Un échec d'inférence locale n'envoie pas la question à Mistral.
-            boolean localJarvis = local == null && requestedOnDevice;
-            boolean webQuestion = "1".equals(settings.get("web_enabled", "1"))
-                    && WebSearch.shouldSearch(settings.get("web_mode", "always"), prepared, "");
-            boolean streaming = "1".equals(settings.get("stream_enabled", "0"))
-                    && !webQuestion && !localJarvis;
-            if (localJarvis)
-                event("status", "Jarvis local : réflexion sur ce téléphone, aucune connexion externe.");
-            String answer = local != null ? local : localJarvis
-                    ? LocalJarvisEngine.answer(this, settings, question, turn.api)
-                    : streaming
-                    ? streamAndSpeak(prepared, historySnapshot(), locationForApi, turn)
-                    : NativeAI.answer(settings, prepared, historySnapshot(), locationForApi, turn.api);
+            // Jarvis seul : aucune branche Mistral, SSE ni autre fournisseur.
+            boolean localJarvis = true;
+            event("status", "Jarvis local : génération sur le téléphone, aucune IA distante.");
+            String answer = local != null ? local
+                    : LocalJarvisEngine.answer(this, settings, question, turn.api);
             if (!live(turn)) return;
             // Preuve d'une transmission API ponctuelle réussie, sans conserver les coordonnées.
-            if (locationForApi != null && local == null && !localJarvis) {
-                settings.put("gps_last_shared", String.valueOf(System.currentTimeMillis()));
-                event("gps_api", "Coordonnées GPS transmises à Mistral pour cette question (API répondante).");
-            }
+            // Aucune coordonnée GPS n'est envoyée à une API distante.
             boolean privateLocation = LocationIntent.nearby(question);
             if (!privateLocation && !memoryAction) {
                 addHistory("user", question); addHistory("assistant", answer);

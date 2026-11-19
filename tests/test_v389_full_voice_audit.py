@@ -56,7 +56,7 @@ class FullVoiceAuditV389(unittest.TestCase):
         self.assertIn("FridayService.voiceReadiness()", ui)
         self.assertIn("FridayService.lastTtsStatus()", ui)
         self.assertIn("showVoiceDiagnostics()", ui)
-        self.assertIn("Diagnostic complet de l'écoute", ui)
+        self.assertIn("Diagnostic complet · micro / Vosk / Jarvis / voix", ui)
         self.assertIn('newPlainText(\n                                "friday-diagnostic-sans-secrets"', ui)
         self.assertIn("Aucune clé, aucun GPS, aucun contenu de conversation", ui)
 
@@ -74,8 +74,8 @@ class FullVoiceAuditV389(unittest.TestCase):
 
     def test_version_manifest_permissions_and_no_new_external_provider(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 84", gradle)
-        self.assertIn("versionName '3.12.6'", gradle)
+        self.assertIn("versionCode 85", gradle)
+        self.assertIn("versionName '3.13.0'", gradle)
         manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
         for name in ("android.permission.INTERNET", "android.permission.RECORD_AUDIO",
                      "android.permission.FOREGROUND_SERVICE_MICROPHONE"):

@@ -21,12 +21,16 @@ class OnlyLocalJarvisAndMistral(unittest.TestCase):
         self.assertIn('prefs.put("openjarvis_enabled", "0")', ui)
         self.assertIn('prefs.put("openjarvis_route_all", "0")', ui)
 
-    def test_jarvis_and_mistral_are_only_active_ai_choices(self):
-        voice = read("FridayService.java")
-        self.assertIn("JarvisMistralRouting.useLocal(question", voice)
-        self.assertIn("LocalJarvisEngine.answer(this, settings, question, turn.api)", voice)
-        self.assertIn("NativeAI.answer(settings, prepared", voice)
-        self.assertIn('new JSONObject().put("type", "web_search")', read("NativeAI.java"))
+    def test_jarvis_is_the_only_active_ai_engine(self):
+        voice=read("FridayService.java")
+        ui=read("MainActivity.java")
+        cloud=read("NativeAI.java")
+        self.assertIn("boolean requestedOnDevice = true;",voice)
+        self.assertIn("LocalJarvisEngine.answer(this, settings, question, turn.api)",voice)
+        self.assertNotIn("NativeAI.answer(settings, prepared",voice)
+        self.assertIn('prefs.put("local_jarvis_all", "1")',ui)
+        self.assertIn('prefs.put("web_enabled", "0")',ui)
+        self.assertIn("blockCloud();",cloud)
 
     def test_historical_bridge_library_cannot_be_invoked(self):
         client = read("OpenJarvisClient.java")
@@ -36,8 +40,8 @@ class OnlyLocalJarvisAndMistral(unittest.TestCase):
 
     def test_apk_version(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 84", gradle)
-        self.assertIn("versionName '3.12.6'", gradle)
+        self.assertIn("versionCode 85", gradle)
+        self.assertIn("versionName '3.13.0'", gradle)
 
 if __name__ == "__main__":
     unittest.main()

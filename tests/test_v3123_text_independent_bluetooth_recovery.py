@@ -16,14 +16,14 @@ class WrittenInputIndependent(unittest.TestCase):
         self.assertNotIn("FridayService.ACTION_ASK_TEXT",typed)
         self.assertNotIn("Manifest.permission.RECORD_AUDIO",typed)
         self.assertNotIn("startListening()",typed)
-        self.assertIn("JarvisMistralRouting.useLocal(",typed)
+        self.assertNotIn("JarvisMistralRouting.useLocal(",typed)
         self.assertIn("LocalJarvisEngine.answer(",typed)
-        self.assertIn("NativeAI.answer(",typed)
+        self.assertNotIn("NativeAI.answer(",typed)
         self.assertIn("new Thread(",typed)
 
     def test_errors_identify_selected_engine_and_answer_visible(self):
         typed=MAIN.split("private void sendQuestion(String question) {",1)[1].split("private void testVoice()",1)[0]
-        self.assertIn('offline ? "Jarvis local" : "Mistral"',typed)
+        self.assertIn('String engineName = "Jarvis local";',typed)
         self.assertIn('fault = "Erreur " + engineName',typed)
         self.assertIn('manualAnswerLabel.setText(result)',typed)
         self.assertIn('PrivateConversationHistory.append(',typed)
@@ -34,9 +34,9 @@ class WrittenInputIndependent(unittest.TestCase):
 
     def test_no_unintended_cloud_fallback_from_local(self):
         typed=MAIN.split("private void sendQuestion(String question) {",1)[1].split("private void testVoice()",1)[0]
-        self.assertIn("if (offline) {",typed)
+        self.assertNotIn("if (offline) {",typed)
         self.assertIn("LocalJarvisEngine.answer(",typed)
-        self.assertIn("} else {",typed)
+        self.assertNotIn("NativeAI.answer(",typed)
         self.assertNotIn("catch (Exception localError)",typed)
 
 class BluetoothRetry(unittest.TestCase):
@@ -57,8 +57,8 @@ class BluetoothRetry(unittest.TestCase):
 
     def test_version(self):
         gradle=(ROOT/"app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 84",gradle)
-        self.assertIn("versionName '3.12.6'",gradle)
+        self.assertIn("versionCode 85",gradle)
+        self.assertIn("versionName '3.13.0'",gradle)
 
 if __name__=="__main__":
     unittest.main()

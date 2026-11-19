@@ -40,7 +40,7 @@ class MemoryPlusPrivacy(unittest.TestCase):
         self.assertIn('system(cfg, question)', ai)
         self.assertNotIn("PersonalMemory.context(cfg);", ai)
         activity = java("MainActivity.java")
-        self.assertIn('prefs.get("memory_share_mistral", "0")', activity)
+        self.assertIn('prefs.put("memory_share_mistral", "0")', activity)
         self.assertIn('prefs.put("memory_share_mistral"', activity)
         self.assertIn("memorySearchInput", activity)
         self.assertIn("PersonalMemory.update", activity)

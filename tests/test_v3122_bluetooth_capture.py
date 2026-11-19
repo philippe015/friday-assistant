@@ -39,8 +39,8 @@ class BluetoothCaptureRecovery(unittest.TestCase):
 
     def test_jarvis_mistral_and_signed_release_compatibility(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 84", gradle)
-        self.assertIn("versionName '3.12.6'", gradle)
+        self.assertIn("versionCode 85", gradle)
+        self.assertIn("versionName '3.13.0'", gradle)
         self.assertNotIn("OpenJarvisClient.answer", SERVICE)
 
 if __name__ == "__main__":

@@ -111,6 +111,22 @@ public class MainActivity extends Activity {
             prefs.put("web_mode", "always");
             prefs.put("web_always_default_v386", "1");
         }
+        // Edition JARVIS 100 % locale. Désactivation persistante de tout routage
+        // Mistral, du partage vers le cloud et de la recherche Web par LLM.
+        if (!"1".equals(prefs.get("jarvis_exclusive_v3130", "0"))) {
+            prefs.setSecret("mistral", "");
+            prefs.put("voice_enabled", "1");
+            prefs.put("jarvis_exclusive_v3130", "1");
+        }
+        prefs.put("mode", "jarvis_local");
+        prefs.put("provider", "jarvis_local");
+        prefs.put("local_jarvis_enabled", "1");
+        prefs.put("local_jarvis_all", "1");
+        prefs.put("web_enabled", "0");
+        prefs.put("web_mode", "off");
+        prefs.put("stream_enabled", "0");
+        prefs.put("memory_share_mistral", "0");
+        prefs.put("location_share", "0");
         // Supprime une éventuelle ancienne clé Google Places, désormais inutilisée.
         try { prefs.setSecret("places", ""); } catch (Exception ignored) {}
         buildUi();
@@ -181,66 +197,30 @@ public class MainActivity extends Activity {
         outer.addView(configScroll, new LinearLayout.LayoutParams(-1, dp(340)));
         config.addView(label("MOTEUR VOCAL LOCAL · français Vosk (~41 Mo à télécharger une fois)"));
         config.addView(button(ModelInstaller.installed(this) ? "✓ Modèle installé" : "↓ Télécharger le modèle français", this::installModel));
-        config.addView(label("MOTEURS IA · Jarvis local sur Android + Mistral (Internet)"));
-        mistralModel = field("ministral-8b-latest", false);
-        mistralModel.setText(prefs.get("mistral_model", "ministral-8b-latest"));
-        config.addView(label("Modèle Mistral"));
-        config.addView(mistralModel);
-        config.addView(label("Clé API Mistral (laissez vide pour conserver)"));
-        mistralKey = field(prefs.hasSecret("mistral") ? "Clé déjà enregistrée" : "Clé manquante", true);
-        config.addView(mistralKey);
-        mistralKeyState = label(prefs.hasSecret("mistral")
-                ? "✔ Clé Mistral : enregistrée"
-                : "✘ Clé Mistral : absente — collez-la puis appuyez sur « Enregistrer la clé »");
-        config.addView(mistralKeyState);
-        config.addView(button("💾 Enregistrer la clé Mistral", this::saveKeyOnly));
-        config.addView(button("🌐 Ouvrir Mistral Studio · clés API", this::openMistralPage));
-        config.addView(button("🔍 Détecter les modèles Mistral", this::detectModels));
-        webEnabled = new CheckBox(this);
-        webEnabled.setText("Recherche Web (Mistral Conversations) : réponses sourcées, API facturable");
-        webEnabled.setTextColor(Color.WHITE);
-        webEnabled.setChecked("1".equals(prefs.get("web_enabled", "1")));
-        config.addView(webEnabled);
-        webAlways = new CheckBox(this);
-        webAlways.setText("Recherche Internet TOUJOURS active pour Mistral (par défaut ; peut être facturée)");
-        webAlways.setTextColor(Color.WHITE);
-        webAlways.setChecked("always".equals(prefs.get("web_mode", "always")));
-        config.addView(webAlways);
-        config.addView(label("Par défaut, FRIDAY tente une recherche Internet à chaque question envoyée à Mistral. "
-                + "Les réponses purement locales ne nécessitent pas de réseau. "
-                + "Décochez seulement pour revenir au mode Automatique. "
-                + "Mistral peut ne pas exécuter web_search ; FRIDAY le signalera. "
-                + "Chaque tentative peut coûter des crédits API."));
-        config.addView(button("🌐 Activer et tester la recherche Web Mistral", this::enableAndTestWeb));
-        webDiagnosticLabel = label(prefs.get("web_last_test_status",
-                "Aucun test Web effectué. Appuyez sur le bouton pour connaître le résultat réel."));
-        webDiagnosticLabel.setTextColor(Color.rgb(255, 228, 143));
-        webDiagnosticLabel.setTextSize(14);
-        webDiagnosticLabel.setPadding(dp(8), dp(8), dp(8), dp(12));
-        config.addView(webDiagnosticLabel);
-        config.addView(label("Le résultat du test apparaît ici ET dans une fenêtre lisible. "
-                + "Un succès nécessite une URL source renvoyée par Mistral. "
-                + "Si la clé, le modèle ou le compte refuse l'outil, le code d'erreur est expliqué. "
-                + "Le test peut être facturé."));
+        config.addView(label("MOTEUR UNIQUE · Jarvis IA installé sur le téléphone. "
+                + "Aucun fournisseur Mistral, aucune requête Web vers un LLM. "
+                + "Téléchargez et importez un modèle compatible pour générer vos réponses. "
+                + "Les réponses aux questions écrites sont également prononcées."));
         config.addView(label("JARVIS LOCAL SUR ANDROID · sans ordinateur ni serveur"));
         config.addView(label("Deux moteurs IA locaux : MediaPipe pour .task et LiteRT-LM "
                 + "pour .litertlm (dont Gemma 4 E2B). Aucun ordinateur nécessaire. "
                 + "Téléchargez un modèle une fois, puis importez-le depuis Android. "
-                + "Les actualités récentes restent disponibles avec Mistral via Internet."));
+                + "Les actualités et recherches Internet ne sont pas disponibles sans réseau."));
         localJarvisEnabled = new CheckBox(this);
         localJarvisEnabled.setText("Activer Jarvis IA local sur ce téléphone");
         localJarvisEnabled.setTextColor(Color.WHITE);
-        localJarvisEnabled.setChecked("1".equals(prefs.get("local_jarvis_enabled", "0")));
+        localJarvisEnabled.setChecked(true);
+        localJarvisEnabled.setEnabled(false);
         config.addView(localJarvisEnabled);
         localJarvisAll = new CheckBox(this);
-        localJarvisAll.setText("Jarvis local pour les questions générales, Mistral pour Internet");
+        localJarvisAll.setText("Toutes les questions sont traitées localement par Jarvis");
         localJarvisAll.setTextColor(Color.WHITE);
-        localJarvisAll.setChecked("1".equals(prefs.get("local_jarvis_all", "0")));
+        localJarvisAll.setChecked(true);
+        localJarvisAll.setEnabled(false);
         config.addView(localJarvisAll);
-        config.addView(label("Avec la deuxième case cochée, Jarvis local traite les questions générales "
-                + "et Mistral les informations récentes, la météo et Internet. "
-                + "Dites « Friday, Jarvis local, ... » pour imposer le mode hors ligne. "
-                + "La mémoire reste chiffrée sur le téléphone."));
+        config.addView(label("Jarvis fonctionne uniquement avec un modèle local compatible. "
+                + "Les réponses sont générées hors ligne, sans Mistral. "
+                + "La mémoire et les échanges restent chiffrés sur ce téléphone."));
         config.addView(button("Importer un modèle IA local (.task / .litertlm)", this::chooseLocalJarvisModel));
         config.addView(button("Gemma 3 léger · MediaPipe .task (304 Mo)",
                 this::openLocalJarvisModels));
@@ -257,12 +237,6 @@ public class MainActivity extends Activity {
                 + "un pilote GPU/OpenCL compatible ; préférez le petit Gemma 3 .task "
                 + "sur un téléphone moins puissant. L'IA locale ne connaît pas les "
                 + "actualités Internet hors connexion."));
-        config.addView(button("Tester la lecture d'une page HTTPS publique", this::testHttpsPage));
-        webPageUrl = field("https://www.example.com/", false);
-        config.addView(label("Lire une URL HTTPS publique, même microphone arrêté. FRIDAY corrige « https// » en « https:// ». Certains sites interdisent la lecture automatique (403) : leur contenu ne sera pas contourné ni inventé. L'extrait disponible est transmis à Mistral uniquement après votre demande."));
-        config.addView(webPageUrl);
-        config.addView(button("Analyser cette page Web avec Mistral", this::analyzeWebPage));
-
         config.addView(label("FRIDAY MEMORY+ v3.8.0 · privé, chiffré et sans synchronisation GitHub"));
         memoryEnabled = new CheckBox(this);
         memoryEnabled.setText("Activer ma mémoire locale (notes chiffrées AES-GCM via Android Keystore)");
@@ -270,11 +244,9 @@ public class MainActivity extends Activity {
         memoryEnabled.setChecked("1".equals(prefs.get("memory_enabled", "0")));
         config.addView(memoryEnabled);
         memoryShareMistral = new CheckBox(this);
-        memoryShareMistral.setText("J'autorise Mistral à recevoir jusqu'à 5 notes pertinentes pour répondre à mes questions");
-        memoryShareMistral.setTextColor(Color.WHITE);
-        memoryShareMistral.setChecked("1".equals(prefs.get("memory_share_mistral", "0")));
-        config.addView(memoryShareMistral);
-        config.addView(label("Ce partage est désactivé par défaut. Les notes restent sur le téléphone sauf consentement explicite. Le texte d'une question envoyée à Mistral quitte normalement le téléphone. Aucun transfert vers GitHub."));
+        memoryShareMistral.setChecked(false);
+        config.addView(label("Aucun transfert vers Mistral ou GitHub. "
+                + "Les notes restent privées et chiffrées sur ce téléphone."));
         config.addView(label("Une note par ligne · 200 notes max · 600 caractères chacune. Option : [projet] ou [travail] au début d'une note. Ne stockez pas de mots de passe."));
         memoryEditor = new EditText(this);
         memoryEditor.setSingleLine(false);
@@ -284,7 +256,7 @@ public class MainActivity extends Activity {
         memoryEditor.setTextColor(Color.WHITE);
         memoryEditor.setTextSize(14);
         memoryEditor.setText(PersonalMemory.editorText(prefs));
-        memoryEditor.setHint("[projet] Mon projet F.R.I.D.A.Y. n'utilise que Mistral");
+        memoryEditor.setHint("[projet] FRIDAY utilise Jarvis local et conserve mes notes privées");
         config.addView(memoryEditor);
         config.addView(button("Enregistrer les notes chiffrées", this::saveMemory));
         memorySearchInput = field("Rechercher localement (mot, projet ou thème)", false);
@@ -345,12 +317,9 @@ public class MainActivity extends Activity {
         voiceEnabled.setChecked("1".equals(prefs.get("voice_enabled", "1")));
         config.addView(voiceEnabled);
         streamingEnabled = new CheckBox(this);
-        streamingEnabled.setText("Réponse Mistral progressive (streaming + synthèse vocale au fil des phrases)");
-        streamingEnabled.setTextColor(Color.WHITE);
-        streamingEnabled.setChecked("1".equals(prefs.get("stream_enabled", "0")));
-        config.addView(streamingEnabled);
-        config.addView(label("La recherche Web de Mistral peut encore attendre la réponse complète. "
-                + "Désactivez cette option si le réseau coupe les flux SSE."));
+        streamingEnabled.setChecked(false);
+        config.addView(label("Les réponses de Jarvis local sont lues par la synthèse vocale Android. "
+                + "Une question écrite reçoit aussi une réponse à voix haute."));
         config.addView(label("ÉCOUTE ET COMPRÉHENSION · Vosk hors ligne"));
         oneShotEnabled = new CheckBox(this);
         oneShotEnabled.setText("Mode une question : arrêter automatiquement le micro après la réponse");
@@ -387,37 +356,34 @@ public class MainActivity extends Activity {
         locationEnabled.setChecked("1".equals(prefs.get("location_enabled", "0")));
         config.addView(locationEnabled);
         locationShare = new CheckBox(this);
-        locationShare.setText("Autoriser l'envoi ponctuel de mes coordonnées GPS à Mistral pour les questions locales");
-        locationShare.setTextColor(Color.WHITE);
-        locationShare.setChecked("1".equals(prefs.get("location_share", "0")));
-        config.addView(locationShare);
-        config.addView(label("Important : autoriser le GPS Android n'envoie PAS la position à Mistral. "
-                + "Cochez aussi le partage ponctuel, ou utilisez « Configurer le GPS pour les réponses locales ». "
-                + "Le service vocal peut nécessiter un redémarrage après modification des permissions."));
+        locationShare.setChecked(false);
+        config.addView(label("Position GPS utilisée sur le téléphone seulement. "
+                + "Aucun partage vers un fournisseur IA distant. "
+                + "Le service vocal peut nécessiter un redémarrage après les permissions."));
         placeNameEnabled = new CheckBox(this);
         placeNameEnabled.setText("Identifier la commune ou la rue à la demande (géocodeur du téléphone, peut utiliser son réseau)");
         placeNameEnabled.setTextColor(Color.WHITE);
         placeNameEnabled.setChecked("1".equals(prefs.get("address_lookup", "0")));
         config.addView(placeNameEnabled);
         config.addView(label("Aucune clé Google : ce géocodeur est une fonction d'Android, dont le fournisseur peut accéder à Internet. Désactivé par défaut."));
-        config.addView(label("Aucun suivi GPS permanent : mesure à la demande (jusqu'à 16 s) et objectif 3 m non garanti. " +
-            "La précision effectivement mesurée est affichée. Si le partage IA est autorisé, les coordonnées précises de cette question sont transmises à l’API Mistral."));
+        config.addView(label("Aucun suivi GPS permanent : mesure à la demande "
+                + "(objectif 3 m non garanti). La précision effectivement obtenue est affichée."));
         config.addView(button("◎ Tester précision GPS · cible 3 m", this::showGpsAccuracy));
-        config.addView(button("⌖ Autoriser la position GPS à Mistral (ponctuellement)", this::configureGpsForAssistant));
         config.addView(label("DIAGNOSTIC · dernière erreur du moteur IA"));
         lastErrorLabel = label(prefs.get("last_error", "").isEmpty()
                 ? "Aucune erreur enregistrée."
                 : "Dernière erreur (" + prefs.get("last_error_time", "?") + ") : " + prefs.get("last_error", ""));
         config.addView(lastErrorLabel);
         config.addView(button("⧉ Copier la dernière erreur", this::copyLastError));
-        config.addView(button("Diagnostic complet de l'écoute · micro / Vosk / Mistral / voix", this::showVoiceDiagnostics));
+        config.addView(button("Diagnostic complet · micro / Vosk / Jarvis / voix", this::showVoiceDiagnostics));
         config.addView(button("Enregistrer les réglages", this::save));
         config.addView(label("PERSONNALITÉ · prompt sur plusieurs lignes · profils chiffrés"));
         config.addView(button("✧ Modifier la personnalité de F.R.I.D.A.Y.", () -> {
             configScroll.setVisibility(View.GONE);
             if (pageReady) hud.evaluateJavascript("window.fridayOpenPersonality&&window.fridayOpenPersonality();", null);
         }));
-        config.addView(label("DIAGNOSTIC : écrire une question, puis l'envoyer au moteur natif. Cela vérifie les API sans microphone."));
+        config.addView(label("DIAGNOSTIC : envoyez une question au modèle Jarvis local sans microphone. "
+                + "La réponse s'affiche et sera prononcée si la voix est activée."));
         manualQuestion = field("Ex. Bonjour, peux-tu me répondre ?", false);
         config.addView(manualQuestion);
         config.addView(button("Envoyer une question sans microphone", () -> sendQuestion(manualQuestion.getText().toString())));
@@ -430,7 +396,8 @@ public class MainActivity extends Activity {
             startActivity(intent);
         }));
         config.addView(label("L'écoute native continue avec écran allumé ou verrouillé après un démarrage volontaire depuis l'application visible. Un redémarrage du service depuis l'application est nécessaire après tout changement de permission de localisation. La notification permet d'arrêter le micro."));
-        config.addView(label("La reconnaissance vocale est locale ; seule la question transcrite est envoyée à l’API Mistral. Les clés API natives sont chiffrées Android Keystore."));
+        config.addView(label("Reconnaissance vocale Vosk locale, réponses Jarvis locales et voix Android. "
+                + "Aucune question ni donnée personnelle envoyée à une API IA."));
 
         hud = new WebView(this);
         hud.setBackgroundColor(Color.rgb(5,17,28));
@@ -462,17 +429,14 @@ public class MainActivity extends Activity {
     }
     private void save() {
         try {
-            prefs.put("mode", "mistral");
-            prefs.put("provider", "mistral");
-            prefs.put("mistral_model", mistralModel.getText().toString().trim());
-            String mistralGiven = mistralKey.getText().toString().trim();
-            if (!mistralGiven.isEmpty()) { prefs.setSecret("mistral", mistralGiven); prefs.put("web_verified", "0"); }
-            mistralKey.setText("");
+            prefs.put("mode", "jarvis_local");
+            prefs.put("provider", "jarvis_local");
             prefs.put("memory_enabled", memoryEnabled.isChecked() ? "1" : "0");
-            prefs.put("memory_share_mistral", memoryEnabled.isChecked() && memoryShareMistral.isChecked() ? "1" : "0");
-            prefs.put("web_enabled", webEnabled.isChecked() ? "1" : "0");
-            prefs.put("web_mode", webAlways.isChecked() ? "always" : "auto");
-            if (!webEnabled.isChecked()) prefs.put("web_verified", "0");
+            prefs.put("memory_share_mistral", "0");
+            prefs.put("web_enabled", "0");
+            prefs.put("web_mode", "off");
+            prefs.put("stream_enabled", "0");
+            prefs.put("location_share", "0");
             saveLocalJarvisPrefs();
             prefs.put("silence_ms", bounded(silenceInput, 2100, 900, 6000));
             prefs.put("followup_sec", bounded(followupInput, 75, 15, 180));
@@ -481,29 +445,26 @@ public class MainActivity extends Activity {
             prefs.put("bluetooth_mic_enabled", bluetoothMicEnabled.isChecked() ? "1" : "0");
             prefs.put("tts_speed", bounded(ttsInput, 100, 70, 150));
             prefs.put("voice_enabled", voiceEnabled.isChecked() ? "1" : "0");
-            prefs.put("stream_enabled", streamingEnabled.isChecked() ? "1" : "0");
             prefs.put("listen_once", oneShotEnabled.isChecked() ? "1" : "0");
             prefs.put("vosk_hints_enabled", voskHintsEnabled.isChecked() ? "1" : "0");
             String hints = voskHintsEditor.getText().toString();
             if (hints.length() > 2100) throw new IllegalArgumentException("Vocabulaire trop long.");
             prefs.setSecret("vosk_hints", hints);
             prefs.put("location_enabled", locationEnabled.isChecked() ? "1" : "0");
-            prefs.put("location_share", locationEnabled.isChecked() && locationShare.isChecked() ? "1" : "0");
             prefs.put("address_lookup", locationEnabled.isChecked() && placeNameEnabled.isChecked() ? "1" : "0");
-            String keyInfo = prefs.hasSecret("mistral")
-                    ? (SecurePrefs.LAST_ERROR.isEmpty() ? "Clé Mistral enregistrée." : "Clé enregistrée. ⚠ " + SecurePrefs.LAST_ERROR)
-                    : "⚠ Aucune clé Mistral enregistrée : les réponses seront refusées.";
-            status.setText(keyInfo + " Réglages enregistrés. Arrêtez puis redémarrez le service pour appliquer les permissions.");
+            status.setText("Jarvis local exclusif. Réglages enregistrés. "
+                    + LocalJarvisEngine.status(this, prefs)
+                    + ". Redémarrez l'écoute après modification des permissions.");
             if (locationEnabled.isChecked() && !FridayLocation.hasPermission(this)) requestLocationAccess();
-            Toast.makeText(this,"Réglages natifs enregistrés",Toast.LENGTH_SHORT).show();
+            Toast.makeText(this,"Réglages Jarvis enregistrés",Toast.LENGTH_SHORT).show();
         } catch (Exception ex) { status.setText("Enregistrement impossible : " + ex.getMessage()); }
     }
-        /** Permet aussi de réactiver une référence enregistrée par la v2.1.8 sans la refaire. */
+    /** Permet aussi de réactiver une référence enregistrée par la v2.1.8 sans la refaire. */
                 /** Affiche le statut enregistré, pas seulement l'état visuel d'une case. */
             private void saveMemory() {
         try {
             int count = PersonalMemory.replaceFromEditor(prefs, memoryEditor.getText().toString());
-            status.setText("Memory+ : " + count + " notes chiffrées localement. Partage Mistral désactivé par défaut.");
+            status.setText("Memory+ : " + count + " notes chiffrées localement. Aucun partage réseau.");
             Toast.makeText(this, "Notes enregistrées : " + count, Toast.LENGTH_SHORT).show();
         } catch (Exception ex) {
             status.setText("Échec de la mémoire : " + ex.getMessage());
@@ -603,12 +564,12 @@ public class MainActivity extends Activity {
     }
 
     private void saveLocalJarvisPrefs() {
-        boolean enabled = localJarvisEnabled.isChecked();
-        if (enabled && !LocalJarvisEngine.ready(this))
-            throw new IllegalArgumentException("Importez d'abord un modèle MediaPipe compatible sur ce téléphone.");
-        prefs.put("local_jarvis_enabled", enabled ? "1" : "0");
-        prefs.put("local_jarvis_all",
-                enabled && localJarvisAll.isChecked() ? "1" : "0");
+        // Jarvis exclusif, même avant l'importation du premier modèle.
+        // Le test et la réponse indiquent précisément si le modèle manque.
+        localJarvisEnabled.setChecked(true);
+        localJarvisAll.setChecked(true);
+        prefs.put("local_jarvis_enabled", "1");
+        prefs.put("local_jarvis_all", "1");
     }
 
     private void saveLocalJarvis() {
@@ -1025,7 +986,7 @@ public class MainActivity extends Activity {
         // via PythonBrain et ne validait donc pas Jarvis local.
         testLocalJarvis();
     }
-    /** Questions écrites indépendantes de AudioRecord, Vosk et Bluetooth. */
+    /** Questions écrites : Jarvis local exclusif, sans microphone requis. */
     private void sendQuestion(String question) {
         String cleaned = question == null ? "" : VoiceText.withoutWakeWord(question.trim());
         if (cleaned.isEmpty()) {
@@ -1037,10 +998,7 @@ public class MainActivity extends Activity {
         if (!typedQuestionRunning.compareAndSet(false, true)) {
             status.setText("Une question écrite est déjà en cours. Attendez sa réponse."); return;
         }
-        boolean offline = JarvisMistralRouting.useLocal(cleaned,
-                "1".equals(prefs.get("local_jarvis_enabled", "0")),
-                "1".equals(prefs.get("local_jarvis_all", "0")));
-        String engineName = offline ? "Jarvis local" : "Mistral";
+        String engineName = "Jarvis local";
         status.setText("Question écrite envoyée à " + engineName + " (microphone non utilisé).");
         if (manualAnswerLabel != null)
             manualAnswerLabel.setText("Traitement de la question écrite par " + engineName + "…");
@@ -1052,17 +1010,8 @@ public class MainActivity extends Activity {
             try {
                 if (MemoryIntent.kind(request) != MemoryIntent.NONE)
                     answer = PersonalMemory.command(prefs, request);
-                if (answer == null) answer = PythonBrain.localAnswer(request);
-                if (answer == null) {
-                    if (offline) {
-                        answer = LocalJarvisEngine.answer(getApplicationContext(), prefs, request,
-                                new NativeAI.CancelToken());
-                    } else {
-                        answer = NativeAI.answer(prefs, PythonBrain.prepareQuestion(request),
-                                java.util.Collections.emptyList(), null,
-                                new NativeAI.CancelToken());
-                    }
-                }
+                if (answer == null) answer = LocalJarvisEngine.answer(
+                        getApplicationContext(), prefs, request, new NativeAI.CancelToken());
                 if (answer == null || answer.trim().isEmpty())
                     throw new IOException("Le moteur sélectionné a renvoyé une réponse vide.");
                 try {
@@ -1101,12 +1050,14 @@ public class MainActivity extends Activity {
                                 + org.json.JSONObject.quote(error) + ");", null);
                 } else {
                     if (manualAnswerLabel != null) manualAnswerLabel.setText(result);
-                    status.setText("Réponse écrite " + engineName + " reçue. Le microphone n'a pas été sollicité.");
+                    status.setText("Réponse Jarvis locale reçue. Lecture vocale Android…");
                     if (historySaved) replayVoiceHistory();
                     else if (pageReady && hud != null)
                         hud.evaluateJavascript("window.fridayTypedReply&&window.fridayTypedReply("
                                 + org.json.JSONObject.quote(request) + ","
                                 + org.json.JSONObject.quote(result) + ");", null);
+                    if ("1".equals(prefs.get("voice_enabled", "1")))
+                        playWebVoice(result);
                 }
             });
         }, "friday-typed-request-no-mic").start();
@@ -1456,21 +1407,47 @@ public class MainActivity extends Activity {
         return message == null || message.trim().isEmpty() ? ex.getClass().getSimpleName() : message;
     }
 
-                private void playWebVoice(String text) {
+    /** Voix Android pour toutes les réponses écrites, même sans service micro. */
+    private void playWebVoice(String text) {
         if (text == null || text.trim().isEmpty()) return;
-        final String spoken = text.length() > 5000 ? text.substring(0, 5000) : text;
+        final String spoken = text;
         playWebVoiceAndroid(spoken);
+    }
+    private void speakVoiceChunks(String spoken) {
+        if (webVoice == null || !webVoiceReady) return;
+        try {
+            webVoice.setAudioAttributes(new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+            int rate = Integer.parseInt(prefs.get("tts_speed", "100"));
+            webVoice.setSpeechRate(Math.max(0.7f, Math.min(1.5f, rate / 100f)));
+            java.util.List<String> parts = VoiceText.ttsChunks(spoken, 280);
+            for (int i=0; i<parts.size(); i++) {
+                int result = webVoice.speak(parts.get(i),
+                        i == 0 ? TextToSpeech.QUEUE_FLUSH : TextToSpeech.QUEUE_ADD,
+                        new Bundle(), "friday_jarvis_ui_" + System.nanoTime() + "_" + i);
+                if (result != TextToSpeech.SUCCESS) {
+                    status.setText("Échec synthèse vocale Android (code " + result + "). "
+                            + "Vérifiez la voix française et la sortie du casque.");
+                    break;
+                }
+            }
+        } catch (Exception ex) {
+            status.setText("Voix Android indisponible : " + ex.getClass().getSimpleName());
+        }
     }
     private void playWebVoiceAndroid(String spoken) {
         if (webVoice != null && webVoiceReady) {
-            webVoice.speak(spoken, TextToSpeech.QUEUE_FLUSH, new Bundle(), "friday_web_" + System.nanoTime());
+            speakVoiceChunks(spoken);
             return;
         }
         if (webVoice != null) return;
         webVoice = new TextToSpeech(getApplicationContext(), result -> runOnUiThread(() -> {
             webVoiceReady = result == TextToSpeech.SUCCESS && webVoice != null &&
                 webVoice.setLanguage(Locale.FRENCH) >= TextToSpeech.LANG_AVAILABLE;
-            if (webVoiceReady) webVoice.speak(spoken, TextToSpeech.QUEUE_FLUSH, new Bundle(), "friday_web_" + System.nanoTime());
+            if (webVoiceReady) speakVoiceChunks(spoken);
+            else status.setText("Voix française Android indisponible. "
+                    + "Configurez le moteur de synthèse vocale dans Android.");
         }));
     }
     private void refreshLocation() {

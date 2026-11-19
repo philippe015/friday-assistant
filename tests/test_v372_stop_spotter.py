@@ -47,7 +47,7 @@ class StopDetectorIntegration(unittest.TestCase):
         native = (JAVA / "NativeAI.java").read_text()
         self.assertIn("PersonalityProfiles.activePrompt", native)
         service = (JAVA / "FridayService.java").read_text()
-        self.assertIn('settings.get("location_share", "0")', service)
+        self.assertIn('boolean sharingAllowed = false;', service)
 
 if __name__ == "__main__":
     unittest.main()

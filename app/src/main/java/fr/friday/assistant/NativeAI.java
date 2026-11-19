@@ -38,6 +38,12 @@ public final class NativeAI {
         void check() throws IOException { if (cancelled || Thread.currentThread().isInterrupted()) throw new IOException("Requête interrompue."); }
     }
     private static final ThreadLocal<CancelToken> CANCEL = new ThreadLocal<>();
+    /** Suppression de Mistral : les chemins API hérités sont tous bloqués. */
+    private static boolean cloudDisabled() { return true; }
+    private static void blockCloud() throws IOException {
+        if (cloudDisabled())
+            throw new IOException("Mistral est retiré : seul Jarvis local peut répondre.");
+    }
     public static String timeContext() {
         Date now = new Date();
         SimpleDateFormat date = new SimpleDateFormat("EEEE d MMMM yyyy 'à' HH:mm:ss", Locale.FRENCH);
@@ -96,6 +102,7 @@ public final class NativeAI {
 
     public static String answer(SecurePrefs settings, String question, List<JSONObject> history,
                                 String locationContext) throws Exception {
+        blockCloud();
         String local = localAnswer(question);
         if (local != null) return local;
         // Les questions d'identité utilisent le profil actif, jamais l'auto-identité du LLM.
@@ -160,6 +167,7 @@ public final class NativeAI {
 
     /** Liste réelle des modèles accessibles à la clé Mistral. */
     public static List<String> listModels(String ignoredUrl, String key) throws Exception {
+        blockCloud();
         if (key == null || key.trim().isEmpty()) throw new IOException("Clé Mistral absente.");
         HttpURLConnection conn = (HttpURLConnection) new URL(MISTRAL_BASE + "/models").openConnection();
         conn.setRequestMethod("GET");
@@ -354,6 +362,7 @@ public final class NativeAI {
 
     /** Vérification réelle de l'option Web, seulement après action explicite de l'utilisateur. */
     public static String testWeb(SecurePrefs cfg) throws Exception {
+        blockCloud();
         String key = cfg.secret("mistral");
         if (key.isEmpty()) throw new IOException("Enregistrez d'abord votre clé API Mistral.");
         WebReply test = conversationWithFallback(cfg, key, configuredModel(cfg),
@@ -407,6 +416,7 @@ public final class NativeAI {
     public static String answerStreaming(SecurePrefs settings, String question,
             List<JSONObject> history, String locationContext, CancelToken token,
             java.util.function.Consumer<String> onSentence) throws Exception {
+        blockCloud();
         CANCEL.set(token);
         try {
             String plain = localAnswer(question);
@@ -788,6 +798,7 @@ public final class NativeAI {
     }
 
     private static JSONObject postOnce(String url, String token, JSONObject body) throws Exception {
+        blockCloud();
         if (token.trim().isEmpty()) throw new IOException("Clé API absente.");
         HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
         CancelToken cancellation = CANCEL.get();
