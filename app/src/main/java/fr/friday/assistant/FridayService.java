@@ -41,6 +41,7 @@ public class FridayService extends Service {
     private static volatile boolean micSilenced = false;
     private static volatile String interruptDiagnostics = "Micro non démarré";
     private static volatile String voiceReadiness = "Micro arrêté";
+    private static volatile String microphoneSignal = "Mesure du microphone non démarrée";
     private static volatile String lastTtsStatus = "Voix non initialisée";
     private static volatile boolean foregroundLocationEnabled = false;
     private static final long MAX_PENDING_WEB_MS = 150000L;
@@ -86,6 +87,7 @@ public class FridayService extends Service {
     public static boolean isMicSilenced() { return micSilenced; }
     public static String interruptionDiagnostics() { return interruptDiagnostics; }
     public static String voiceReadiness() { return voiceReadiness; }
+    public static String microphoneSignal() { return microphoneSignal; }
     public static String lastTtsStatus() { return lastTtsStatus; }
     private void voiceState(String state) {
         if (!state.equals(voiceReadiness)) {
@@ -199,6 +201,7 @@ public class FridayService extends Service {
         PhoneAudioRoute.usePhoneSpeaker(this);
         voiceState("Démarrage du microphone et du reconnaisseur français…");
         micSilenced = false;
+        microphoneSignal = "Microphone en cours d'initialisation";
         interruptDiagnostics = "Initialisation du décodeur d'interruption";
         silenceMs = settingInt("silence_ms", 2100, 900, 6000);
         followupMs = settingInt("followup_sec", 75, 15, 180) * 1000L;
@@ -313,21 +316,25 @@ public class FridayService extends Service {
                     recorder = ar;
                     PhoneAudioRoute.preferBuiltInMicrophone(this, ar);
                     echoProtection = false;
-                    if (bargeEnabled) {
-                        try {
-                            if (AcousticEchoCanceler.isAvailable()) {
-                                echoCanceler = AcousticEchoCanceler.create(ar.getAudioSessionId());
-                                if (echoCanceler != null) echoProtection = (echoCanceler.setEnabled(true) == 0 && echoCanceler.getEnabled());
-                            }
-                            if (NoiseSuppressor.isAvailable()) {
-                                noiseSuppressor = NoiseSuppressor.create(ar.getAudioSessionId());
-                                if (noiseSuppressor != null) noiseSuppressor.setEnabled(true);
-                            }
-                            if (AutomaticGainControl.isAvailable()) {
-                                gainControl = AutomaticGainControl.create(ar.getAudioSessionId());
-                                if (gainControl != null) gainControl.setEnabled(true);
-                            }
-                        } catch (Exception effectError) { Log.w("FRIDAY_MIC", "Effets audio non disponibles", effectError); }
+                    // Le micro interne doit rester compréhensible même lorsque
+                    // l'interruption vocale est désactivée : NS et AGC facultatifs.
+                    try {
+                        if (NoiseSuppressor.isAvailable()) {
+                            noiseSuppressor = NoiseSuppressor.create(ar.getAudioSessionId());
+                            if (noiseSuppressor != null) noiseSuppressor.setEnabled(true);
+                        }
+                        if (AutomaticGainControl.isAvailable()) {
+                            gainControl = AutomaticGainControl.create(ar.getAudioSessionId());
+                            if (gainControl != null) gainControl.setEnabled(true);
+                        }
+                        if (bargeEnabled && AcousticEchoCanceler.isAvailable()) {
+                            echoCanceler = AcousticEchoCanceler.create(ar.getAudioSessionId());
+                            if (echoCanceler != null)
+                                echoProtection = echoCanceler.setEnabled(true) == 0
+                                        && echoCanceler.getEnabled();
+                        }
+                    } catch (RuntimeException effectError) {
+                        Log.w("FRIDAY_MIC", "Prétraitement vocal indisponible, écoute Vosk conservée", effectError);
                     }
                     final java.util.concurrent.atomic.AtomicBoolean silencedByPolicy =
                         new java.util.concurrent.atomic.AtomicBoolean(false);
@@ -352,12 +359,14 @@ public class FridayService extends Service {
                     interruptDiagnostics = bargeEnabled
                             ? "Micro PCM prêt · décodeur STOP démarre à la réponse"
                             : "Désactivé dans Réglages · autoriser l'interruption vocale";
-                    event("status", "Micro actif pendant les réponses. Anti-écho " +
-                        (echoProtection ? "activé." : "non garanti : préférez des écouteurs."));
+                    event("status", "Microphone du téléphone prêt. Réduction du bruit "
+                            + (noiseSuppressor != null ? "active" : "non disponible")
+                            + " · gain " + (gainControl != null ? "automatique" : "standard")
+                            + ". Anti-écho " + (echoProtection ? "actif." : "limité."));
                     byte[] buffer = new byte[4096];
                     long lastPolicyCheck = 0, lastVoice = 0, lastPartialPublished = 0;
                     long lastMicLevelAt = 0;
-                    long lastBtStatusAt = 0;
+                    long lastSignalSampleAt = 0;
                     long noPcmSince = 0;
                     long lastPhoneInputCheckAt = 0;
                     String completed = "", interim = "";
@@ -399,6 +408,14 @@ public class FridayService extends Service {
                             break;
                         }
                         noPcmSince = 0;
+                        long sampleAt = SystemClock.elapsedRealtime();
+                        if (sampleAt - lastSignalSampleAt >= 1200L) {
+                            lastSignalSampleAt = sampleAt;
+                            int level = MicSignalMeter.level(buffer, count);
+                            microphoneSignal = "Entrée téléphone : " + level
+                                    + "/100 (volume relatif, pas une note de qualité)"
+                                    + (silencedByPolicy.get() ? " · entrée muette imposée par Android" : "");
+                        }
                         long phoneCheck = SystemClock.elapsedRealtime();
                         if (phoneCheck - lastPhoneInputCheckAt >= 3000L) {
                             lastPhoneInputCheckAt = phoneCheck;
@@ -601,8 +618,9 @@ public class FridayService extends Service {
                                     ? "Réponse coupée. Je vous écoute pour votre précision."
                                     : "Réponse coupée. Vous pouvez préciser ou poser une autre question.");
                         }
-                        int timeout = (currentTurn != null || earlyCancelled ||
-                            now < bargePendingUntil) ? Math.min(silenceMs, 1300) : silenceMs;
+                        int timeout = VoiceUtteranceTiming.timeoutMs(
+                                completed, interim, silenceMs,
+                                currentTurn != null || earlyCancelled || now < bargePendingUntil);
                         if (lastVoice > 0 && now - lastVoice >= timeout &&
                                 (!completed.isEmpty() || !interim.isEmpty())) {
                             String finalJson = recognizer.getFinalResult();
@@ -1288,6 +1306,7 @@ public class FridayService extends Service {
         wakeOnlyUntil = 0;
         active = false;
         micSilenced = false;
+        microphoneSignal = "Micro arrêté";
         interruptDiagnostics = "Micro arrêté";
         voiceState("Micro arrêté");
         foregroundLocationEnabled = false;
