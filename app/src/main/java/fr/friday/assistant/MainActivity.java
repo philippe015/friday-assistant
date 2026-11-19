@@ -1410,21 +1410,47 @@ public class MainActivity extends Activity {
         return message == null || message.trim().isEmpty() ? ex.getClass().getSimpleName() : message;
     }
 
-                private void playWebVoice(String text) {
+    /** Voix Android pour toutes les réponses écrites, même sans service micro. */
+    private void playWebVoice(String text) {
         if (text == null || text.trim().isEmpty()) return;
-        final String spoken = text.length() > 5000 ? text.substring(0, 5000) : text;
+        final String spoken = text;
         playWebVoiceAndroid(spoken);
+    }
+    private void speakVoiceChunks(String spoken) {
+        if (webVoice == null || !webVoiceReady) return;
+        try {
+            webVoice.setAudioAttributes(new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+            int rate = Integer.parseInt(prefs.get("tts_speed", "100"));
+            webVoice.setSpeechRate(Math.max(0.7f, Math.min(1.5f, rate / 100f)));
+            java.util.List<String> parts = VoiceText.ttsChunks(spoken, 280);
+            for (int i=0; i<parts.size(); i++) {
+                int result = webVoice.speak(parts.get(i),
+                        i == 0 ? TextToSpeech.QUEUE_FLUSH : TextToSpeech.QUEUE_ADD,
+                        new Bundle(), "friday_jarvis_ui_" + System.nanoTime() + "_" + i);
+                if (result != TextToSpeech.SUCCESS) {
+                    status.setText("Échec synthèse vocale Android (code " + result + "). "
+                            + "Vérifiez la voix française et la sortie du casque.");
+                    break;
+                }
+            }
+        } catch (Exception ex) {
+            status.setText("Voix Android indisponible : " + ex.getClass().getSimpleName());
+        }
     }
     private void playWebVoiceAndroid(String spoken) {
         if (webVoice != null && webVoiceReady) {
-            webVoice.speak(spoken, TextToSpeech.QUEUE_FLUSH, new Bundle(), "friday_web_" + System.nanoTime());
+            speakVoiceChunks(spoken);
             return;
         }
         if (webVoice != null) return;
         webVoice = new TextToSpeech(getApplicationContext(), result -> runOnUiThread(() -> {
             webVoiceReady = result == TextToSpeech.SUCCESS && webVoice != null &&
                 webVoice.setLanguage(Locale.FRENCH) >= TextToSpeech.LANG_AVAILABLE;
-            if (webVoiceReady) webVoice.speak(spoken, TextToSpeech.QUEUE_FLUSH, new Bundle(), "friday_web_" + System.nanoTime());
+            if (webVoiceReady) speakVoiceChunks(spoken);
+            else status.setText("Voix française Android indisponible. "
+                    + "Configurez le moteur de synthèse vocale dans Android.");
         }));
     }
     private void refreshLocation() {
