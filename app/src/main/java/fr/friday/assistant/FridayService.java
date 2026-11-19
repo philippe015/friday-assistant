@@ -42,7 +42,6 @@ public class FridayService extends Service {
     private static volatile String interruptDiagnostics = "Micro non démarré";
     private static volatile String voiceReadiness = "Micro arrêté";
     private static volatile String lastTtsStatus = "Voix non initialisée";
-    private static volatile String bluetoothMicState = "Bluetooth non vérifié";
     private static volatile boolean foregroundLocationEnabled = false;
     private static final long MAX_PENDING_WEB_MS = 150000L;
     private final Handler requestWatchdog = new Handler(Looper.getMainLooper());
@@ -50,7 +49,6 @@ public class FridayService extends Service {
     private volatile boolean oneShotTriggered = false;
     private Thread worker;
     private AudioRecord recorder;
-    private BluetoothMicRouter bluetoothMicRouter;
     private TextToSpeech tts;
     /** Stop et démarrage TTS doivent être atomiques entre les threads réseau et micro. */
     private final Object ttsControlLock = new Object();
@@ -89,12 +87,6 @@ public class FridayService extends Service {
     public static String interruptionDiagnostics() { return interruptDiagnostics; }
     public static String voiceReadiness() { return voiceReadiness; }
     public static String lastTtsStatus() { return lastTtsStatus; }
-    public static String bluetoothMicStatus() { return bluetoothMicState; }
-    private void bluetoothState(String state) {
-        if (state == null || state.equals(bluetoothMicState)) return;
-        bluetoothMicState = state;
-        event("bluetooth_mic", state);
-    }
     private void voiceState(String state) {
         if (!state.equals(voiceReadiness)) {
             voiceReadiness = state;
@@ -203,10 +195,8 @@ public class FridayService extends Service {
         wakeArmed = false;
         wakeOnlyUntil = 0;
         active = true;
-        // Microphone Bluetooth uniquement apres permission, avec repli local.
-        bluetoothMicRouter = new BluetoothMicRouter(this);
-        bluetoothMicRouter.start("1".equals(settings.get("bluetooth_mic_enabled", "1")));
-        bluetoothState(bluetoothMicRouter.status());
+        settings.put("bluetooth_mic_enabled", "0");
+        PhoneAudioRoute.usePhoneSpeaker(this);
         voiceState("Démarrage du microphone et du reconnaisseur français…");
         micSilenced = false;
         interruptDiagnostics = "Initialisation du décodeur d'interruption";
@@ -304,37 +294,24 @@ public class FridayService extends Service {
                         AudioFormat.ENCODING_PCM_16BIT);
                     if (minimum <= 0) throw new IllegalStateException("Microphone 16 kHz indisponible");
                     int bytes = Math.max(16384, minimum * 4);
-                    if (bluetoothMicRouter != null) {
-                        // Android 8-11 : le micro SCO ne peut pas etre choisi avant
-                        // la confirmation asynchrone du lien HFP. Sinon AudioRecord
-                        // s'ouvre silencieusement sur le microphone interne.
-                        bluetoothMicRouter.awaitBluetoothRoute(6000L);
-                        bluetoothState(bluetoothMicRouter.status());
-                    }
+                    PhoneAudioRoute.usePhoneSpeaker(this);
                     boolean bargeEnabled = "1".equals(settings.get("barge_in_enabled", "0"));
                     // Si Android a rendu VOICE_COMMUNICATION muet, repartir
                     // sur VOICE_RECOGNITION lors de la prochaine session audio.
-                    boolean btCommunication = bluetoothMicRouter != null
-                            && bluetoothMicRouter.isCommunicationRequested();
-                    int src = (btCommunication || (bargeEnabled && mutedMicroReopens == 0))
+                    int src = (bargeEnabled && mutedMicroReopens == 0)
                             ? MediaRecorder.AudioSource.VOICE_COMMUNICATION
                             : MediaRecorder.AudioSource.VOICE_RECOGNITION;
                     ar = new AudioRecord(src, 16000, AudioFormat.CHANNEL_IN_MONO,
                         AudioFormat.ENCODING_PCM_16BIT, bytes);
-                    if (ar.getState() != AudioRecord.STATE_INITIALIZED
-                            && (bargeEnabled || btCommunication)) {
+                    if (ar.getState() != AudioRecord.STATE_INITIALIZED && bargeEnabled) {
                         ar.release();
-                        if (btCommunication && bluetoothMicRouter != null) {
-                            bluetoothMicRouter.fallbackToPhone();
-                            bluetoothState("Capture VOICE_COMMUNICATION refusée : repli micro téléphone.");
-                        }
                         ar = new AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, 16000,
                             AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bytes);
                     }
                     if (ar.getState() != AudioRecord.STATE_INITIALIZED)
                         throw new IllegalStateException("Échec ouverture microphone");
                     recorder = ar;
-                    if (bluetoothMicRouter != null) bluetoothMicRouter.preferInput(ar);
+                    PhoneAudioRoute.preferBuiltInMicrophone(this, ar);
                     echoProtection = false;
                     if (bargeEnabled) {
                         try {
@@ -370,12 +347,7 @@ public class FridayService extends Service {
                     }
                     recognizer = createRecognizer(model);
                     ar.startRecording();
-                    if (bluetoothMicRouter != null) {
-                        // L'accusé SCO initial a pu arriver pendant awaitBluetoothRoute.
-                        // Il ne doit pas provoquer un redémarrage au premier read().
-                        bluetoothMicRouter.captureStarted();
-                        bluetoothState(bluetoothMicRouter.routedStatus(ar));
-                    }
+                    event("status", PhoneAudioRoute.inputStatus(ar));
                     voiceState("Micro actif : dites Friday pour parler");
                     interruptDiagnostics = bargeEnabled
                             ? "Micro PCM prêt · décodeur STOP démarre à la réponse"
@@ -387,10 +359,7 @@ public class FridayService extends Service {
                     long lastMicLevelAt = 0;
                     long lastBtStatusAt = 0;
                     long noPcmSince = 0;
-                    long wrongRouteLastCheck = 0;
-                    int wrongRouteConfirmations = 0;
-                    final long captureStartedAt = SystemClock.elapsedRealtime();
-                    String previousBluetoothRoute = "";
+                    long lastPhoneInputCheckAt = 0;
                     String completed = "", interim = "";
                     double confidenceSum = 0;
                     int confidenceCount = 0;
@@ -415,12 +384,7 @@ public class FridayService extends Service {
                             confidenceSum = 0; confidenceCount = 0;
                             earlyCancelled = false; sawSpeakerFeedback = false;
                         }
-                        // READ_NON_BLOCKING évite qu'un lien HFP défaillant bloque
-                        // définitivement la boucle d'écoute dans AudioRecord.read().
-                        if (bluetoothMicRouter != null && bluetoothMicRouter.consumeRouteChange()) {
-                            bluetoothState("Changement réel de périphérique Bluetooth : réouverture du micro");
-                            throw new IllegalStateException("Changement de périphérique audio Bluetooth");
-                        }
+                        // AudioRecord non bloquant : reprise sans événements Bluetooth.
                         int count = ar.read(buffer, 0, buffer.length, AudioRecord.READ_NON_BLOCKING);
                         if (count == 0) {
                             long nowNoPcm = SystemClock.elapsedRealtime();
@@ -435,23 +399,15 @@ public class FridayService extends Service {
                             break;
                         }
                         noPcmSince = 0;
-                        // Sur certains modèles Android, getRoutedDevice() peut
-                        // annoncer brièvement le téléphone pendant la transition
-                        // HFP/SCO. Ne pas désactiver définitivement Bluetooth
-                        // pour UNE mesure erronée : confirmer 3 fois à 1 s.
-                        long routeTick = SystemClock.elapsedRealtime();
-                        if (bluetoothMicRouter != null
-                                && routeTick - captureStartedAt >= 5000L
-                                && routeTick - wrongRouteLastCheck >= 1000L) {
-                            wrongRouteLastCheck = routeTick;
-                            if (bluetoothMicRouter.wrongInputRouted(ar)) {
-                                wrongRouteConfirmations++;
-                                if (wrongRouteConfirmations >= 3) {
-                                    bluetoothMicRouter.fallbackToPhone();
-                                    bluetoothState("Android refuse le micro du casque après 3 contrôles : micro du téléphone");
-                                    throw new IllegalStateException("Bluetooth connecté mais micro non routé par Android");
-                                }
-                            } else wrongRouteConfirmations = 0;
+                        long phoneCheck = SystemClock.elapsedRealtime();
+                        if (phoneCheck - lastPhoneInputCheckAt >= 3000L) {
+                            lastPhoneInputCheckAt = phoneCheck;
+                            AudioDeviceInfo input = ar.getRoutedDevice();
+                            if (input != null && input.getType() != AudioDeviceInfo.TYPE_BUILTIN_MIC) {
+                                PhoneAudioRoute.preferBuiltInMicrophone(this, ar);
+                                PhoneAudioRoute.usePhoneSpeaker(this);
+                                event("status", PhoneAudioRoute.inputStatus(ar));
+                            }
                         }
                         if (Build.VERSION.SDK_INT >= 29) {
                             long tick = SystemClock.elapsedRealtime();
@@ -495,17 +451,6 @@ public class FridayService extends Service {
                             continue;
                         }
                         consecutiveErrors = 0;
-                        if (bluetoothMicRouter != null) {
-                            long btCheckAt = SystemClock.elapsedRealtime();
-                            if (btCheckAt - lastBtStatusAt >= 3000L) {
-                                lastBtStatusAt = btCheckAt;
-                                String route = bluetoothMicRouter.routedStatus(ar);
-                                if (!route.equals(previousBluetoothRoute)) {
-                                    previousBluetoothRoute = route;
-                                    bluetoothState(route);
-                                }
-                            }
-                        }
                         if (mutedSince != 0 || micSilenced) {
                             mutedSince = 0;
                             micSilenced = false;
@@ -697,14 +642,6 @@ public class FridayService extends Service {
                 } catch (Exception captureError) {
                     if (!running) break;
                     consecutiveErrors++;
-                    if (consecutiveErrors >= 3 && bluetoothMicRouter != null
-                            && bluetoothMicRouter.isCommunicationRequested()) {
-                        // Certains casques acceptent le profil HFP mais refusent
-                        // AudioRecord. Ne pas condamner le micro du téléphone.
-                        bluetoothMicRouter.fallbackToPhone();
-                        bluetoothState(bluetoothMicRouter.status());
-                        consecutiveErrors = 0;
-                    }
                     // La v3.11.1 arretait definitivement le service apres trois
                     // echec AudioRecord, ou restait muette apres deux reprises.
                     // Cette version reessaie tant que l'utilisateur n'a pas
@@ -723,7 +660,6 @@ public class FridayService extends Service {
                     try { Thread.sleep(retryMs); }
                     catch (InterruptedException ignored) { Thread.currentThread().interrupt(); break; }
                 } finally {
-                    if (bluetoothMicRouter != null) bluetoothMicRouter.captureStopped();
                     if (Build.VERSION.SDK_INT >= 29 && recordingCallback != null && ar != null) {
                         try { ar.unregisterAudioRecordingCallback(recordingCallback); }
                         catch (RuntimeException ignored) { }
@@ -1225,15 +1161,8 @@ public class FridayService extends Service {
                 event("error", ttsDiagnostic);
                 return;
             }
-            tts.setAudioAttributes(new AudioAttributes.Builder()
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                    // HFP/SCO route la voix sur le flux de communication,
-                    // contrairement a USAGE_MEDIA qui peut basculer en A2DP
-                    // et rendre le microphone du casque indisponible.
-                    .setUsage(bluetoothMicRouter != null
-                            && bluetoothMicRouter.isCommunicationRequested()
-                            ? AudioAttributes.USAGE_VOICE_COMMUNICATION
-                            : AudioAttributes.USAGE_MEDIA).build());
+            PhoneAudioRoute.usePhoneSpeaker(this);
+            tts.setAudioAttributes(PhoneAudioRoute.speechAttributes());
             if (!running) { tts.shutdown(); tts = null; return; }
             tts.setSpeechRate(settingInt("tts_speed", 100, 70, 150) / 100f);
             tts.setPitch(1.0f);
@@ -1266,17 +1195,10 @@ public class FridayService extends Service {
             event("error", "Réponse vide : rien à prononcer.");
             return false;
         }
-        // Reconfigurer la sortie si le casque a ete connecte ou retire
-        // pendant la session, sans faire redemarrer le micro.
+        PhoneAudioRoute.usePhoneSpeaker(this);
         synchronized (ttsControlLock) {
-            if (tts != null && ttsReady) {
-                tts.setAudioAttributes(new AudioAttributes.Builder()
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                        .setUsage(bluetoothMicRouter != null
-                                && bluetoothMicRouter.isCommunicationRequested()
-                                ? AudioAttributes.USAGE_VOICE_COMMUNICATION
-                                : AudioAttributes.USAGE_MEDIA).build());
-            }
+            if (tts != null && ttsReady)
+                tts.setAudioAttributes(PhoneAudioRoute.speechAttributes());
         }
         int index = 0;
         for (String part : chunks) {
@@ -1361,11 +1283,7 @@ public class FridayService extends Service {
         if (recorder != null) {
             try { recorder.stop(); } catch (Exception ignored) {}
         }
-        if (bluetoothMicRouter != null) {
-            bluetoothMicRouter.close();
-            bluetoothMicRouter = null;
-        }
-        bluetoothState("Microphone arrêté");
+        PhoneAudioRoute.release(this);
         ttsReady = false;
         synchronized (ttsControlLock) {
             if (tts != null) {
