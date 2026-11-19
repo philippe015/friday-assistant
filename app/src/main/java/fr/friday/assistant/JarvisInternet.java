@@ -218,41 +218,57 @@ public final class JarvisInternet {
         return words.replaceAll("\\s+", " ").trim();
     }
 
-    /** Transport TLS borné, uniquement vers trois hôtes de recherche publics. */
+    /** Transport HTTPS borné : redirections internes au fournisseur seulement. */
     private static String fetch(String url) throws Exception {
         URI uri = WebPageReader.checkedUri(url);
-        String host = uri.getHost().toLowerCase(Locale.ROOT);
-        if (!(host.equals("www.bing.com") || host.equals("html.duckduckgo.com")
-                || host.equals("news.google.com")))
-            throw new IOException("Hôte de recherche non autorisé.");
-        HttpURLConnection conn = (HttpURLConnection) uri.toURL().openConnection();
-        conn.setInstanceFollowRedirects(false);
-        conn.setConnectTimeout(8_000);
-        conn.setReadTimeout(10_000);
-        conn.setRequestMethod("GET");
-        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (compatible; FRIDAY-Jarvis/3.13.2)");
-        conn.setRequestProperty("Accept", "application/rss+xml, application/xml, text/xml, text/html");
-        conn.setRequestProperty("Accept-Encoding", "identity");
-        try {
-            int status = conn.getResponseCode();
-            if (status != 200) throw new IOException(WebPageReader.explainHttpStatus(status));
-            String type = conn.getContentType();
-            if (type != null && !type.toLowerCase(Locale.ROOT).matches(".*(xml|html|text).*"))
-                throw new IOException("Réponse de recherche non textuelle.");
-            if (conn.getContentLength() > MAX_SEARCH_BYTES)
-                throw new IOException("Résultat de recherche trop volumineux.");
-            ByteArrayOutputStream buffer = new ByteArrayOutputStream(16_384);
-            try (InputStream in = conn.getInputStream()) {
-                byte[] chunk = new byte[4096];
-                int n;
-                while ((n = in.read(chunk)) != -1) {
-                    if (buffer.size() + n > MAX_SEARCH_BYTES)
-                        throw new IOException("Réponse du moteur de recherche trop longue.");
-                    buffer.write(chunk, 0, n);
+        for (int redirect = 0; redirect <= 2; redirect++) {
+            String host = uri.getHost().toLowerCase(Locale.ROOT);
+            if (!(host.equals("www.bing.com") || host.equals("html.duckduckgo.com")
+                    || host.equals("news.google.com")))
+                throw new IOException("Hôte de recherche non autorisé.");
+            HttpURLConnection conn = (HttpURLConnection) uri.toURL().openConnection();
+            conn.setInstanceFollowRedirects(false);
+            conn.setConnectTimeout(8_000);
+            conn.setReadTimeout(10_000);
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (compatible; FRIDAY-Jarvis/3.13.3)");
+            conn.setRequestProperty("Accept", "application/rss+xml, application/xml, text/xml, text/html");
+            conn.setRequestProperty("Accept-Language", "fr-FR,fr;q=0.9,en;q=0.5");
+            conn.setRequestProperty("Accept-Encoding", "identity");
+            try {
+                int status = conn.getResponseCode();
+                if (status == 301 || status == 302 || status == 303
+                        || status == 307 || status == 308) {
+                    String location = conn.getHeaderField("Location");
+                    if (location == null || redirect >= 2)
+                        throw new IOException("Redirection de recherche indisponible.");
+                    URI destination = WebPageReader.checkedUri(
+                            uri.resolve(location).toString());
+                    if (!host.equalsIgnoreCase(destination.getHost()))
+                        throw new IOException("Redirection vers un autre domaine refusée.");
+                    uri = destination;
+                    continue;
                 }
-            }
-            return new String(buffer.toByteArray(), StandardCharsets.UTF_8);
-        } finally { conn.disconnect(); }
+                if (status != 200) throw new IOException(WebPageReader.explainHttpStatus(status));
+                String type = conn.getContentType();
+                if (type != null && !type.toLowerCase(Locale.ROOT).matches(".*(xml|html|text).*"))
+                    throw new IOException("Réponse de recherche non textuelle.");
+                if (conn.getContentLength() > MAX_SEARCH_BYTES)
+                    throw new IOException("Résultat de recherche trop volumineux.");
+                ByteArrayOutputStream buffer = new ByteArrayOutputStream(16_384);
+                try (InputStream in = conn.getInputStream()) {
+                    byte[] chunk = new byte[4096];
+                    int n;
+                    while ((n = in.read(chunk)) != -1) {
+                        if (buffer.size() + n > MAX_SEARCH_BYTES)
+                            throw new IOException("Réponse du moteur de recherche trop longue.");
+                        buffer.write(chunk, 0, n);
+                    }
+                }
+                return new String(buffer.toByteArray(), StandardCharsets.UTF_8);
+            } finally { conn.disconnect(); }
+        }
+        throw new IOException("Trop de redirections de recherche.");
     }
 
     private static List<Source> parseRss(String xml, int recentHours, long now) {
