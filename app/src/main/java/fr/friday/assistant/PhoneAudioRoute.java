@@ -29,16 +29,19 @@ public final class PhoneAudioRoute {
                     if (device.isSink()
                             && device.getType() == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) {
                         if (!audio.setCommunicationDevice(device)) {
-                            Log.w("FRIDAY_PHONE_AUDIO", "Android n'a pas accepté le haut-parleur demandé");
+                            // Secours pour les périphériques refusant la nouvelle API.
+                            audio.setSpeakerphoneOn(true);
+                            Log.w("FRIDAY_PHONE_AUDIO", "Android a refusé le routage de communication : repli haut-parleur");
                         }
                         return;
                     }
                 }
-                Log.w("FRIDAY_PHONE_AUDIO", "Haut-parleur intégré indisponible pour le routage communication");
+                audio.setSpeakerphoneOn(true);
+                Log.w("FRIDAY_PHONE_AUDIO", "Haut-parleur non listé : repli vers sortie téléphone");
             } else {
                 audio.setSpeakerphoneOn(true);
             }
-        } catch (SecurityException | IllegalStateException denied) {
+        } catch (RuntimeException denied) {
             Log.w("FRIDAY_PHONE_AUDIO", "Routage haut-parleur refusé", denied);
         }
     }
