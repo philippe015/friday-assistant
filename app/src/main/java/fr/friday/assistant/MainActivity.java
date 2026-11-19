@@ -1061,13 +1061,12 @@ public class MainActivity extends Activity {
                 return;
             }
             testTts.setSpeechRate(1.0f);
-            testTts.setAudioAttributes(new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+            PhoneAudioRoute.usePhoneSpeaker(this);
+            testTts.setAudioAttributes(PhoneAudioRoute.speechAttributes());
             final String id = "test_voix_friday";
             testTts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                 @Override public void onStart(String uid) {
-                    runOnUiThread(() -> status.setText("La lecture audio a démarré. Vérifiez le volume média."));
+                    runOnUiThread(() -> status.setText("La lecture audio a démarré. Vérifiez le volume du haut-parleur."));
                 }
                 @Override public void onDone(String uid) {
                     runOnUiThread(() -> status.setText("Test de synthèse terminé. Avez-vous entendu : Bonjour, je suis Friday ?"));
