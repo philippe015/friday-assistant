@@ -45,7 +45,7 @@ class RecentVoiceNewsV387(unittest.TestCase):
         memory = source("PersonalMemory.java")
         self.assertIn('cfg.get("memory_share_mistral", "0")', memory)
         self.assertIn("TtsEchoGate.suppressGeneralAsr(", voice)
-        self.assertIn('settings.get("web_enabled", "1")', voice)
+        self.assertIn("Jarvis hors ligne : actualités récentes non vérifiables", voice)
         self.assertIn('new JSONObject().put("type", "web_search")', ai)
 
     def test_version(self):

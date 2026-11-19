@@ -9,15 +9,13 @@ def file(path):
     return (ROOT / path).read_text(encoding="utf-8")
 
 class AssistantIntegrations(unittest.TestCase):
-    def test_web_telemetry_not_hardcoded(self):
-        html = file("app/src/main/assets/index.html")
-        activity = file("app/src/main/java/fr/friday/assistant/MainActivity.java")
-        self.assertNotIn("$('webState').textContent='Désactivé'", html)
-        self.assertIn("call('webTelemetry')", html)
-        self.assertIn("web_verified", activity)
-        self.assertIn('prefs.get("web_enabled", "1")', activity)
-        self.assertIn("call('gpsTelemetry')", html)
-        self.assertIn("call('activeProfileName')", html)
+    def test_cloud_telemetry_is_explicitly_disabled(self):
+        html=file("app/src/main/assets/index.html")
+        activity=file("app/src/main/java/fr/friday/assistant/MainActivity.java")
+        self.assertIn("Désactivée (Jarvis hors ligne)",html)
+        self.assertIn('prefs.put("web_enabled", "0")',activity)
+        self.assertIn("call('gpsTelemetry')",html)
+        self.assertIn("call('activeProfileName')",html)
 
     def test_active_profile_sent_to_mistral(self):
         ai = file("app/src/main/java/fr/friday/assistant/NativeAI.java")
@@ -38,16 +36,15 @@ class AssistantIntegrations(unittest.TestCase):
         self.assertIn("BargeInPolicy.contextualFollowUp(question)", service)
         self.assertIn("BargeInPolicy.wantsToAddDetails(heard)", service)
 
-    def test_location_access_requires_consent(self):
-        service = file("app/src/main/java/fr/friday/assistant/FridayService.java")
-        activity = file("app/src/main/java/fr/friday/assistant/MainActivity.java")
-        self.assertIn('settings.get("location_share", "0")', service)
-        self.assertIn('settings.get("location_enabled", "0")', service)
-        self.assertIn("FridayLocation.providerEnabled(this)", service)
-        self.assertIn("configureGpsForAssistant()", activity)
-        self.assertIn("Autoriser le partage ponctuel", activity)
-        self.assertIn('prefs.put("location_share", "0")', activity)
-        self.assertIn('if (kind.equals("location"))', activity)
+    def test_location_stays_local_without_remote_consent(self):
+        service=file("app/src/main/java/fr/friday/assistant/FridayService.java")
+        activity=file("app/src/main/java/fr/friday/assistant/MainActivity.java")
+        self.assertIn("boolean sharingAllowed = false;",service)
+        self.assertIn('settings.get("location_enabled", "0")',service)
+        self.assertIn("FridayLocation.providerEnabled(this)",service)
+        self.assertIn('prefs.put("location_share", "0")',activity)
+        self.assertNotIn("config.addView(locationShare)",activity)
+        self.assertIn('if (kind.equals("location"))',activity)
 
     def test_version(self):
         gradle = file("app/build.gradle")
