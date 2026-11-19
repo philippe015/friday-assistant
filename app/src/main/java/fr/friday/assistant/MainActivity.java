@@ -249,6 +249,8 @@ public class MainActivity extends Activity {
                 + "ni notes privées, ni GPS ne sont envoyés. Certaines pages peuvent refuser "
                 + "les accès automatisés (HTTP 403/429). La recherche n'est pas illimitée."));
         config.addView(button("Tester l'accès Internet Jarvis", this::testJarvisInternet));
+        config.addView(button("Tester les actualités des 7 dernières heures",
+                this::testJarvisRecentNews));
         jarvisInternetStatus = label("Internet Jarvis : test non effectué.");
         jarvisInternetStatus.setTextIsSelectable(true);
         config.addView(jarvisInternetStatus);
@@ -295,7 +297,10 @@ public class MainActivity extends Activity {
                 }).show();
         }));
         config.addView(label("Commandes vocales locales : « Friday, retiens que... », « Friday, cherche dans ma mémoire projet », « Friday, qu'as-tu mémorisé ? ». Effacement total uniquement après confirmation dans les réglages."));
-        config.addView(label("DÉTECTION DES PHRASES · délai de silence (millisecondes, 900 à 6000)"));
+        config.addView(label("DÉTECTION DES PHRASES · silence de base (900 à 6000 ms)"));
+        config.addView(label("FRIDAY laisse jusqu'à une seconde supplémentaire si la phrase "
+                + "se termine sur une liaison comme « et », « de » ou « pour », "
+                + "afin de ne pas couper une question pendant une courte pause."));
         silenceInput = field("2100", false);
         silenceInput.setInputType(InputType.TYPE_CLASS_NUMBER);
         silenceInput.setText(prefs.get("silence_ms", "2100")); config.addView(silenceInput);
@@ -674,7 +679,10 @@ public class MainActivity extends Activity {
     }
 
     /** Diagnostic réseau sans appel Mistral, exécuté hors thread graphique. */
-    private void testJarvisInternet() {
+    private void testJarvisInternet() { runJarvisNetworkDiagnostic(false); }
+    private void testJarvisRecentNews() { runJarvisNetworkDiagnostic(true); }
+
+    private void runJarvisNetworkDiagnostic(boolean recent) {
         if (!jarvisWebTesting.compareAndSet(false, true)) {
             status.setText("Test Internet Jarvis déjà en cours.");
             return;
@@ -685,12 +693,14 @@ public class MainActivity extends Activity {
             status.setText("Activez d'abord la case Internet Jarvis.");
             return;
         }
-        jarvisInternetStatus.setText("Recherche publique HTTPS en cours (aucune API Mistral)…");
+        jarvisInternetStatus.setText(recent
+                ? "Vérification des horodatages RSS des 7 dernières heures…"
+                : "Recherche publique HTTPS en cours (aucune API Mistral)…");
         new Thread(() -> {
             String result;
             boolean ok;
             try {
-                result = JarvisInternet.probe();
+                result = recent ? JarvisInternet.probeRecentNews() : JarvisInternet.probe();
                 ok = true;
             } catch (Exception error) {
                 result = "Test Internet échoué : "
@@ -994,17 +1004,18 @@ public class MainActivity extends Activity {
                    == PackageManager.PERMISSION_GRANTED ? "accordée" : "manquante")
                 + "\nMicro Android rendu muet : " + (FridayService.isMicSilenced() ? "oui" : "non")
                 + "\nÉtat de l'écoute : " + FridayService.voiceReadiness()
+                + "\nSignal du microphone : " + FridayService.microphoneSignal()
+                + "\nSilence de base : " + prefs.get("silence_ms", "2100")
+                        + " ms (adaptatif pour les phrases incomplètes)"
                 + "\nInterruption STOP : " + FridayService.interruptionDiagnostics()
                 + "\nTTS Android : " + FridayService.lastTtsStatus()
                 + "\nAudio : microphone intégré et haut-parleur du téléphone (Bluetooth désactivé)"
                 + "\nMoteur IA : Jarvis local uniquement"
                 + "\nMode vocal : " + ("1".equals(prefs.get("listen_once", "0"))
                         ? "Une question" : "Continu")
-                + "\nRéseau Mistral : " + ("1".equals(prefs.get("web_enabled", "1"))
-                        ? "Web activé" : "Web désactivé")
-                + "\nMode Web : " + prefs.get("web_mode", "always")
-                + "\nTest Web : " + ("1".equals(prefs.get("web_verified", "0"))
-                        ? "source obtenue" : "non confirmé")
+                + "\nInternet Jarvis : " + (JarvisInternet.enabled(prefs)
+                        ? "activé (requêtes HTTPS publiques)" : "désactivé")
+                + "\nDernier test Internet : " + prefs.get("jarvis_web_last_test", "non effectué")
                 + "\nDernière erreur à : " + prefs.get("last_error_time", "aucune")
                 + "\n\nAucune clé, aucun GPS, aucun contenu de conversation dans ce diagnostic.";
         new AlertDialog.Builder(this)
