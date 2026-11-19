@@ -53,9 +53,7 @@ public class MainActivity extends Activity {
     private boolean recordAfterMicPermission = false;
     private EditText memoryEditor, memorySearchInput;
     private EditText silenceInput, followupInput, ttsInput, voskHintsEditor;
-    private CheckBox bargeEnabled, followupHandsfreeEnabled, bluetoothMicEnabled;
-    private TextView bluetoothMicStatus;
-    private boolean promptStartAfterBluetoothPermission = false;
+    private CheckBox bargeEnabled, followupHandsfreeEnabled;
     private LinearLayout config;
     private ScrollView configScroll;
     private WebView hud;
@@ -67,7 +65,6 @@ public class MainActivity extends Activity {
     private boolean promptStartAfterPermission = false;
     private BroadcastReceiver events;
     private static final int REQ_MIC = 17;
-    private static final int REQ_BLUETOOTH_MIC = 85;
     private static final int REQ_LOCATION = 19;
     private static final int REQ_PHOTO = 82;
     private static final int REQ_VOICE_SAMPLE = 83;
@@ -295,19 +292,10 @@ public class MainActivity extends Activity {
         config.addView(bargeEnabled);
         config.addView(label("Stabilite v3.11.2 : STOP vocal desactive par defaut pour eviter les interruptions dues a l'echo du haut-parleur. Le bouton Interrompre reste disponible. Re-activez cette case uniquement apres avoir verifie le comportement avec un casque."));
         config.addView(label("Anti-écho v3.8.9 : Vosk reste actif pendant les recherches Web en attente. Il se suspend uniquement quand FRIDAY parle et pendant 2,5 secondes après. Le micro reste disponible pour les commandes STOP et précision grâce au décodeur séparé. Posez une nouvelle question après cette courte pause. Si Android bloque le micro, utilisez le bouton Interrompre."));
-        config.addView(label("MICROPHONE CASQUE BLUETOOTH · SCO/HFP ou BLE Audio"));
-        bluetoothMicEnabled = new CheckBox(this);
-        bluetoothMicEnabled.setText("Privilégier le microphone du casque Bluetooth (repli téléphone si absent)");
-        bluetoothMicEnabled.setTextColor(Color.WHITE);
-        bluetoothMicEnabled.setChecked("1".equals(prefs.get("bluetooth_mic_enabled", "1")));
-        config.addView(bluetoothMicEnabled);
-        bluetoothMicStatus = label(FridayService.bluetoothMicStatus());
-        config.addView(bluetoothMicStatus);
-        config.addView(button("Vérifier le microphone Bluetooth", this::checkBluetoothMicrophone));
-        config.addView(label("Pour un casque Bluetooth classique, activez « Appels » dans les parametres Bluetooth Android du casque. Sur Android 8-11, FRIDAY doit etablir le profil mains libres SCO avant de pouvoir identifier son micro. Le son de la musique seul (A2DP) ne garantit pas la presence d'un micro accessible."));
-        config.addView(label("Connectez le casque dans les paramètres Android puis autorisez "
-                + "Appareils à proximité sur Android 12+. Le profil A2DP seul ne fournit pas "
-                + "de microphone mains libres. Redémarrez l'écoute après un changement."));
+        config.addView(label("AUDIO · microphone et haut-parleur intégrés du téléphone"));
+        config.addView(label("FRIDAY n'utilise plus le micro ni le mode mains libres Bluetooth. "
+                + "Les réponses Jarvis sortent par le haut-parleur du téléphone. "
+                + "Vérifiez le volume de communication Android."));
         config.addView(label("VITESSE VOCALE · 100 = normale (70 à 150)"));
         ttsInput = field("100", false);
         ttsInput.setInputType(InputType.TYPE_CLASS_NUMBER);
@@ -387,7 +375,8 @@ public class MainActivity extends Activity {
         manualQuestion = field("Ex. Bonjour, peux-tu me répondre ?", false);
         config.addView(manualQuestion);
         config.addView(button("Envoyer une question sans microphone", () -> sendQuestion(manualQuestion.getText().toString())));
-        manualAnswerLabel = label("Les questions écrites fonctionnent sans écoute et sans Bluetooth. Le résultat s'affiche ici et dans la conversation.");
+        manualAnswerLabel = label("Les questions écrites fonctionnent sans microphone. "
+                + "Jarvis affiche et prononce sa réponse sur le haut-parleur du téléphone.");
         manualAnswerLabel.setTextIsSelectable(true);
         config.addView(manualAnswerLabel);
         config.addView(button("Effacer les échanges vocaux locaux", this::clearVoiceHistory));
@@ -442,7 +431,7 @@ public class MainActivity extends Activity {
             prefs.put("followup_sec", bounded(followupInput, 75, 15, 180));
             prefs.put("followup_handsfree", followupHandsfreeEnabled.isChecked() ? "1" : "0");
             prefs.put("barge_in_enabled", bargeEnabled.isChecked() ? "1" : "0");
-            prefs.put("bluetooth_mic_enabled", bluetoothMicEnabled.isChecked() ? "1" : "0");
+            prefs.put("bluetooth_mic_enabled", "0");
             prefs.put("tts_speed", bounded(ttsInput, 100, 70, 150));
             prefs.put("voice_enabled", voiceEnabled.isChecked() ? "1" : "0");
             prefs.put("listen_once", oneShotEnabled.isChecked() ? "1" : "0");
@@ -938,12 +927,8 @@ public class MainActivity extends Activity {
                 + "\nÉtat de l'écoute : " + FridayService.voiceReadiness()
                 + "\nInterruption STOP : " + FridayService.interruptionDiagnostics()
                 + "\nTTS Android : " + FridayService.lastTtsStatus()
-                + "\nMicro Bluetooth : " + FridayService.bluetoothMicStatus()
-                + "\nMicro Bluetooth demandé : "
-                + ("1".equals(prefs.get("bluetooth_mic_enabled", "1")) ? "oui" : "non")
-                + "\nAutorisation Bluetooth : "
-                + (BluetoothMicRouter.allowed(this) ? "accordée / non requise" : "manquante")
-                + "\nMoteurs IA : Jarvis local et Mistral uniquement"
+                + "\nAudio : microphone intégré et haut-parleur du téléphone (Bluetooth désactivé)"
+                + "\nMoteur IA : Jarvis local uniquement"
                 + "\nMode vocal : " + ("1".equals(prefs.get("listen_once", "0"))
                         ? "Une question" : "Continu")
                 + "\nRéseau Mistral : " + ("1".equals(prefs.get("web_enabled", "1"))
@@ -1199,51 +1184,6 @@ public class MainActivity extends Activity {
         requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION,
                 Manifest.permission.ACCESS_FINE_LOCATION}, REQ_LOCATION);
     }
-    private void checkBluetoothMicrophone() {
-        if (Build.VERSION.SDK_INT >= 31 &&
-                checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)
-                        != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.BLUETOOTH_CONNECT}, REQ_BLUETOOTH_MIC);
-            return;
-        }
-        if (FridayService.isActive()) {
-            String current = FridayService.bluetoothMicStatus();
-            bluetoothMicStatus.setText(current);
-            status.setText(current);
-            return;
-        }
-        android.media.AudioManager audio =
-                (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
-        boolean supported = false;
-        try {
-            for (android.media.AudioDeviceInfo d : audio.getDevices(
-                    android.media.AudioManager.GET_DEVICES_INPUTS)) {
-                if (d.isSource() && BluetoothMicRouter.isBluetoothVoiceType(d.getType())) {
-                    supported = true;
-                    break;
-                }
-            }
-            if (!supported && Build.VERSION.SDK_INT < 31)
-                supported = BluetoothMicRouter.legacyHandsfreeConnected(this);
-            if (!supported && Build.VERSION.SDK_INT >= 31) {
-                for (android.media.AudioDeviceInfo d : audio.getAvailableCommunicationDevices()) {
-                    if (d.isSink() && BluetoothMicRouter.isBluetoothVoiceType(d.getType())) {
-                        supported = true;
-                        break;
-                    }
-                }
-            }
-        } catch (SecurityException denied) {
-            status.setText("Accès Bluetooth refusé par Android.");
-            return;
-        }
-        String report = supported
-                ? "Casque mains libres détecté. Démarrez l'écoute : FRIDAY attendra la liaison SCO avant la capture, puis vérifiera le microphone actif."
-                : "Aucun profil mains libres HFP/SCO détecté. Ouvrez Bluetooth > votre casque > activez Appels, puis relancez l'écoute.";
-        bluetoothMicStatus.setText(report);
-        status.setText(report);
-    }
-
     private void startListening() {
         if (!ModelInstaller.installed(this)) {
             status.setText("Téléchargez d'abord le modèle vocal français dans Réglages.");
@@ -1255,14 +1195,6 @@ public class MainActivity extends Activity {
         }
         if (FridayService.isActive()) {
             status.setText("Le microphone natif est déjà actif, même écran verrouillé. Stoppez pour appliquer de nouveaux réglages.");
-            return;
-        }
-        if (Build.VERSION.SDK_INT >= 31 &&
-                "1".equals(prefs.get("bluetooth_mic_enabled", "1")) &&
-                checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)
-                        != PackageManager.PERMISSION_GRANTED) {
-            promptStartAfterBluetoothPermission = true;
-            requestPermissions(new String[]{Manifest.permission.BLUETOOTH_CONNECT}, REQ_BLUETOOTH_MIC);
             return;
         }
         if ("1".equals(prefs.get("location_enabled", "0")) && !FridayLocation.hasPermission(this)) {
@@ -1311,20 +1243,7 @@ public class MainActivity extends Activity {
             if (grants.length > 0 && grants[0] == PackageManager.PERMISSION_GRANTED && promptStartAfterPermission) {
                 promptStartAfterPermission = false; startListening();
             } else { promptStartAfterPermission = false; status.setText("Microphone refusé dans les autorisations Android."); }
-        } else if (requestCode == REQ_BLUETOOTH_MIC) {
-            boolean granted = grants.length > 0 && grants[0] == PackageManager.PERMISSION_GRANTED;
-            if (!granted) {
-                prefs.put("bluetooth_mic_enabled", "0");
-                if (bluetoothMicEnabled != null) bluetoothMicEnabled.setChecked(false);
-                status.setText("Bluetooth non autorisé : utilisation du micro du téléphone.");
-            }
-            if (promptStartAfterBluetoothPermission) {
-                promptStartAfterBluetoothPermission = false;
-                startListening();
-            } else if (granted) {
-                checkBluetoothMicrophone();
-            }
-        } else if (requestCode == REQ_LOCATION) {
+        } else if (requestCode == REQ_LOCATION) {        } else if (requestCode == REQ_LOCATION) {
             if (FridayLocation.hasPermission(this)) {
                 locationEnabled.setChecked(true);
                 prefs.put("location_enabled", "1");
@@ -1353,16 +1272,12 @@ public class MainActivity extends Activity {
                 if (kind.equals("gps_api")) {
                     status.setText(text);
                 }
-                if (kind.equals("bluetooth_mic") && bluetoothMicStatus != null) {
-                    bluetoothMicStatus.setText(text);
-                }
                 if (kind.equals("error")) {
                     prefs.put("last_error", text);
                     prefs.put("last_error_time", new java.text.SimpleDateFormat("dd/MM HH:mm:ss", java.util.Locale.FRANCE).format(new java.util.Date()));
                     if (lastErrorLabel != null) lastErrorLabel.setText("Dernière erreur : " + text);
                 }
-                if (kind.equals("status") || kind.equals("bluetooth_mic")
-                        || kind.equals("error") || kind.equals("tts")
+                if (kind.equals("status") || kind.equals("error") || kind.equals("tts")
                         || kind.equals("mic_conflict") || kind.equals("interrupted")
                         || kind.equals("voice_state")) status.setText(text);
                 if (pageReady) {
@@ -1416,9 +1331,8 @@ public class MainActivity extends Activity {
     private void speakVoiceChunks(String spoken) {
         if (webVoice == null || !webVoiceReady) return;
         try {
-            webVoice.setAudioAttributes(new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+            PhoneAudioRoute.usePhoneSpeaker(this);
+            webVoice.setAudioAttributes(PhoneAudioRoute.speechAttributes());
             int rate = Integer.parseInt(prefs.get("tts_speed", "100"));
             webVoice.setSpeechRate(Math.max(0.7f, Math.min(1.5f, rate / 100f)));
             java.util.List<String> parts = VoiceText.ttsChunks(spoken, 280);
@@ -1438,6 +1352,7 @@ public class MainActivity extends Activity {
     }
     private void playWebVoiceAndroid(String spoken) {
         if (webVoice != null && webVoiceReady) {
+            PhoneAudioRoute.usePhoneSpeaker(this);
             speakVoiceChunks(spoken);
             return;
         }
@@ -1576,6 +1491,7 @@ public class MainActivity extends Activity {
         if (events != null) unregisterReceiver(events);
         if (testTts != null) { try { testTts.shutdown(); } catch (Exception ignored) {} testTts = null; }
         if (webVoice != null) { try { webVoice.shutdown(); } catch (Exception ignored) {} webVoice = null; }
+        if (!FridayService.isActive()) PhoneAudioRoute.release(this);
         if (hud != null) { hud.removeJavascriptInterface("FridayAndroid"); hud.destroy(); }
         super.onDestroy();
         // Le service micro reste actif après fermeture du cockpit, jusqu'à arrêt explicite.
