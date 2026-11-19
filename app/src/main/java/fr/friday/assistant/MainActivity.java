@@ -92,7 +92,10 @@ public class MainActivity extends Activity {
             prefs.put("available_models", "");
             prefs.put("available_models_time", "0");
             String previous = prefs.get("mistral_model", "").trim();
-            if (previous.isEmpty()) prefs.put("mistral_model", "mistral-small-latest");
+            if (previous.isEmpty() || "mistral-small-latest".equals(previous)) {
+                // mistral-small-latest renvoie 429 sur certaines offres ; ministral-8b est fiable.
+                prefs.put("mistral_model", "ministral-8b-latest");
+            }
             prefs.put("mode", "mistral");
             prefs.put("provider", "mistral");
             prefs.put("mistral_only_v330", "1");
@@ -179,8 +182,8 @@ public class MainActivity extends Activity {
         config.addView(label("MOTEUR VOCAL LOCAL · français Vosk (~41 Mo à télécharger une fois)"));
         config.addView(button(ModelInstaller.installed(this) ? "✓ Modèle installé" : "↓ Télécharger le modèle français", this::installModel));
         config.addView(label("MOTEURS IA · Jarvis local sur Android + Mistral (Internet)"));
-        mistralModel = field("mistral-small-latest", false);
-        mistralModel.setText(prefs.get("mistral_model", "mistral-small-latest"));
+        mistralModel = field("ministral-8b-latest", false);
+        mistralModel.setText(prefs.get("mistral_model", "ministral-8b-latest"));
         config.addView(label("Modèle Mistral"));
         config.addView(mistralModel);
         config.addView(label("Clé API Mistral (laissez vide pour conserver)"));
@@ -860,7 +863,7 @@ public class MainActivity extends Activity {
                         + "L'outil Web nécessite une vérification séparée avec "
                         + "« Activer et tester la recherche Web ».")
                 .setSingleChoiceItems(names, Math.max(0, models.indexOf(
-                        prefs.get("mistral_model", "mistral-small-latest"))), (dialog, index) -> {
+                        prefs.get("mistral_model", "ministral-8b-latest"))), (dialog, index) -> {
                     String name = names[index];
                     prefs.put("mistral_model", name);
                     mistralModel.setText(name);

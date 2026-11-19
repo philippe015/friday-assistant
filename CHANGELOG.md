@@ -1,3 +1,14 @@
+## [3.12.4] — correctif du modèle Mistral par défaut
+
+- **`mistral-small-latest` renvoyait `429` sur certaines offres** (modèle non inclus),
+  rendant toutes les réponses inutilisables. Le modèle par défaut devient
+  **`ministral-8b-latest`** (vérifié fonctionnel), avec migration automatique des
+  installations ayant enregistré l'ancien nom.
+- **Repli sur `429`** : si le modèle configuré (non-défaut) est refusé par `429`,
+  FRIDAY tente **une seule fois** le modèle de base au lieu d'échouer.
+- La recherche Web peut rester indisponible selon l'offre : l'application le signale
+  honnêtement et répond via le chat sans inventer de sources.
+
 ## [3.12.3] — stabilité de la capture microphone
 
 - **Libération du callback d'enregistrement audio** : `AudioRecordingCallback` était enregistré
