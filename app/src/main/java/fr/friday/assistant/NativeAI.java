@@ -92,7 +92,7 @@ public final class NativeAI {
     }
     /** Fournisseur unique Mistral : aucune clé ni URL d'un autre service. */
     private static final String MISTRAL_BASE = "https://api.mistral.ai/v1";
-    private static final String DEFAULT_MODEL = "mistral-small-latest";
+    private static final String DEFAULT_MODEL = "ministral-8b-latest";
 
     public static String answer(SecurePrefs settings, String question, List<JSONObject> history,
                                 String locationContext) throws Exception {
@@ -711,10 +711,22 @@ public final class NativeAI {
         try {
             return chat(cfg, key, model, question, history, webWarning);
         } catch (IOException e) {
-            if (invalidModel(e) && !DEFAULT_MODEL.equals(model)) {
-                String reply = chat(cfg, key, DEFAULT_MODEL, question, history, webWarning);
-                cfg.put("mistral_model", DEFAULT_MODEL);
-                return reply;
+            // 400/404/422 = modèle inexistant/incompatible ; 429 sur un modèle
+            // non-défaut = souvent un modèle non inclus dans l'offre du compte.
+            // Un seul repli vers le modèle de base, jamais de boucle.
+            boolean modelIssue = invalidModel(e)
+                    || (e.getMessage() != null
+                        && e.getMessage().startsWith("API HTTP 429")
+                        && !DEFAULT_MODEL.equals(model));
+            if (modelIssue && !DEFAULT_MODEL.equals(model)) {
+                try {
+                    String reply = chat(cfg, key, DEFAULT_MODEL, question, history, webWarning);
+                    cfg.put("mistral_model", DEFAULT_MODEL);
+                    return reply;
+                } catch (IOException again) {
+                    throw new IOException("Mistral (" + model + " puis " + DEFAULT_MODEL
+                            + ") : " + again.getMessage(), again);
+                }
             }
             throw new IOException("Mistral (" + model + ") : " + e.getMessage(), e);
         }

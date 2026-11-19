@@ -7,7 +7,7 @@ package fr.friday.assistant;
 public final class WebToolPolicy {
     private WebToolPolicy() {}
 
-    /** Repli ponctuel vers mistral-small-latest si l'outil n'a pas été exécuté. */
+    /** Repli ponctuel vers le modèle de base si l'outil n'a pas été exécuté. */
     public static boolean retryWithoutExecution(String selected, String fallback,
                                                 boolean executed, int references) {
         return selected != null && fallback != null && !selected.equals(fallback)
