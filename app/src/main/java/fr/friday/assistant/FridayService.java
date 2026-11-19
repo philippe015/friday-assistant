@@ -910,17 +910,30 @@ public class FridayService extends Service {
             }
             if (!live(turn)) return;
             String prepared = PythonBrain.prepareQuestion(question);
-            if (local == null && RecentNewsPolicy.requiresRecentNews(prepared))
-                event("status", "Jarvis hors ligne : actualités récentes non vérifiables sans Internet.");
+            if (local == null && RecentNewsPolicy.requiresRecentNews(prepared)
+                    && !JarvisInternet.enabled(settings))
+                event("status", "Recherche Jarvis Internet désactivée : actualités non vérifiables.");
             if (!turn.clarificationContext.isEmpty())
                 prepared += "\n\n[CONTEXTE DE LA DEMANDE INTERROMPUE : "
                         + turn.clarificationContext + "]\n[TRAITE LA PRÉCISION ACTUELLE EN "
                         + "LIEN AVEC CE SUJET, SANS INVENTER.]";
-            // Jarvis seul : aucune branche Mistral, SSE ni autre fournisseur.
+            // Recherche publique HTTPS facultative, puis génération sur le modèle Jarvis
+            // installé. Jamais de requête de génération vers Mistral.
             boolean localJarvis = true;
-            event("status", "Jarvis local : génération sur le téléphone, aucune IA distante.");
-            String answer = local != null ? local
-                    : LocalJarvisEngine.answer(this, settings, question, turn.api);
+            JarvisInternet.Result webResearch = null;
+            String answer;
+            if (local != null) {
+                answer = local;
+            } else if (JarvisInternet.shouldResearch(settings, question)) {
+                event("status", "Jarvis consulte des sources Internet publiques (Bing / DuckDuckGo).");
+                webResearch = JarvisInternet.answer(this, settings, question, turn.api);
+                answer = webResearch.text;
+                if (webResearch.usedInternet) event("web_sources", webResearch.sources);
+            } else {
+                event("status", "Jarvis local : réponse générée sur le téléphone sans moteur distant.");
+                answer = LocalJarvisEngine.answer(this, settings, question, turn.api);
+            }
+            String speechAnswer = webResearch == null ? answer : webResearch.speech;
             if (!live(turn)) return;
             // Preuve d'une transmission API ponctuelle réussie, sans conserver les coordonnées.
             // Aucune coordonnée GPS n'est envoyée à une API distante.
@@ -931,11 +944,11 @@ public class FridayService extends Service {
             if (memoryAction) event("status", "Commande mémoire effectuée localement.");
             else event("assistant", answer);
             if (!turn.streamedVoice) {
-                spokenText = answer;
+                spokenText = speechAnswer;
                 speakingNow = true;
                 event("status", "Réponse vocale en cours. Dites « STOP » pour interrompre ; attendez la fin pour une nouvelle question.");
             }
-            boolean spoken = turn.streamedVoice ? turn.streamingVoiceSucceeded : speak(answer, turn);
+            boolean spoken = turn.streamedVoice ? turn.streamingVoiceSucceeded : speak(speechAnswer, turn);
             if (!live(turn)) return;
             lastReplyAt = SystemClock.elapsedRealtime();
             if (spoken) {
