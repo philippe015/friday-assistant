@@ -21,12 +21,16 @@ class OnlyLocalJarvisAndMistral(unittest.TestCase):
         self.assertIn('prefs.put("openjarvis_enabled", "0")', ui)
         self.assertIn('prefs.put("openjarvis_route_all", "0")', ui)
 
-    def test_jarvis_and_mistral_are_only_active_ai_choices(self):
-        voice = read("FridayService.java")
-        self.assertIn("JarvisMistralRouting.useLocal(question", voice)
-        self.assertIn("LocalJarvisEngine.answer(this, settings, question, turn.api)", voice)
-        self.assertIn("NativeAI.answer(settings, prepared", voice)
-        self.assertIn('new JSONObject().put("type", "web_search")', read("NativeAI.java"))
+    def test_jarvis_is_the_only_active_ai_engine(self):
+        voice=read("FridayService.java")
+        ui=read("MainActivity.java")
+        cloud=read("NativeAI.java")
+        self.assertIn("boolean requestedOnDevice = true;",voice)
+        self.assertIn("LocalJarvisEngine.answer(this, settings, question, turn.api)",voice)
+        self.assertNotIn("NativeAI.answer(settings, prepared",voice)
+        self.assertIn('prefs.put("local_jarvis_all", "1")',ui)
+        self.assertIn('prefs.put("web_enabled", "0")',ui)
+        self.assertIn("blockCloud();",cloud)
 
     def test_historical_bridge_library_cannot_be_invoked(self):
         client = read("OpenJarvisClient.java")
