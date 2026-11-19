@@ -32,7 +32,7 @@ class JarvisOnDeviceV310(unittest.TestCase):
         self.assertIn('Intent.ACTION_OPEN_DOCUMENT', ui)
         self.assertIn("REQ_LOCAL_LLM_MODEL", ui)
         self.assertIn("LocalJarvisEngine.importModel(this, selected)", ui)
-        self.assertIn("LocalJarvisEngine.answer(this, prefs,", ui)
+        self.assertIn("LocalJarvisEngine.answer(getApplicationContext(), prefs,", ui)
         self.assertIn("Gemma 3 léger · MediaPipe .task", ui)
 
     def test_local_priority_preserves_mistral_without_hidden_cloud_fallback(self):
@@ -62,8 +62,8 @@ class JarvisOnDeviceV310(unittest.TestCase):
 
     def test_version(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 83", gradle)
-        self.assertIn("versionName '3.12.5'", gradle)
+        self.assertIn("versionCode 84", gradle)
+        self.assertIn("versionName '3.12.6'", gradle)
 
 if __name__ == "__main__":
     unittest.main()

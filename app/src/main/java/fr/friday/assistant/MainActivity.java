@@ -164,7 +164,7 @@ public class MainActivity extends Activity {
         LinearLayout checks = new LinearLayout(this);
         checks.setPadding(dp(7),0,dp(7),0);
         checks.addView(button("🔊 Tester la voix", this::testVoice), new LinearLayout.LayoutParams(0,dp(48),1));
-        checks.addView(button("✓ Tester réponse locale", this::testLocalAnswer), new LinearLayout.LayoutParams(0,dp(48),1));
+        checks.addView(button("✓ Tester IA Jarvis locale", this::testLocalAnswer), new LinearLayout.LayoutParams(0,dp(48),1));
         outer.addView(checks);
         status = label(FridayService.isActive() ?
             "Écoute native active · écran allumé ou verrouillé." :
@@ -703,33 +703,69 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "Test local déjà en cours.", Toast.LENGTH_LONG).show();
             return;
         }
+        if (!LocalJarvisEngine.ready(this)) {
+            localJarvisTesting.set(false);
+            String problem = "Test Jarvis local impossible : aucun fichier de modèle compatible "
+                    + "pour le moteur sélectionné. Ouvrez Réglages → Jarvis local → "
+                    + "Importer un modèle .task ou .litertlm. "
+                    + LocalJarvisEngine.status(this, prefs);
+            localJarvisStatus.setText(problem);
+            status.setText(problem);
+            new AlertDialog.Builder(this).setTitle("Modèle IA local manquant")
+                    .setMessage(problem).setPositiveButton("Fermer", null).show();
+            return;
+        }
         try { saveLocalJarvisPrefs(); }
         catch (Exception failure) {
             localJarvisTesting.set(false);
-            localJarvisStatus.setText(failure.getMessage());
+            String problem = "Test Jarvis local impossible : " + failure.getMessage();
+            localJarvisStatus.setText(problem);
+            status.setText(problem);
+            new AlertDialog.Builder(this).setTitle("Configuration Jarvis local")
+                    .setMessage(problem).setPositiveButton("Fermer", null).show();
             return;
         }
-        localJarvisStatus.setText("Jarvis local : modèle en cours de chargement sur le téléphone…");
+        localJarvisStatus.setText("Jarvis local : vérification réelle du moteur et du modèle… "
+                + LocalJarvisEngine.status(this, prefs));
+        status.setText("Test du vrai modèle Jarvis local sans microphone et sans connexion Mistral…");
         new Thread(() -> {
             String answer;
+            boolean succeeded = false;
             try {
-                answer = LocalJarvisEngine.answer(this, prefs,
-                        "Jarvis, explique brièvement en français ton rôle sur le téléphone.", null);
-                answer = "MODÈLE LOCAL OPÉRATIONNEL — aucune requête Internet.\\n"
-                        + (answer.length() > 400 ? answer.substring(0, 400) : answer);
-            } catch (Exception failure) {
-                answer = "Test local échoué : " + failure.getMessage();
-            } catch (UnsatisfiedLinkError | ExceptionInInitializerError failure) {
-                answer = "Moteur MediaPipe non pris en charge : "
-                        + failure.getClass().getSimpleName();
+                answer = LocalJarvisEngine.answer(getApplicationContext(), prefs,
+                        "Jarvis, présente ton rôle en deux phrases en français.", null);
+                if (answer == null || answer.trim().isEmpty())
+                    throw new IOException("Le modèle n'a généré aucune réponse.");
+                answer = "TEST IA LOCALE RÉUSSI — réponse générée sans Mistral.\n"
+                        + LocalJarvisEngine.status(getApplicationContext(), prefs) + "\n\n"
+                        + (answer.length() > 500 ? answer.substring(0, 500) : answer);
+                succeeded = true;
+            } catch (OutOfMemoryError memory) {
+                answer = "TEST IA LOCALE ÉCHOUÉ — mémoire RAM insuffisante. "
+                        + "Importez un modèle plus petit et fermez les autres applications.";
+            } catch (Exception | LinkageError failure) {
+                String reason = failure.getMessage();
+                answer = "TEST IA LOCALE ÉCHOUÉ — "
+                        + failure.getClass().getSimpleName() + " : "
+                        + (reason == null ? "échec sans détail du moteur" : reason)
+                        + "\n" + LocalJarvisEngine.status(getApplicationContext(), prefs)
+                        + "\nVérifiez le format du modèle, la RAM et la compatibilité GPU/CPU.";
             }
             final String result = answer;
+            final boolean ok = succeeded;
             localJarvisTesting.set(false);
             runOnUiThread(() -> {
                 if (isFinishing() || isDestroyed()) return;
                 localJarvisStatus.setText(result);
                 status.setText(result);
-                new AlertDialog.Builder(this).setTitle("Test du modèle IA local")
+                if (!ok) {
+                    prefs.put("last_error", result);
+                    prefs.put("last_error_time", new java.text.SimpleDateFormat(
+                            "dd/MM HH:mm:ss", java.util.Locale.FRANCE).format(new java.util.Date()));
+                    if (lastErrorLabel != null) lastErrorLabel.setText("Dernière erreur : " + result);
+                }
+                new AlertDialog.Builder(this)
+                        .setTitle(ok ? "Jarvis local : modèle confirmé" : "Jarvis local : diagnostic d'échec")
                         .setMessage(result).setPositiveButton("Fermer", null).show();
             });
         }, "friday-local-llm-test").start();
@@ -984,7 +1020,10 @@ public class MainActivity extends Activity {
     }
 
     private void testLocalAnswer() {
-        sendQuestion("Quelle heure est-il ?");
+        // Le bouton principal doit éprouver le VRAI modèle installé.
+        // Le précédent test de l'heure pouvait répondre sans aucun LLM
+        // via PythonBrain et ne validait donc pas Jarvis local.
+        testLocalJarvis();
     }
     /** Questions écrites indépendantes de AudioRecord, Vosk et Bluetooth. */
     private void sendQuestion(String question) {

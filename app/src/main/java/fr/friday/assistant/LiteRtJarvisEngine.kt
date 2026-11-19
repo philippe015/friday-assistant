@@ -70,10 +70,17 @@ object LiteRtJarvisEngine {
                     }
                 }
                 if (selected == null) {
+                    val detail = lastFailure?.let { failure ->
+                        val reason = failure.message?.replace(Regex("[\\r\\n]+"), " ")
+                            ?.take(180) ?: "cause non détaillée"
+                        " Cause native : ${failure.javaClass.simpleName} : $reason."
+                    } ?: ""
                     throw IOException(
                         "Impossible d'initialiser LiteRT-LM" +
                             (if (wantsGpu) " (GPU puis CPU)" else " (CPU)") +
-                            ". Vérifiez la RAM, le modèle et le pilote GPU/OpenCL du téléphone.",
+                            ". Vérifiez la RAM, le fichier .litertlm et OpenCL." +
+                            " Un modèle compilé uniquement pour GPU peut refuser le mode CPU." +
+                            detail,
                         lastFailure
                     )
                 }
