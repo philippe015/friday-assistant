@@ -266,7 +266,7 @@ public final class JarvisInternet {
 
     private static String clip(String value, int max) {
         if (value == null) return "";
-        String result = value.replaceAll("[\\u0000-\\u001f\\u007f]+", " ").trim();
+        String result = value.replaceAll("[\\p{Cntrl}]+", " ").trim();
         return result.length() > max ? result.substring(0, max) : result;
     }
 }
