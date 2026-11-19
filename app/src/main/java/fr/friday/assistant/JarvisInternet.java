@@ -157,12 +157,40 @@ public final class JarvisInternet {
         if (cancellation != null) cancellation.check();
         String q = clip(query, 140);
         if (q.isEmpty()) return new ArrayList<>();
-        String encoded = URLEncoder.encode(q, "UTF-8");
+        int hours = RecentNewsPolicy.requiresRecentNews(q)
+                ? RecentNewsPolicy.requestedHours(q) : 0;
+        long now = System.currentTimeMillis();
         ArrayList<Source> found = new ArrayList<>();
         String trouble = "";
+        if (hours > 0) {
+            // Pour une fenêtre de quelques heures, ne jamais retourner un résultat
+            // HTML non daté comme une vraie actualité récente.
+            String topic = recentNewsTopic(q);
+            String feed = topic.isEmpty()
+                    ? "https://news.google.com/rss?hl=fr&gl=FR&ceid=FR:fr"
+                    : "https://news.google.com/rss/search?q="
+                      + URLEncoder.encode(topic + " when:" + hours + "h", "UTF-8")
+                      + "&hl=fr&gl=FR&ceid=FR:fr";
+            try { found.addAll(parseRss(fetch(feed), hours, now)); }
+            catch (Exception failure) { trouble = failure.getMessage(); }
+            if (found.isEmpty()) {
+                if (cancellation != null) cancellation.check();
+                try {
+                    found.addAll(parseRss(fetch("https://www.bing.com/search?q="
+                            + URLEncoder.encode(q, "UTF-8") + "&format=rss"), hours, now));
+                } catch (Exception failure) { trouble = failure.getMessage(); }
+            }
+            if (found.isEmpty())
+                throw new IOException("Recherche Internet indisponible : aucun article avec date "
+                        + "de publication vérifiable dans les " + hours + " dernières heures. "
+                        + "Jarvis ne fabrique pas d'actualités. "
+                        + clip(trouble == null ? "" : trouble, 120));
+            return found;
+        }
+        String encoded = URLEncoder.encode(q, "UTF-8");
         try {
             found.addAll(parseRss(fetch("https://www.bing.com/search?q="
-                    + encoded + "&format=rss")));
+                    + encoded + "&format=rss"), 0, now));
         } catch (Exception fail) { trouble = fail.getMessage(); }
         if (found.isEmpty()) {
             if (cancellation != null) cancellation.check();
@@ -171,18 +199,23 @@ public final class JarvisInternet {
                         + encoded)));
             } catch (Exception fail) { trouble = fail.getMessage(); }
         }
-        if (found.isEmpty() && RecentNewsPolicy.requiresRecentNews(query)) {
-            if (cancellation != null) cancellation.check();
-            try {
-                found.addAll(parseRss(fetch("https://news.google.com/rss/search?q="
-                        + encoded + "&hl=fr&gl=FR&ceid=FR:fr")));
-            } catch (Exception fail) { trouble = fail.getMessage(); }
-        }
         if (found.isEmpty())
-            throw new IOException("Aucun résultat Web obtenu (Bing / DuckDuckGo"
-                    + (RecentNewsPolicy.requiresRecentNews(query) ? " / Google Actualités" : "")
-                    + "). " + clip(trouble == null ? "" : trouble, 120));
+            throw new IOException("Recherche Internet indisponible : aucun résultat Web obtenu "
+                    + "(Bing / DuckDuckGo). " + clip(trouble == null ? "" : trouble, 120));
         return found;
+    }
+
+    /** Retire les expressions temporelles d'une demande générale d'actualités. */
+    private static String recentNewsTopic(String question) {
+        String words = VoiceText.normalize(question).replaceAll("[^a-z0-9 ]+", " ")
+                .replaceAll("\\s+", " ").trim();
+        words = words.replaceAll("\\b(?:friday|frida|freiday|freday|fride|"
+                + "actualites?|actus?|nouvelles?|infos?|informations?|news|"
+                + "dernieres?|dernier|precedentes?|precedents?|recentes?|"
+                + "des?|de|du|la|le|les|sur|au|aux|en|dans|pendant|cours|"
+                + "heures?|\\d{1,2}|sept|six|douze|trois|quatre|vingt|"
+                + "quelles?|quels?|sont|donne|moi|cherche|recherche)\\b", " ");
+        return words.replaceAll("\\s+", " ").trim();
     }
 
     /** Transport TLS borné, uniquement vers trois hôtes de recherche publics. */
@@ -222,15 +255,23 @@ public final class JarvisInternet {
         } finally { conn.disconnect(); }
     }
 
-    private static List<Source> parseRss(String xml) {
+    private static List<Source> parseRss(String xml, int recentHours, long now) {
         ArrayList<Source> sources = new ArrayList<>();
         Matcher items = RSS_ITEM.matcher(xml);
-        while (items.find() && sources.size() < MAX_RESULTS) {
+        int inspected = 0;
+        while (items.find() && sources.size() < MAX_RESULTS
+                && inspected++ < MAX_RSS_ITEMS) {
             String item = items.group(1);
+            long published = RssFreshness.publishedMillis(xmlField(item, "pubDate"));
+            if (recentHours > 0 && !RssFreshness.withinHours(published, now, recentHours))
+                continue;
             String link = xmlField(item, "link");
             String title = clip(WebPageReader.plainText(xmlField(item, "title")), 150);
             String summary = clip(WebPageReader.plainText(xmlField(item, "description")), 600);
+            int previousCount = sources.size();
             addSafe(sources, link, title, summary);
+            if (sources.size() > previousCount)
+                sources.get(sources.size() - 1).publishedAt = published;
         }
         return sources;
     }
