@@ -356,37 +356,34 @@ public class MainActivity extends Activity {
         locationEnabled.setChecked("1".equals(prefs.get("location_enabled", "0")));
         config.addView(locationEnabled);
         locationShare = new CheckBox(this);
-        locationShare.setText("Autoriser l'envoi ponctuel de mes coordonnées GPS à Mistral pour les questions locales");
-        locationShare.setTextColor(Color.WHITE);
-        locationShare.setChecked("1".equals(prefs.get("location_share", "0")));
-        config.addView(locationShare);
-        config.addView(label("Important : autoriser le GPS Android n'envoie PAS la position à Mistral. "
-                + "Cochez aussi le partage ponctuel, ou utilisez « Configurer le GPS pour les réponses locales ». "
-                + "Le service vocal peut nécessiter un redémarrage après modification des permissions."));
+        locationShare.setChecked(false);
+        config.addView(label("Position GPS utilisée sur le téléphone seulement. "
+                + "Aucun partage vers un fournisseur IA distant. "
+                + "Le service vocal peut nécessiter un redémarrage après les permissions."));
         placeNameEnabled = new CheckBox(this);
         placeNameEnabled.setText("Identifier la commune ou la rue à la demande (géocodeur du téléphone, peut utiliser son réseau)");
         placeNameEnabled.setTextColor(Color.WHITE);
         placeNameEnabled.setChecked("1".equals(prefs.get("address_lookup", "0")));
         config.addView(placeNameEnabled);
         config.addView(label("Aucune clé Google : ce géocodeur est une fonction d'Android, dont le fournisseur peut accéder à Internet. Désactivé par défaut."));
-        config.addView(label("Aucun suivi GPS permanent : mesure à la demande (jusqu'à 16 s) et objectif 3 m non garanti. " +
-            "La précision effectivement mesurée est affichée. Si le partage IA est autorisé, les coordonnées précises de cette question sont transmises à l’API Mistral."));
+        config.addView(label("Aucun suivi GPS permanent : mesure à la demande "
+                + "(objectif 3 m non garanti). La précision effectivement obtenue est affichée."));
         config.addView(button("◎ Tester précision GPS · cible 3 m", this::showGpsAccuracy));
-        config.addView(button("⌖ Autoriser la position GPS à Mistral (ponctuellement)", this::configureGpsForAssistant));
         config.addView(label("DIAGNOSTIC · dernière erreur du moteur IA"));
         lastErrorLabel = label(prefs.get("last_error", "").isEmpty()
                 ? "Aucune erreur enregistrée."
                 : "Dernière erreur (" + prefs.get("last_error_time", "?") + ") : " + prefs.get("last_error", ""));
         config.addView(lastErrorLabel);
         config.addView(button("⧉ Copier la dernière erreur", this::copyLastError));
-        config.addView(button("Diagnostic complet de l'écoute · micro / Vosk / Mistral / voix", this::showVoiceDiagnostics));
+        config.addView(button("Diagnostic complet · micro / Vosk / Jarvis / voix", this::showVoiceDiagnostics));
         config.addView(button("Enregistrer les réglages", this::save));
         config.addView(label("PERSONNALITÉ · prompt sur plusieurs lignes · profils chiffrés"));
         config.addView(button("✧ Modifier la personnalité de F.R.I.D.A.Y.", () -> {
             configScroll.setVisibility(View.GONE);
             if (pageReady) hud.evaluateJavascript("window.fridayOpenPersonality&&window.fridayOpenPersonality();", null);
         }));
-        config.addView(label("DIAGNOSTIC : écrire une question, puis l'envoyer au moteur natif. Cela vérifie les API sans microphone."));
+        config.addView(label("DIAGNOSTIC : envoyez une question au modèle Jarvis local sans microphone. "
+                + "La réponse s'affiche et sera prononcée si la voix est activée."));
         manualQuestion = field("Ex. Bonjour, peux-tu me répondre ?", false);
         config.addView(manualQuestion);
         config.addView(button("Envoyer une question sans microphone", () -> sendQuestion(manualQuestion.getText().toString())));
