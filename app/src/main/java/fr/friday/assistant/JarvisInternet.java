@@ -58,7 +58,7 @@ public final class JarvisInternet {
     }
 
     public static boolean enabled(SecurePrefs settings) {
-        return "1".equals(settings.get("jarvis_web_enabled", "0"));
+        return "1".equals(settings.get("jarvis_web_enabled", "1"));
     }
 
     public static boolean shouldResearch(SecurePrefs settings, String question) {
@@ -187,10 +187,12 @@ public final class JarvisInternet {
                       + "&hl=fr&gl=FR&ceid=FR:fr";
             try { found.addAll(parseRss(fetch(feed), hours, now)); }
             catch (Exception failure) { trouble = failure.getMessage(); }
-            if (found.isEmpty()) {
+            // Compléter un flux trop pauvre par un second index. Les deux
+            // fournisseurs sont soumis au même filtre temporel RSS strict.
+            if (found.size() < MAX_RESULTS) {
                 if (cancellation != null) cancellation.check();
                 try {
-                    found.addAll(parseRss(fetch("https://www.bing.com/search?q="
+                    mergeUnique(found, parseRss(fetch("https://www.bing.com/search?q="
                             + URLEncoder.encode(q, "UTF-8") + "&format=rss"), hours, now));
                 } catch (Exception failure) { trouble = failure.getMessage(); }
             }
@@ -206,10 +208,12 @@ public final class JarvisInternet {
             found.addAll(parseRss(fetch("https://www.bing.com/search?q="
                     + encoded + "&format=rss"), 0, now));
         } catch (Exception fail) { trouble = fail.getMessage(); }
-        if (found.isEmpty()) {
+        // Bing peut renvoyer un ou deux liens seulement ; compléter plutôt
+        // que considérer une recherche partielle comme suffisante.
+        if (found.size() < MAX_RESULTS) {
             if (cancellation != null) cancellation.check();
             try {
-                found.addAll(parseDuckDuckGo(fetch("https://html.duckduckgo.com/html/?q="
+                mergeUnique(found, parseDuckDuckGo(fetch("https://html.duckduckgo.com/html/?q="
                         + encoded)));
             } catch (Exception fail) { trouble = fail.getMessage(); }
         }
@@ -283,6 +287,21 @@ public final class JarvisInternet {
             } finally { conn.disconnect(); }
         }
         throw new IOException("Trop de redirections de recherche.");
+    }
+
+    /** Fusion de résultats publics sans doublons, en conservant les horodatages. */
+    private static void mergeUnique(List<Source> into, List<Source> candidates) {
+        for (Source candidate : candidates) {
+            if (into.size() >= MAX_RESULTS) break;
+            boolean duplicate = false;
+            for (Source previous : into) {
+                if (previous.url.equals(candidate.url)) {
+                    duplicate = true;
+                    break;
+                }
+            }
+            if (!duplicate) into.add(candidate);
+        }
     }
 
     private static List<Source> parseRss(String xml, int recentHours, long now) {
