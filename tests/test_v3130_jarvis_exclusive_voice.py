@@ -1,4 +1,4 @@
-"""FRIDAY v3.13.0 — only local Jarvis inference, text questions spoken aloud."""
+"""FRIDAY v3.13.1 — only local Jarvis inference, text questions spoken aloud."""
 from pathlib import Path
 import unittest
 
@@ -26,7 +26,7 @@ class JarvisExclusiveVoice(unittest.TestCase):
         self.assertIn('VoiceText.ttsChunks(spoken, 280)', MAIN)
         self.assertIn("TextToSpeech.QUEUE_ADD",MAIN)
         self.assertIn("TextToSpeech.QUEUE_FLUSH",MAIN)
-        self.assertIn("AudioAttributes.USAGE_MEDIA", MAIN)
+        self.assertIn("PhoneAudioRoute.speechAttributes()", MAIN)
 
     def test_cockpit_text_does_not_require_micro(self):
         js=HTML.split("function ask(text)",1)[1].split("function start()",1)[0]
@@ -62,8 +62,8 @@ class JarvisExclusiveVoice(unittest.TestCase):
         self.assertNotIn("Analyser cette page Web avec Mistral",ui)
 
     def test_version(self):
-        self.assertIn("versionCode 85",GRADLE)
-        self.assertIn("versionName '3.13.0'",GRADLE)
+        self.assertIn("versionCode 86",GRADLE)
+        self.assertIn("versionName '3.13.1'",GRADLE)
 
 if __name__=="__main__":
     unittest.main()
