@@ -21,7 +21,7 @@ class MicrophoneRecovery(unittest.TestCase):
         self.assertIn('throw new IllegalStateException("Microphone rendu muet par Android")', SERVICE)
         self.assertIn("consecutiveErrors = 0;", SERVICE)
         self.assertIn("if (mutedSince != 0 || micSilenced)", SERVICE)
-        self.assertIn("bluetoothMicRouter.routedStatus(ar)", SERVICE)
+        self.assertIn("PhoneAudioRoute.inputStatus(ar)", SERVICE)
 
     def test_capture_errors_no_longer_kill_service(self):
         self.assertNotIn("if (consecutiveErrors >= 3) throw captureError", SERVICE)
