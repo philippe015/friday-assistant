@@ -19,6 +19,8 @@ TMP_TEST="$(mktemp -d)"
 trap 'rm -rf "$TMP_TEST"' EXIT
 javac -encoding UTF-8 -d "$TMP_TEST" \
   app/src/main/java/fr/friday/assistant/VoiceText.java \
+  app/src/main/java/fr/friday/assistant/VoiceUtteranceTiming.java \
+  app/src/main/java/fr/friday/assistant/RssFreshness.java \
   app/src/main/java/fr/friday/assistant/HttpRetryPolicy.java \
   app/src/main/java/fr/friday/assistant/SpeechSentenceBuffer.java \
   app/src/main/java/fr/friday/assistant/VoiceVocabulary.java \
@@ -39,6 +41,6 @@ javac -encoding UTF-8 -d "$TMP_TEST" \
   app/src/main/java/fr/friday/assistant/MemoryIntent.java \
   app/src/main/java/fr/friday/assistant/MemoryRules.java \
   app/src/main/java/fr/friday/assistant/FridayVersionPolicy.java \
-  tests/LocalJarvisPolicyTest.java tests/JarvisMistralRoutingTest.java tests/OpenJarvisPolicyTest.java tests/WebPageReaderTest.java tests/WebToolPolicyTest.java tests/MemoryRulesTest.java tests/MicSignalMeterTest.java tests/VoiceStopSpotterTest.java tests/TtsEchoGateTest.java tests/VoiceVocabularyTest.java tests/SpeechSentenceBufferTest.java tests/HttpRetryPolicyTest.java tests/AssistantIdentityTest.java tests/WebSearchTest.java tests/RecentNewsPolicyTest.java tests/VoiceTextTest.java tests/BargeInPolicyTest.java tests/LocationIntentTest.java tests/MemoryIntentTest.java tests/FridayVersionPolicyTest.java
-for name in LocalJarvisPolicyTest JarvisMistralRoutingTest OpenJarvisPolicyTest fr.friday.assistant.WebPageReaderTest WebToolPolicyTest MemoryRulesTest MicSignalMeterTest VoiceStopSpotterTest TtsEchoGateTest VoiceVocabularyTest SpeechSentenceBufferTest HttpRetryPolicyTest AssistantIdentityTest WebSearchTest RecentNewsPolicyTest VoiceTextTest BargeInPolicyTest fr.friday.assistant.LocationIntentTest MemoryIntentTest fr.friday.assistant.FridayVersionPolicyTest; do java -cp "$TMP_TEST" "$name"; done
+  tests/LocalJarvisPolicyTest.java tests/JarvisMistralRoutingTest.java tests/OpenJarvisPolicyTest.java tests/WebPageReaderTest.java tests/WebToolPolicyTest.java tests/MemoryRulesTest.java tests/MicSignalMeterTest.java tests/VoiceStopSpotterTest.java tests/TtsEchoGateTest.java tests/VoiceVocabularyTest.java tests/SpeechSentenceBufferTest.java tests/HttpRetryPolicyTest.java tests/AssistantIdentityTest.java tests/WebSearchTest.java tests/RecentNewsPolicyTest.java tests/VoiceTextTest.java tests/BargeInPolicyTest.java tests/LocationIntentTest.java tests/MemoryIntentTest.java tests/FridayVersionPolicyTest.java tests/VoiceUtteranceTimingTest.java tests/RssFreshnessTest.java
+for name in LocalJarvisPolicyTest JarvisMistralRoutingTest OpenJarvisPolicyTest fr.friday.assistant.WebPageReaderTest WebToolPolicyTest MemoryRulesTest MicSignalMeterTest VoiceStopSpotterTest TtsEchoGateTest VoiceVocabularyTest SpeechSentenceBufferTest HttpRetryPolicyTest AssistantIdentityTest WebSearchTest RecentNewsPolicyTest VoiceTextTest BargeInPolicyTest fr.friday.assistant.LocationIntentTest MemoryIntentTest fr.friday.assistant.FridayVersionPolicyTest VoiceUtteranceTimingTest RssFreshnessTest; do java -cp "$TMP_TEST" "$name"; done
 echo 'Tests F.R.I.D.A.Y. réussis (Java, Python, Rust, JS).'
