@@ -880,7 +880,7 @@ public class FridayService extends Service {
         currentTurn = turn;
         boolean localJarvis = true; // Mode exclusif Jarvis pour toute demande vocale.
         voiceState("Question reçue · "
-                + (localJarvis ? "Jarvis sur le téléphone, sans réseau" : "Mistral")
+                + "Jarvis sur le téléphone, sans réseau"
                 + " · micro disponible pour une nouvelle question avec Friday");
         // Protège contre un fournisseur/API bloqué : aucun tour muet ne doit
         // garder l'écoute occupée indéfiniment. Un TTS en lecture n'est pas coupé.
@@ -888,7 +888,7 @@ public class FridayService extends Service {
             if (live(turn) && TtsEchoGate.staleNetworkTurn(
                     true, speakingNow, SystemClock.elapsedRealtime(),
                     turn.startedAt, MAX_PENDING_WEB_MS)) {
-                event("error", "Délai de recherche Mistral dépassé. "
+                event("error", "Délai de réponse Jarvis local dépassé. "
                         + "Vous pouvez poser une nouvelle question.");
                 interruptResponse("Recherche expirée · microphone disponible · dites Friday.");
             }
@@ -907,13 +907,10 @@ public class FridayService extends Service {
         try {
             if (!memoryAction && live(turn)) event("user", question);
             if (live(turn)) event("status", memoryAction ? "Commande mémoire locale…"
-                    : requestedOnDevice ? "Jarvis local réfléchit sur le téléphone…"
-                    : "Réflexion Mistral… Vous pouvez m'interrompre.");
+                    : "Jarvis local réfléchit sur le téléphone…");
             String local = PersonalMemory.command(settings, question);
             // Les commandes strictement locales conservent leur fonctionnement.
             // Toutes les autres questions passent par le modèle Jarvis installé.
-            if (local == null && MemoryIntent.kind(question) == MemoryIntent.NONE)
-                local = null;
             String locationForApi = null;
             if (local == null && LocationIntent.nearby(question)) {
                 if (!"1".equals(settings.get("location_enabled", "0"))) {
@@ -963,12 +960,12 @@ public class FridayService extends Service {
                         } else if (LocationIntent.direct(question)) {
                             local = AndroidPlaceResolver.userText(fix, place)
                                     + " La position reste uniquement sur votre téléphone : "
-                                    + "le partage des coordonnées avec Mistral n'est pas autorisé. "
+                                    + "les coordonnées GPS restent uniquement sur cet appareil. "
                                     + "Pour l'activer, choisissez « Configurer le GPS pour "
                                     + "les réponses locales » dans les réglages.";
                         } else {
                             local = "J'ai trouvé votre position sur le téléphone, mais "
-                                    + "son partage avec Mistral n'est pas autorisé. "
+                                    + "les recherches en ligne sont désactivées. "
                                     + "Autorisez le partage ponctuel GPS dans les réglages "
                                     + "pour rechercher des informations autour de vous.";
                         }
