@@ -16,50 +16,67 @@ jobs:
     steps:
       - name: Checkout exact release commit
         uses: actions/checkout@v4
+
       - name: Confirm version
         run: |
           set -euo pipefail
           grep -Fq "versionCode 83" app/build.gradle
           grep -Fq "versionName '3.12.5'" app/build.gradle
+
       - name: Find successful signed APK build for this commit
         id: signed
-        env: { GH_TOKEN: ${{ github.token }} }
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           RUN_ID=""
           for attempt in $(seq 1 36); do
             RUN_ID="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "Build APK" \
-              --commit "$GITHUB_SHA" --limit 30 --json databaseId,conclusion \
+              --commit "$GITHUB_SHA" --limit 30 \
+              --json databaseId,conclusion \
               --jq '[.[] | select(.conclusion == "success") | .databaseId][0] // empty')"
-            [ -n "$RUN_ID" ] && break
+            if [ -n "$RUN_ID" ]; then break; fi
             sleep 10
           done
-          [ -z "$RUN_ID" ] && { echo "No successful APK build"; exit 1; }
+          if [ -z "$RUN_ID" ]; then
+            echo "No successful APK build for commit $GITHUB_SHA"
+            exit 1
+          fi
           echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+
       - name: Retrieve signed APK artifact
-        env: { GH_TOKEN: ${{ github.token }} }
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           gh run download "${{ steps.signed.outputs.run_id }}" --repo "$GITHUB_REPOSITORY" \
             --name FRIDAY-release-signed-apk --dir dist
-          test -s dist/app-release.apk && unzip -tq dist/app-release.apk
+          test -s dist/app-release.apk
+          unzip -tq dist/app-release.apk
           mv dist/app-release.apk dist/FRIDAY-v3.12.5-release.apk
           sha256sum dist/FRIDAY-v3.12.5-release.apk
+
       - name: Create exact version tag
-        env: { GH_TOKEN: ${{ github.token }} }
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           if ! gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v3.12.5" >/dev/null 2>&1; then
-            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref='refs/tags/v3.12.5' -f sha="$GITHUB_SHA"
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref='refs/tags/v3.12.5' -f sha="$GITHUB_SHA"
           fi
+
       - name: Publish signed Android release
-        env: { GH_TOKEN: ${{ github.token }} }
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           if gh release view v3.12.5 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload v3.12.5 dist/FRIDAY-v3.12.5-release.apk --repo "$GITHUB_REPOSITORY" --clobber
+            gh release upload v3.12.5 dist/FRIDAY-v3.12.5-release.apk \
+              --repo "$GITHUB_REPOSITORY" --clobber
           else
-            gh release create v3.12.5 dist/FRIDAY-v3.12.5-release.apk --repo "$GITHUB_REPOSITORY" --verify-tag \
+            gh release create v3.12.5 dist/FRIDAY-v3.12.5-release.apk \
+              --repo "$GITHUB_REPOSITORY" --verify-tag \
               --title "F.R.I.D.A.Y. v3.12.5 - Jarvis local compatible (repli GPU->CPU)" \
               --notes "FRIDAY v3.12.5 : moteur Jarvis local (LiteRT-LM) avec repli GPU vers CPU si le pilote OpenCL est absent, et maxNumTokens 2048 pour eviter les reponses tronquees. Jarvis local, Mistral et Web conserves. Tests et compilation Android passes."
           fi
