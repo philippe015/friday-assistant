@@ -943,7 +943,7 @@ public class FridayService extends Service {
             if (local != null) {
                 answer = local;
             } else if (JarvisInternet.shouldResearch(settings, question)) {
-                event("status", "Jarvis consulte des sources Internet publiques (Bing / DuckDuckGo).");
+                event("status", "Jarvis consulte des sources Internet publiques (Google Actualités / Bing / DuckDuckGo).");
                 webResearch = JarvisInternet.answer(this, settings, question, turn.api);
                 answer = webResearch.text;
                 if (webResearch.usedInternet) event("web_sources", webResearch.sources);
