@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
 
 /** Règles testables de dictée, mot-clé et lecture vocale. Aucune dépendance Android. */
 public final class VoiceText {
-    private static final Pattern WAKE = Pattern.compile("(?:^|\\b)(?:friday|frida|freiday|freday|fride|vendredi)(?:\\b)");
+    private static final Pattern WAKE = Pattern.compile("(?:^|\\b)(?:friday|fraday|frida|freiday|freday|freddy|fredi|fride|vendredi)(?:\\b)");
     private VoiceText() { }
 
     public static String normalize(String text) {
