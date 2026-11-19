@@ -32,7 +32,7 @@ class JarvisOnDeviceV310(unittest.TestCase):
         self.assertIn('Intent.ACTION_OPEN_DOCUMENT', ui)
         self.assertIn("REQ_LOCAL_LLM_MODEL", ui)
         self.assertIn("LocalJarvisEngine.importModel(this, selected)", ui)
-        self.assertIn("LocalJarvisEngine.answer(this, prefs,", ui)
+        self.assertIn("LocalJarvisEngine.answer(getApplicationContext(), prefs,", ui)
         self.assertIn("Gemma 3 léger · MediaPipe .task", ui)
 
     def test_local_priority_preserves_mistral_without_hidden_cloud_fallback(self):
