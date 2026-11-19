@@ -56,7 +56,7 @@ class FullVoiceAuditV389(unittest.TestCase):
         self.assertIn("FridayService.voiceReadiness()", ui)
         self.assertIn("FridayService.lastTtsStatus()", ui)
         self.assertIn("showVoiceDiagnostics()", ui)
-        self.assertIn("Diagnostic complet de l'écoute", ui)
+        self.assertIn("Diagnostic complet · micro / Vosk / Jarvis / voix", ui)
         self.assertIn('newPlainText(\n                                "friday-diagnostic-sans-secrets"', ui)
         self.assertIn("Aucune clé, aucun GPS, aucun contenu de conversation", ui)
 
