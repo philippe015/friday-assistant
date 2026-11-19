@@ -45,13 +45,13 @@ class RecentVoiceNewsV387(unittest.TestCase):
         memory = source("PersonalMemory.java")
         self.assertIn('cfg.get("memory_share_mistral", "0")', memory)
         self.assertIn("TtsEchoGate.suppressGeneralAsr(", voice)
-        self.assertIn("Jarvis hors ligne : actualités récentes non vérifiables", voice)
+        self.assertIn("Recherche Jarvis Internet désactivée : actualités non vérifiables", voice)
         self.assertIn('new JSONObject().put("type", "web_search")', ai)
 
     def test_version(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 86", gradle)
-        self.assertIn("versionName '3.13.1'", gradle)
+        self.assertIn("versionCode 87", gradle)
+        self.assertIn("versionName '3.13.2'", gradle)
 
 if __name__ == "__main__":
     unittest.main()

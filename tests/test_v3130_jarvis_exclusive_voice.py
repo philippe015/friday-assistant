@@ -1,4 +1,4 @@
-"""FRIDAY v3.13.1 — only local Jarvis inference, text questions spoken aloud."""
+"""FRIDAY v3.13.2 — only local Jarvis inference, text questions spoken aloud."""
 from pathlib import Path
 import unittest
 
@@ -18,7 +18,7 @@ class JarvisExclusiveVoice(unittest.TestCase):
         self.assertNotIn("JarvisMistralRouting.useLocal(", typed)
         self.assertIn("LocalJarvisEngine.answer(", typed)
         self.assertIn('String engineName = "Jarvis local";', typed)
-        self.assertIn('playWebVoice(result);', typed)
+        self.assertIn('playWebVoice(spokenResult);', typed)
         self.assertIn('prefs.get("voice_enabled", "1")', typed)
 
     def test_tts_reads_long_replies_in_french(self):
@@ -62,8 +62,8 @@ class JarvisExclusiveVoice(unittest.TestCase):
         self.assertNotIn("Analyser cette page Web avec Mistral",ui)
 
     def test_version(self):
-        self.assertIn("versionCode 86",GRADLE)
-        self.assertIn("versionName '3.13.1'",GRADLE)
+        self.assertIn("versionCode 87",GRADLE)
+        self.assertIn("versionName '3.13.2'",GRADLE)
 
 if __name__=="__main__":
     unittest.main()

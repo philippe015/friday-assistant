@@ -10,9 +10,9 @@ class VoiceContinuityV388(unittest.TestCase):
         src=(JAVA/"FridayService.java").read_text(encoding="utf-8")
         section=src[src.index("String prepared = PythonBrain.prepareQuestion(question)"):
                     src.index("// Aucune coordonnée GPS n'est envoyée")]
-        self.assertIn("Jarvis seul : aucune branche Mistral",section)
+        self.assertIn("Recherche publique HTTPS facultative",section)
         self.assertIn("LocalJarvisEngine.answer(this, settings, question, turn.api)",section)
-        self.assertNotIn("WebSearch.shouldSearch(",section)
+        self.assertIn("JarvisInternet.shouldResearch(settings, question)",section)
         self.assertNotIn("NativeAI.answer(",section)
         self.assertNotIn("streamAndSpeak(prepared",section)
 
@@ -45,8 +45,8 @@ class VoiceContinuityV388(unittest.TestCase):
 
     def test_version_and_privacy(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 86", gradle)
-        self.assertIn("versionName '3.13.1'", gradle)
+        self.assertIn("versionCode 87", gradle)
+        self.assertIn("versionName '3.13.2'", gradle)
         personal = (JAVA / "PersonalMemory.java").read_text(encoding="utf-8")
         self.assertIn('cfg.get("memory_share_mistral", "0")', personal)
         ai = (JAVA / "NativeAI.java").read_text(encoding="utf-8")

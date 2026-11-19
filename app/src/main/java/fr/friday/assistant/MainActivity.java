@@ -43,6 +43,9 @@ public class MainActivity extends Activity {
     private TextView webDiagnosticLabel;
     private final AtomicBoolean webTestRunning = new AtomicBoolean(false);
     private CheckBox localJarvisEnabled, localJarvisAll;
+    private CheckBox jarvisInternetEnabled;
+    private TextView jarvisInternetStatus;
+    private final AtomicBoolean jarvisWebTesting = new AtomicBoolean(false);
     private TextView localJarvisStatus;
     private final AtomicBoolean localJarvisImporting = new AtomicBoolean(false);
     private final AtomicBoolean localJarvisTesting = new AtomicBoolean(false);
@@ -119,6 +122,12 @@ public class MainActivity extends Activity {
         prefs.put("provider", "jarvis_local");
         prefs.put("local_jarvis_enabled", "1");
         prefs.put("local_jarvis_all", "1");
+        // L'accès Web de Jarvis est indépendant de l'ancien accès Mistral.
+        // Migration initiale activée à la demande ; l'utilisateur peut le couper.
+        if (!"1".equals(prefs.get("jarvis_web_migrated_v3132", "0"))) {
+            prefs.put("jarvis_web_enabled", "1");
+            prefs.put("jarvis_web_migrated_v3132", "1");
+        }
         prefs.put("web_enabled", "0");
         prefs.put("web_mode", "off");
         prefs.put("stream_enabled", "0");
@@ -198,11 +207,11 @@ public class MainActivity extends Activity {
                 + "Aucun fournisseur Mistral, aucune requête Web vers un LLM. "
                 + "Téléchargez et importez un modèle compatible pour générer vos réponses. "
                 + "Les réponses aux questions écrites sont également prononcées."));
-        config.addView(label("JARVIS LOCAL SUR ANDROID · sans ordinateur ni serveur"));
-        config.addView(label("Deux moteurs IA locaux : MediaPipe pour .task et LiteRT-LM "
-                + "pour .litertlm (dont Gemma 4 E2B). Aucun ordinateur nécessaire. "
-                + "Téléchargez un modèle une fois, puis importez-le depuis Android. "
-                + "Les actualités et recherches Internet ne sont pas disponibles sans réseau."));
+        config.addView(label("JARVIS SUR ANDROID · moteur local + recherche Internet publique"));
+        config.addView(label("Le raisonnement reste sur le téléphone (MediaPipe .task ou LiteRT-LM "
+                + ".litertlm). Pour les questions récentes et les demandes de recherche, "
+                + "Jarvis peut consulter des pages HTTPS publiques et citer les sources. "
+                + "Aucun moteur IA externe n'est utilisé."));
         localJarvisEnabled = new CheckBox(this);
         localJarvisEnabled.setText("Activer Jarvis IA local sur ce téléphone");
         localJarvisEnabled.setTextColor(Color.WHITE);
@@ -228,6 +237,21 @@ public class MainActivity extends Activity {
         localJarvisStatus = label(LocalJarvisEngine.status(this, prefs));
         localJarvisStatus.setTextColor(Color.rgb(255, 228, 143));
         config.addView(localJarvisStatus);
+        config.addView(label("INTERNET JARVIS · recherche publique HTTPS"));
+        jarvisInternetEnabled = new CheckBox(this);
+        jarvisInternetEnabled.setText("Autoriser Jarvis à rechercher des informations sur Internet");
+        jarvisInternetEnabled.setTextColor(Color.WHITE);
+        jarvisInternetEnabled.setChecked("1".equals(prefs.get("jarvis_web_enabled", "1")));
+        config.addView(jarvisInternetEnabled);
+        config.addView(label("Les mots-clés de recherche sont envoyés à Bing ou DuckDuckGo "
+                + "(Google Actualités en secours pour les actualités). "
+                + "Les pages HTTPS sont lues directement. Ni clé IA, ni historique personnel, "
+                + "ni notes privées, ni GPS ne sont envoyés. Certaines pages peuvent refuser "
+                + "les accès automatisés (HTTP 403/429). La recherche n'est pas illimitée."));
+        config.addView(button("Tester l'accès Internet Jarvis", this::testJarvisInternet));
+        jarvisInternetStatus = label("Internet Jarvis : test non effectué.");
+        jarvisInternetStatus.setTextIsSelectable(true);
+        config.addView(jarvisInternetStatus);
         config.addView(label("Formats reconnus : .task Android MediaPipe ou .litertlm "
                 + "LiteRT-LM. Les modèles GGUF et les tâches *-web.task ne sont pas "
                 + "acceptés. Gemma 4 E2B GPU demande beaucoup de mémoire et "
@@ -424,6 +448,7 @@ public class MainActivity extends Activity {
             prefs.put("memory_share_mistral", "0");
             prefs.put("web_enabled", "0");
             prefs.put("web_mode", "off");
+            prefs.put("jarvis_web_enabled", jarvisInternetEnabled.isChecked() ? "1" : "0");
             prefs.put("stream_enabled", "0");
             prefs.put("location_share", "0");
             saveLocalJarvisPrefs();
@@ -646,6 +671,50 @@ public class MainActivity extends Activity {
                         .setMessage(result).setPositiveButton("Fermer", null).show();
             });
         }, "friday-local-model-import").start();
+    }
+
+    /** Diagnostic réseau sans appel Mistral, exécuté hors thread graphique. */
+    private void testJarvisInternet() {
+        if (!jarvisWebTesting.compareAndSet(false, true)) {
+            status.setText("Test Internet Jarvis déjà en cours.");
+            return;
+        }
+        prefs.put("jarvis_web_enabled", jarvisInternetEnabled.isChecked() ? "1" : "0");
+        if (!JarvisInternet.enabled(prefs)) {
+            jarvisWebTesting.set(false);
+            status.setText("Activez d'abord la case Internet Jarvis.");
+            return;
+        }
+        jarvisInternetStatus.setText("Recherche publique HTTPS en cours (aucune API Mistral)…");
+        new Thread(() -> {
+            String result;
+            boolean ok;
+            try {
+                result = JarvisInternet.probe();
+                ok = true;
+            } catch (Exception error) {
+                result = "Test Internet échoué : "
+                        + (error.getMessage() == null ? error.getClass().getSimpleName()
+                        : error.getMessage());
+                ok = false;
+            }
+            final String report = result;
+            final boolean success = ok;
+            runOnUiThread(() -> {
+                jarvisWebTesting.set(false);
+                if (isFinishing() || isDestroyed()) return;
+                prefs.put("jarvis_web_last_test", success ? "recherche OK" : "échec du test");
+                if (!success) {
+                    prefs.put("last_error", report);
+                    if (lastErrorLabel != null) lastErrorLabel.setText(report);
+                }
+                jarvisInternetStatus.setText(report);
+                status.setText(report);
+                new AlertDialog.Builder(this).setTitle(success
+                        ? "Internet Jarvis opérationnel" : "Internet Jarvis indisponible")
+                        .setMessage(report).setPositiveButton("Fermer", null).show();
+            });
+        }, "friday-jarvis-internet-test").start();
     }
 
     private void testLocalJarvis() {
@@ -990,13 +1059,23 @@ public class MainActivity extends Activity {
         final String request = cleaned;
         new Thread(() -> {
             String answer = null;
+            String speechAnswer = null;
             String fault = null;
             boolean persisted = false;
             try {
                 if (MemoryIntent.kind(request) != MemoryIntent.NONE)
                     answer = PersonalMemory.command(prefs, request);
-                if (answer == null) answer = LocalJarvisEngine.answer(
-                        getApplicationContext(), prefs, request, new NativeAI.CancelToken());
+                if (answer == null) {
+                    if (JarvisInternet.shouldResearch(prefs, request)) {
+                        JarvisInternet.Result researched = JarvisInternet.answer(
+                                getApplicationContext(), prefs, request, new NativeAI.CancelToken());
+                        answer = researched.text;
+                        speechAnswer = researched.speech;
+                    } else {
+                        answer = LocalJarvisEngine.answer(getApplicationContext(), prefs, request,
+                                new NativeAI.CancelToken());
+                    }
+                }
                 if (answer == null || answer.trim().isEmpty())
                     throw new IOException("Le moteur sélectionné a renvoyé une réponse vide.");
                 try {
@@ -1019,6 +1098,7 @@ public class MainActivity extends Activity {
                         + ". Vérifiez le modèle local et la mémoire disponible.";
             }
             final String result = answer;
+            final String spokenResult = speechAnswer == null ? answer : speechAnswer;
             final String error = fault;
             final boolean historySaved = persisted;
             runOnUiThread(() -> {
@@ -1042,7 +1122,7 @@ public class MainActivity extends Activity {
                                 + org.json.JSONObject.quote(request) + ","
                                 + org.json.JSONObject.quote(result) + ");", null);
                     if ("1".equals(prefs.get("voice_enabled", "1")))
-                        playWebVoice(result);
+                        playWebVoice(spokenResult);
                 }
             });
         }, "friday-typed-request-no-mic").start();
@@ -1379,18 +1459,12 @@ public class MainActivity extends Activity {
             });
         }, "friday-position").start();
     }
-    /** Configuration vérifiée, sans assimiler le réglage activé à un accès Web validé. */
+    /** Mode Jarvis Web : l'activation ne constitue pas une preuve de connexion. */
     private String webTelemetry() {
-        if (!"1".equals(prefs.get("web_enabled", "1"))) return "Désactivée";
-        if (!prefs.hasSecret("mistral")) return "Clé Mistral absente";
-        String state = "always".equals(prefs.get("web_mode", "always"))
-                ? "Mode Toujours · Web demandé pour chaque question Mistral"
-                : "Mode Automatique";
-        String test = "1".equals(prefs.get("web_verified", "0"))
-                ? "Test connexion OK" : "Test connexion non confirmé";
-        String recent = prefs.get("web_last_status", "");
-        return state + " · " + test +
-                (recent.isEmpty() ? "" : " · Dernière réponse : " + recent);
+        if (!JarvisInternet.enabled(prefs)) return "Désactivée";
+        String check = prefs.get("jarvis_web_last_test", "");
+        return check.isEmpty() ? "Jarvis Web activé · test non effectué"
+                : "Jarvis Web activé · " + check;
     }
     private String gpsTelemetry() {
         if (!"1".equals(prefs.get("location_enabled", "0"))) return "Désactivé";

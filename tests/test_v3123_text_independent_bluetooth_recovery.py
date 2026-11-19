@@ -21,7 +21,7 @@ class WrittenInputIndependent(unittest.TestCase):
         self.assertIn('fault = "Erreur " + engineName',typed)
         self.assertIn("manualAnswerLabel.setText(result)",typed)
         self.assertIn("PrivateConversationHistory.append(",typed)
-        self.assertIn("playWebVoice(result);",typed)
+        self.assertIn("playWebVoice(spokenResult);",typed)
         self.assertIn("window.fridayTypedReply=function(question,answer)",HTML)
     def test_bluetooth_not_in_public_settings(self):
         self.assertNotIn("bluetoothMicEnabled",MAIN)
@@ -31,6 +31,6 @@ class WrittenInputIndependent(unittest.TestCase):
         self.assertIn("AudioDeviceInfo.TYPE_BUILTIN_SPEAKER",ROUTE)
     def test_version(self):
         gradle=(ROOT/"app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 86",gradle)
-        self.assertIn("versionName '3.13.1'",gradle)
+        self.assertIn("versionCode 87",gradle)
+        self.assertIn("versionName '3.13.2'",gradle)
 if __name__=="__main__":unittest.main()

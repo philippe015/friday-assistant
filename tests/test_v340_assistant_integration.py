@@ -12,7 +12,7 @@ class AssistantIntegrations(unittest.TestCase):
     def test_cloud_telemetry_is_explicitly_disabled(self):
         html=file("app/src/main/assets/index.html")
         activity=file("app/src/main/java/fr/friday/assistant/MainActivity.java")
-        self.assertIn("Désactivée (Jarvis hors ligne)",html)
+        self.assertIn("call('webTelemetry')",html)
         self.assertIn('prefs.put("web_enabled", "0")',activity)
         self.assertIn("call('gpsTelemetry')",html)
         self.assertIn("call('activeProfileName')",html)

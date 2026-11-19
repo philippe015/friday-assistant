@@ -1,4 +1,4 @@
-"""FRIDAY v3.13.1: previous Mistral Web settings must no longer be exposed."""
+"""FRIDAY v3.13.2: previous Mistral Web settings must no longer be exposed."""
 from pathlib import Path
 import unittest
 ROOT=Path(__file__).resolve().parents[1]
@@ -23,6 +23,6 @@ class WebDisabledJarvisExclusive(unittest.TestCase):
         self.assertIn('prefs.put("web_mode", "off")',UI)
     def test_version(self):
         gradle=(ROOT/"app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 86",gradle)
-        self.assertIn("versionName '3.13.1'",gradle)
+        self.assertIn("versionCode 87",gradle)
+        self.assertIn("versionName '3.13.2'",gradle)
 if __name__=="__main__": unittest.main()
