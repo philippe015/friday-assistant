@@ -286,6 +286,8 @@ public class FridayService extends Service {
             int consecutiveErrors = 0;
             int mutedMicroReopens = 0;
             while (running && !oneShotTriggered) {
+                // Ne temporiser qu'APRES libération du microphone en finally.
+                long retryMs = 0L;
                 AudioRecord ar = null;
                 Recognizer recognizer = null;
                 Recognizer stopRecognizer = null;
@@ -665,7 +667,7 @@ public class FridayService extends Service {
                     // Cette version reessaie tant que l'utilisateur n'a pas
                     // demande l'arret du service. Temporisation bornee pour
                     // eviter une boucle de relance intensive.
-                    long retryMs = Math.min(10000L, 500L * Math.min(consecutiveErrors, 20));
+                    retryMs = Math.min(10000L, 500L * Math.min(consecutiveErrors, 20));
                     voiceState("Microphone indisponible · nouvelle tentative automatique");
                     String detail = captureError.getMessage();
                     if (detail == null) detail = "";
@@ -675,8 +677,6 @@ public class FridayService extends Service {
                             + (detail.isEmpty() ? "" : " — " + detail)
                             + ". Nouvelle tentative dans " + (retryMs / 1000.0)
                             + " secondes. Vérifiez autorisations et autres micros.");
-                    try { Thread.sleep(retryMs); }
-                    catch (InterruptedException ignored) { Thread.currentThread().interrupt(); break; }
                 } finally {
                     if (Build.VERSION.SDK_INT >= 29 && recordingCallback != null && ar != null) {
                         try { ar.unregisterAudioRecordingCallback(recordingCallback); }
@@ -692,6 +692,15 @@ public class FridayService extends Service {
                     recorder = null;
                     if (recognizer != null) recognizer.close();
                     if (stopRecognizer != null) stopRecognizer.close();
+                }
+                // AudioRecord, callbacks et effets doivent être fermés avant
+                // la pause : sinon Android peut refuser la prochaine capture.
+                if (running && retryMs > 0) {
+                    try { Thread.sleep(retryMs); }
+                    catch (InterruptedException ignored) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
                 }
             }
         } catch (Exception e) {
