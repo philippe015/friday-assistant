@@ -1,4 +1,4 @@
-"""FRIDAY v3.13.2 — real search + source citation, entirely local LLM."""
+"""FRIDAY v3.13.3 — real search + source citation, entirely local LLM."""
 from pathlib import Path
 import unittest
 
@@ -80,7 +80,7 @@ class JarvisWebAccess(unittest.TestCase):
 
     def test_version(self):
         gradle=(ROOT/"app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 87",gradle)
-        self.assertIn("versionName '3.13.2'",gradle)
+        self.assertIn("versionCode 88",gradle)
+        self.assertIn("versionName '3.13.3'",gradle)
 
 if __name__=="__main__":unittest.main()
