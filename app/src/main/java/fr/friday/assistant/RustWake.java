@@ -14,7 +14,7 @@ public final class RustWake {
     public static boolean detect(String text) {
         String normalized = VoiceText.normalize(text == null ? "" : text);
         if (LOADED) {
-            try { return hasWakeWord(normalized); }
+            try { return hasWakeWord(normalized) || VoiceText.hasWakeWord(text); }
             catch (UnsatisfiedLinkError err) { /* Mode de secours Java. */ }
         }
         return VoiceText.hasWakeWord(text);
