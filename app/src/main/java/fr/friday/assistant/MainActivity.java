@@ -163,22 +163,44 @@ public class MainActivity extends Activity {
         LinearLayout outer = new LinearLayout(this);
         outer.setOrientation(LinearLayout.VERTICAL);
         outer.setBackgroundColor(Color.rgb(4,15,27));
+        // Android 15+ (target 35) dessine sous les barres système : préserver
+        // la zone caméra, les gestes et le clavier sans rogner les boutons.
+        if (Build.VERSION.SDK_INT >= 35) {
+            outer.setOnApplyWindowInsetsListener((view, insets) -> {
+                android.graphics.Insets safe = insets.getInsets(
+                        WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                view.setPadding(safe.left, safe.top, safe.right, safe.bottom);
+                return insets;
+            });
+        }
         setContentView(outer);
+        if (Build.VERSION.SDK_INT >= 35) outer.requestApplyInsets();
+        final boolean compactPhone = getResources().getConfiguration().screenWidthDp < 520;
         LinearLayout bar = new LinearLayout(this);
+        bar.setOrientation(compactPhone ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
         bar.setPadding(dp(7),dp(3),dp(7),dp(3));
         bar.setGravity(Gravity.CENTER_VERTICAL);
         TextView title = label("J.A.R.V.I.S. · " + FridayVersionGuard.thisVersion(this));
         title.setTextSize(15); title.setTextColor(Color.rgb(71,228,249));
-        bar.addView(title, new LinearLayout.LayoutParams(0,dp(48),1));
-        Button configure = button("⚙ Réglages", () -> configScroll.setVisibility(configScroll.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
-        bar.addView(configure);
-        bar.addView(button("◈ Versions", () -> FridayVersionGuard.showManager(this)));
-        bar.addView(button("✧ Profil", () -> {
+        bar.addView(title, new LinearLayout.LayoutParams(
+                compactPhone ? -1 : 0, dp(compactPhone ? 38 : 48), compactPhone ? 0 : 1));
+        LinearLayout menuRow = new LinearLayout(this);
+        menuRow.setOrientation(LinearLayout.HORIZONTAL);
+        Button configure = button("⚙ Réglages", () -> configScroll.setVisibility(
+                configScroll.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
+        menuRow.addView(configure, new LinearLayout.LayoutParams(
+                compactPhone ? 0 : -2, dp(48), compactPhone ? 1 : 0));
+        menuRow.addView(button("◈ Versions", () -> FridayVersionGuard.showManager(this)),
+                new LinearLayout.LayoutParams(compactPhone ? 0 : -2, dp(48), compactPhone ? 1 : 0));
+        menuRow.addView(button("✧ Profil", () -> {
             if (hud != null && pageReady) {
                 configScroll.setVisibility(View.GONE);
                 hud.evaluateJavascript("window.fridayOpenPersonality&&window.fridayOpenPersonality();", null);
             } else { configScroll.setVisibility(View.VISIBLE); }
-        }));
+        }), new LinearLayout.LayoutParams(
+                compactPhone ? 0 : -2, dp(48), compactPhone ? 1 : 0));
+        bar.addView(menuRow, new LinearLayout.LayoutParams(
+                -1, compactPhone ? dp(48) : -2));
         outer.addView(bar);
         LinearLayout commands = new LinearLayout(this);
         commands.setPadding(dp(7),0,dp(7),0);
@@ -203,7 +225,11 @@ public class MainActivity extends Activity {
         config.setOrientation(LinearLayout.VERTICAL);
         config.setBackgroundColor(Color.rgb(8,31,47));
         configScroll.addView(config);
-        outer.addView(configScroll, new LinearLayout.LayoutParams(-1, dp(340)));
+        // Les réglages n'écrasent plus le cockpit au démarrage sur téléphone.
+        int settingsHeight = Math.min(dp(340),
+                Math.max(dp(160), getResources().getDisplayMetrics().heightPixels / 2));
+        outer.addView(configScroll, new LinearLayout.LayoutParams(-1, settingsHeight));
+        configScroll.setVisibility(View.GONE);
         config.addView(label("MOTEUR VOCAL LOCAL · français Vosk (~41 Mo à télécharger une fois)"));
         config.addView(button(ModelInstaller.installed(this) ? "✓ Modèle installé" : "↓ Télécharger le modèle français", this::installModel));
         config.addView(label("MOTEUR UNIQUE · Jarvis IA installé sur le téléphone. "
