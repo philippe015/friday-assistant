@@ -26,7 +26,7 @@ class OnlyLocalJarvisAndMistral(unittest.TestCase):
         ui=read("MainActivity.java")
         cloud=read("NativeAI.java")
         self.assertIn("boolean requestedOnDevice = true;",voice)
-        self.assertIn("LocalJarvisEngine.answer(this, settings, question, turn.api)",voice)
+        self.assertIn("this, settings, question, privateDialogue, turn.api)",voice)
         self.assertNotIn("NativeAI.answer(settings, prepared",voice)
         self.assertIn('prefs.put("local_jarvis_all", "1")',ui)
         self.assertIn('prefs.put("web_enabled", "0")',ui)
