@@ -1,0 +1,84 @@
+name: Publish FRIDAY Jarvis v3.13.4 signed Android APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-v3.13.4.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact v3.13.4 source
+        uses: actions/checkout@v4
+
+      - name: Verify release identity and Internet fix
+        run: |
+          set -euo pipefail
+          grep -Fq "versionCode 89" app/build.gradle
+          grep -Fq "versionName '3.13.4'" app/build.gradle
+          grep -Fq "HTTP 202" app/src/main/java/fr/friday/assistant/JarvisInternet.java
+          grep -Fq "parseWikipediaSearch" app/src/main/java/fr/friday/assistant/JarvisInternet.java
+          grep -Fq "JarvisInternet.shouldResearch" app/src/main/java/fr/friday/assistant/FridayService.java
+          grep -Fq "Télécharger et activer" app/src/main/java/fr/friday/assistant/MainActivity.java
+
+      - name: Wait for tested and signed builds from this exact commit
+        id: verified
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          BUILD_ID=""
+          TEST_ID=""
+          for attempt in $(seq 1 60); do
+            BUILD_ID="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "Build APK" \
+              --commit "$GITHUB_SHA" --limit 30 --json databaseId,conclusion \
+              --jq '[.[] | select(.conclusion == "success") | .databaseId][0] // empty')"
+            TEST_ID="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "Tests" \
+              --commit "$GITHUB_SHA" --limit 30 --json databaseId,conclusion \
+              --jq '[.[] | select(.conclusion == "success") | .databaseId][0] // empty')"
+            if [ -n "$BUILD_ID" ] && [ -n "$TEST_ID" ]; then break; fi
+            sleep 10
+          done
+          if [ -z "$BUILD_ID" ] || [ -z "$TEST_ID" ]; then
+            echo "Build or tests failed/not completed for $GITHUB_SHA."
+            exit 1
+          fi
+          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+          echo "test_id=$TEST_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Download verified signed Android release APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh run download "${{ steps.verified.outputs.build_id }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name FRIDAY-release-signed-apk --dir dist
+          test -s dist/app-release.apk
+          unzip -tq dist/app-release.apk
+          mv dist/app-release.apk dist/FRIDAY-Jarvis-v3.13.4-Internet-HTTP202-release.apk
+          sha256sum dist/FRIDAY-Jarvis-v3.13.4-Internet-HTTP202-release.apk
+
+      - name: Publish GitHub Release v3.13.4
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG='v3.13.4'
+          ASSET='dist/FRIDAY-Jarvis-v3.13.4-Internet-HTTP202-release.apk'
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Refusing to overwrite existing public Release v3.13.4."
+            exit 1
+          fi
+          gh release create "$TAG" "$ASSET" \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "FRIDAY Jarvis v3.13.4 — Recherche Internet et HTTP 202" \
+            --notes "Nouvelle version Android publique de FRIDAY/Jarvis. Corrige les recherches hors sujet (mots isolés « quels », « de »), distingue les capacités de l'application et celles du modèle local, identifie les réponses HTTP 202 des moteurs et utilise des sources publiques de secours (MediaWiki et flux Google Actualités). Si les moteurs ne répondent pas, Jarvis fournit une réponse locale explicitement non vérifiée pour les connaissances générales, sans inventer d'informations actuelles. Les corrections antérieures du microphone Vosk, du mot-clé Friday/Jarvis, de la reprise de l'écoute et des recherches HTTPS sont conservées. IA locale uniquement, aucune API Mistral, aucune synchronisation de mémoire personnelle vers GitHub ou les moteurs de recherche. APK release Android ARM64 signé avec la clé de production du projet, identifiant fr.friday.assistant, versionName 3.13.4, versionCode 89. Attention : l'édition de test smartpreview est une autre application ; ses données et modèles ne migrent pas automatiquement. Les limites d'accès aux sites privés, bloqués ou JavaScript persistent. Tests automatiques et compilation de l'exact commit réussis."
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets
