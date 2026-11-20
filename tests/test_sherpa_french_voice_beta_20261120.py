@@ -19,7 +19,8 @@ class FrenchSpeechBeta(unittest.TestCase):
         self.assertNotIn("new AudioRecord(", SHERPA)
         self.assertIn("recognizer.acceptWaveForm(buffer, count)", SERVICE)
         self.assertIn("JarvisVoiceDecoder recognizer = null", SERVICE)
-        self.assertIn("return new JarvisVoiceDecoder.Vosk(model, grammar)", SERVICE)
+        self.assertIn("new JarvisVoiceDecoder.Vosk(model, grammar)", SERVICE)
+        self.assertIn("recognitionEngine = decoder.name();", SERVICE)
 
     def test_hard_stop_dedicated_vosk(self):
         self.assertIn("Recognizer stopRecognizer = null", SERVICE)
