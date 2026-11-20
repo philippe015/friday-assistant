@@ -42,6 +42,8 @@ public class FridayService extends Service {
     private static volatile String interruptDiagnostics = "Micro non démarré";
     private static volatile String voiceReadiness = "Micro arrêté";
     private static volatile String microphoneSignal = "Mesure du microphone non démarrée";
+    /** État du dernier décodage Vosk, sans sauvegarder les paroles. */
+    private static volatile String recognitionDiagnostic = "Aucune phrase Vosk finalisée";
     private static volatile String lastTtsStatus = "Voix non initialisée";
     private static volatile boolean foregroundLocationEnabled = false;
     private static final long MAX_PENDING_WEB_MS = 150000L;
@@ -88,6 +90,11 @@ public class FridayService extends Service {
     public static String interruptionDiagnostics() { return interruptDiagnostics; }
     public static String voiceReadiness() { return voiceReadiness; }
     public static String microphoneSignal() { return microphoneSignal; }
+    public static String recognitionDiagnostic() { return recognitionDiagnostic; }
+    private void asrDiagnostic(String info) {
+        recognitionDiagnostic = info;
+        event("asr_diag", info);
+    }
     public static String lastTtsStatus() { return lastTtsStatus; }
     private void voiceState(String state) {
         if (!state.equals(voiceReadiness)) {
@@ -195,7 +202,10 @@ public class FridayService extends Service {
         running = true;
         oneShotTriggered = false;
         wakeArmed = false;
-        wakeOnlyUntil = 0;
+        // L'utilisateur vient d'appuyer sur « Écoute ON » :
+        // une première question directe est acceptée pendant 15 secondes.
+        wakeOnlyUntil = SystemClock.elapsedRealtime() + 15_000L;
+        recognitionDiagnostic = "Vosk démarre, écoute directe ouverte 15 secondes";
         active = true;
         settings.put("bluetooth_mic_enabled", "0");
         PhoneAudioRoute.usePhoneSpeaker(this);
@@ -209,7 +219,8 @@ public class FridayService extends Service {
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "FRIDAY:MicroService");
         wakeLock.setReferenceCounted(false);
         wakeLock.acquire();
-        event("status", "Écoute native active. Dites Friday pour poser une question.");
+        event("status", "Écoute native active. Posez une question dans les 15 secondes, "
+                + "ou dites Friday / Jarvis à tout moment.");
         worker = new Thread(this::runLoop, "friday-voice-core");
         worker.start();
         return START_NOT_STICKY; // Pas de redémarrage clandestin après arrêt par le système.
@@ -631,8 +642,10 @@ public class FridayService extends Service {
                             double confidence = (confidenceCount + (int) finalStats[1]) > 0
                                     ? (confidenceSum + finalStats[0]) / (confidenceCount + finalStats[1])
                                     : 0;
-                            String phrase = VoiceText.join(completed, tail);
-                            if (phrase.isEmpty()) phrase = interim;
+                            // getFinalResult peut être vide malgré un partiel Vosk
+                            // valide : conserver le texte déjà reconnu.
+                            String phrase = VoiceText.join(completed,
+                                    tail.isEmpty() ? interim : tail);
                             // Vosk fermé/réinitialisé, mais le micro reste ouvert sans interruption.
                             recognizer.close(); recognizer = createRecognizer(model);
                             boolean controlPhrase = BargeInPolicy.isBareStopAnswer(phrase)
@@ -645,10 +658,15 @@ public class FridayService extends Service {
                             confidenceSum = 0; confidenceCount = 0;
                             earlyCancelled = false; sawSpeakerFeedback = false;
 
+                            // Un mot-clé explicitement reconnu autorise un seuil
+                            // plus tolérant ; la dictée sans mot-clé reste prudente.
+                            boolean explicitWake = BargeInPolicy.startsWithWake(phrase);
                             boolean unclear = !controlPhrase && phrase.split("\\s+").length >= 3
-                                    && confidence > 0 && confidence < 0.55;
+                                    && confidence > 0 && confidence < (explicitWake ? 0.35 : 0.55);
                             if (!dropSpeaker && !phrase.trim().isEmpty()) {
                                 if (unclear) {
+                                    asrDiagnostic("Phrase reconnue mais confiance Vosk faible ("
+                                            + Math.round(confidence * 100) + " %)");
                                     // Transcription douteuse : on montre ce qui a été entendu au lieu d'interroger l'IA.
                                     event("user", phrase.trim());
                                     event("error", "Je n'ai pas bien compris : « " + phrase.trim()
@@ -740,6 +758,10 @@ public class FridayService extends Service {
         wakeArmed = true;
         lastReplyAt = SystemClock.elapsedRealtime();
         bargePendingUntil = lastReplyAt + 15000L;
+        // Le bouton annonce une reprise de l'écoute : accepter réellement
+        // une question sans mot-clé après la queue anti-écho.
+        wakeOnlyUntil = bargePendingUntil;
+        asrDiagnostic("Interruption manuelle : question directe autorisée 15 secondes");
         event("interrupted", status);
         event("status", status);
     }
@@ -810,7 +832,8 @@ public class FridayService extends Service {
             if (question.isEmpty()) {
                 wakeOnlyUntil = now + 12_000L;
                 lastReplyAt = now;
-                event("status", "Friday à l'écoute : posez votre question.");
+                asrDiagnostic("Mot d'activation reconnu ; attente de la question (12 secondes)");
+                event("status", "Friday / Jarvis à l'écoute : posez votre question.");
                 return;
             }
         } else if ((now < wakeOnlyUntil ||
@@ -819,10 +842,15 @@ public class FridayService extends Service {
                 now - lastSpeechEndedAt >= TtsEchoGate.TAIL_MS) {
             // Le mode mains libres est desactive par defaut : Vosk peut transcrire
             // le haut-parleur, une TV ou du bruit en fausse question.
-            // Un "Friday" prononce seul autorise toujours UNE question pendant 12 s.
+            // « Écoute ON », le bouton d'interruption ou un mot-clé isolé
+            // autorisent UNE question directe pendant une fenêtre courte.
+            if (heard.trim().split("\\s+").length < 2) return;
             question = heard;
         } else {
-            // Sans mot-cle ou invitation explicite, ignorer toute transcription.
+            // Le PCM est présent, Vosk comprend une phrase, mais aucun mot-clé :
+            // ce n'est pas une panne de Jarvis ou du microphone.
+            if (heard.trim().split("\\s+").length >= 2)
+                asrDiagnostic("Vosk a transcrit une phrase ; mot-clé Friday/Jarvis absent");
             return;
         }
         if (BargeInPolicy.wantsToAddDetails(question)) {
@@ -839,12 +867,14 @@ public class FridayService extends Service {
         clarificationAnchor = "";
         clarificationUntil = 0L;
         latestQuestion = request;
+        asrDiagnostic(activated ? "Mot-clé Friday/Jarvis reconnu, question envoyée à Jarvis"
+                : "Question directe reconnue, envoyée à Jarvis");
         ResponseTurn turn = new ResponseTurn(anchor);
         currentTurn = turn;
         boolean localJarvis = true; // Mode exclusif Jarvis pour toute demande vocale.
         voiceState("Question reçue · "
                 + "Jarvis sur le téléphone, sans réseau"
-                + " · micro disponible pour une nouvelle question avec Friday");
+                + " · micro disponible pour une nouvelle question avec Friday ou Jarvis");
         // Protège contre un fournisseur/API bloqué : aucun tour muet ne doit
         // garder l'écoute occupée indéfiniment. Un TTS en lecture n'est pas coupé.
         turn.watchdog = () -> {
