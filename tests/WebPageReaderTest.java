@@ -40,6 +40,8 @@ public final class WebPageReaderTest {
                 "www domain gains HTTPS scheme");
         rejected("https//192.168.0.1/");
         rejected("https//localhost/");
+        ok(WebPageReader.explainHttpStatus(202).contains("pas fourni"),
+                "HTTP 202 ne prouve pas une panne Internet");
         ok(WebPageReader.explainHttpStatus(403).contains("Accès refusé"),
                 "403 clearly identifies blocked websites");
         ok(WebPageReader.explainHttpStatus(404).contains("introuvable"),
