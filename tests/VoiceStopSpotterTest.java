@@ -1,4 +1,4 @@
-import fr.jarvis.assistant.VoiceStopSpotter;
+import fr.friday.assistant.VoiceStopSpotter;
 
 public final class VoiceStopSpotterTest {
     private static void yes(boolean ok, String why) {
@@ -14,7 +14,7 @@ public final class VoiceStopSpotterTest {
                 == VoiceStopSpotter.Action.STOP, "final stop immédiat");
         yes(d.accept("stop", "JARVIS dit : stop, puis recommence.", true)
                 == VoiceStopSpotter.Action.NONE, "écho de la propre voix ignoré");
-        yes(VoiceStopSpotter.classify("Friday stop", "Bonjour.", true) == VoiceStopSpotter.Action.NONE, "ancien mot-clé désactivé");
+        yes(VoiceStopSpotter.classify("Friday stop", "Bonjour.") == VoiceStopSpotter.Action.NONE, "ancien mot-clé désactivé");
         d.reset();
         yes(d.accept("jarvis stop", "Voici une longue réponse.", true)
                 == VoiceStopSpotter.Action.STOP, "commande avec nom détectée");
