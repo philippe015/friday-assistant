@@ -22,6 +22,7 @@ class VoiceActivationReliability(unittest.TestCase):
 
     def test_first_question_after_manual_activation_needs_no_wake(self):
         self.assertIn("wakeOnlyUntil = SystemClock.elapsedRealtime() + 15_000L;", SERVICE)
+        self.assertIn("firstQuestionOnMicStart = true;", SERVICE)
         self.assertIn("wakeOnlyUntil = bargePendingUntil;", SERVICE)
         self.assertIn("now < wakeOnlyUntil", SERVICE)
         self.assertIn('settings.get("followup_handsfree", "0")', SERVICE)
