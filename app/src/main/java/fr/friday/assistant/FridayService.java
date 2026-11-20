@@ -368,7 +368,7 @@ public class FridayService extends Service {
                     recognizer = createRecognizer(model);
                     ar.startRecording();
                     event("status", PhoneAudioRoute.inputStatus(ar));
-                    voiceState("Micro actif : dites Friday pour parler");
+                    voiceState("Micro actif : dites Friday ou Jarvis pour parler");
                     interruptDiagnostics = bargeEnabled
                             ? "Micro PCM prêt · décodeur STOP démarre à la réponse"
                             : "Désactivé dans Réglages · autoriser l'interruption vocale";
@@ -490,8 +490,8 @@ public class FridayService extends Service {
                             confidenceSum = 0; confidenceCount = 0;
                             earlyCancelled = false; sawSpeakerFeedback = false;
                             interruptDiagnostics = "Micro à nouveau accessible";
-                            voiceState("Micro restauré : dites Friday");
-                            event("status", "Microphone de nouveau accessible. Dites Friday.");
+                            voiceState("Micro restauré : dites Friday ou Jarvis");
+                            event("status", "Microphone de nouveau accessible. Dites Friday ou Jarvis.");
                         }
                         // Affiche uniquement une mesure d'énergie PCM indicative.
                         // Pas de transcription stockée, ni envoi de son au modèle.
@@ -588,7 +588,7 @@ public class FridayService extends Service {
                             confidenceSum = 0; confidenceCount = 0;
                             earlyCancelled = false; sawSpeakerFeedback = false;
                             generalInputBlocked = false;
-                            voiceState("Micro prêt : dites Friday pour votre question suivante");
+                            voiceState("Micro prêt : dites Friday ou Jarvis pour votre question suivante");
                             event("barge_diag", "Protection anti-écho terminée · questions autorisées");
                         }
                         boolean endpoint = recognizer.acceptWaveForm(buffer, count);
@@ -883,7 +883,7 @@ public class FridayService extends Service {
                     turn.startedAt, MAX_PENDING_WEB_MS)) {
                 event("error", "Délai de réponse Jarvis local dépassé. "
                         + "Vous pouvez poser une nouvelle question.");
-                interruptResponse("Recherche expirée · microphone disponible · dites Friday.");
+                interruptResponse("Recherche expirée · microphone disponible · dites Friday ou Jarvis.");
             }
         };
         requestWatchdog.postDelayed(turn.watchdog, MAX_PENDING_WEB_MS);
@@ -1009,7 +1009,7 @@ public class FridayService extends Service {
             if (!live(turn)) return;
             lastReplyAt = SystemClock.elapsedRealtime();
             if (spoken) {
-                event("status", "Réponse terminée. Après 2,5 secondes, dites Friday pour une nouvelle question.");
+                event("status", "Réponse terminée. Après 2,5 secondes, dites Friday ou Jarvis pour une nouvelle question.");
             } else if ("1".equals(settings.get("voice_enabled", "1"))) {
                 event("error", "Réponse disponible en texte, mais lecture vocale incomplète. "
                         + "Le moteur TTS va être réinitialisé ; microphone toujours actif.");
@@ -1025,7 +1025,7 @@ public class FridayService extends Service {
                 // sans inventer une réponse Mistral ni interrompre le micro.
                 if ("1".equals(settings.get("voice_enabled", "1")) && ttsReady) {
                     String notice = "Le moteur sélectionné n'a pas répondu à cette question. "
-                            + "Je reste à votre écoute. Dites Friday pour recommencer.";
+                            + "Je reste à votre écoute. Dites Friday ou Jarvis pour recommencer.";
                     spokenText = notice;
                     speakingNow = true;
                     if (!speak(notice, turn)) recoverTtsAsync();
@@ -1047,7 +1047,7 @@ public class FridayService extends Service {
                 spokenText = "";
                 lastReplyAt = finishedAt;
                 voiceState(hadSpoken ? "Fin de la voix · anti-écho 2,5 secondes"
-                        : "Réponse terminée · micro disponible, dites Friday");
+                        : "Réponse terminée · micro disponible, dites Friday ou Jarvis");
                 if (running && !"1".equals(settings.get("listen_once", "0"))) {
                     event("barge_diag", "Réponse clôturée · anti-écho temporaire · dictée bientôt active");
                 }
