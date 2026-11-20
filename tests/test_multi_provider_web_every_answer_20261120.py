@@ -45,7 +45,7 @@ class WebEveryAnswer(unittest.TestCase):
     def test_both_voice_and_text_share_same_routing(self):
         self.assertIn("JarvisInternet.shouldResearch(settings, question)", VOICE)
         self.assertIn("JarvisInternet.shouldResearch(prefs, request)", UI)
-        self.assertIn("JarvisInternet.answer(this, settings, question, turn.api)", VOICE)
+        self.assertIn("this, settings, question, privateDialogue, turn.api)", VOICE)
         self.assertIn("JarvisInternet.answer(", UI)
 
 if __name__ == "__main__":
