@@ -42,8 +42,10 @@ public class FridayService extends Service {
     private static volatile String interruptDiagnostics = "Micro non démarré";
     private static volatile String voiceReadiness = "Micro arrêté";
     private static volatile String microphoneSignal = "Mesure du microphone non démarrée";
-    /** État du dernier décodage Vosk, sans sauvegarder les paroles. */
-    private static volatile String recognitionDiagnostic = "Aucune phrase Vosk finalisée";
+    /** État non personnel de la reconnaissance (aucune parole sauvegardée). */
+    private static volatile String recognitionDiagnostic = "Aucune transcription détectée";
+    private static volatile String recognitionEngine = "Non initialisé";
+    private static volatile long lastAsrTextAt = 0;
     private static volatile String lastTtsStatus = "Voix non initialisée";
     private static volatile boolean foregroundLocationEnabled = false;
     private static final long MAX_PENDING_WEB_MS = 150000L;
@@ -91,7 +93,14 @@ public class FridayService extends Service {
     public static String interruptionDiagnostics() { return interruptDiagnostics; }
     public static String voiceReadiness() { return voiceReadiness; }
     public static String microphoneSignal() { return microphoneSignal; }
-    public static String recognitionDiagnostic() { return recognitionDiagnostic; }
+    public static String recognitionEngine() { return recognitionEngine; }
+    public static String recognitionDiagnostic() {
+        long at = lastAsrTextAt;
+        if (at == 0) return recognitionDiagnostic + " · aucun texte reconnu depuis le démarrage du service";
+        long elapsed = SystemClock.elapsedRealtime() - at;
+        if (elapsed < 0) return recognitionDiagnostic;
+        return recognitionDiagnostic + " · dernier texte il y a " + Math.max(0, elapsed / 1000) + " s";
+    }
     private void asrDiagnostic(String info) {
         recognitionDiagnostic = info;
         event("asr_diag", info);
@@ -281,7 +290,9 @@ public class FridayService extends Service {
         if (SherpaVoicePolicy.useSherpa(settings.get("sherpa_voice_enabled", "0"),
                 SherpaVoiceModels.ready(this))) {
             try {
-                return new SherpaVoiceDecoder(this);
+                JarvisVoiceDecoder decoder = new SherpaVoiceDecoder(this);
+                recognitionEngine = decoder.name();
+                return decoder;
             } catch (Exception | LinkageError | OutOfMemoryError unavailable) {
                 settings.put("sherpa_voice_enabled", "0");
                 Log.w("JARVIS_SHERPA", "Sherpa FR indisponible : retour automatique à Vosk", unavailable);
@@ -292,11 +303,15 @@ public class FridayService extends Service {
         }
         String grammar = "1".equals(settings.get("vosk_hints_enabled", "0"))
                 ? VoiceVocabulary.grammar(settings.secret("vosk_hints")) : null;
-        return new JarvisVoiceDecoder.Vosk(model, grammar);
+        JarvisVoiceDecoder decoder = new JarvisVoiceDecoder.Vosk(model, grammar);
+        recognitionEngine = decoder.name();
+        return decoder;
     }
 
     /** Capture Vosk continue pendant les appels Mistral et la lecture audio. */
     private void runLoop() {
+        lastAsrTextAt = 0;
+        recognitionDiagnostic = "Aucune transcription détectée";
         try (Model model = new Model(ModelInstaller.modelDir(this).getAbsolutePath())) {
             event("status", "Reconnaissance française prête. Pendant une réponse, STOP et les précisions restent disponibles ; les nouvelles questions reprennent après la voix.");
             // Ne pas bloquer 15 secondes le micro en attendant le moteur TTS Android.
@@ -395,6 +410,8 @@ public class FridayService extends Service {
                     long lastPolicyCheck = 0, lastVoice = 0, lastPartialPublished = 0;
                     long lastMicLevelAt = 0;
                     long lastSignalSampleAt = 0;
+                    long signalPeakWindowAt = 0;
+                    int signalPeak = 0;
                     long noPcmSince = 0;
                     long lastPhoneInputCheckAt = 0;
                     String completed = "", interim = "";
@@ -437,11 +454,20 @@ public class FridayService extends Service {
                         }
                         noPcmSince = 0;
                         long sampleAt = SystemClock.elapsedRealtime();
+                        // Le niveau instantané seul peut manquer une syllabe ;
+                        // conserver aussi le pic maximal sur six secondes.
+                        int level = MicSignalMeter.level(buffer, count);
+                        if (signalPeakWindowAt == 0
+                                || sampleAt - signalPeakWindowAt >= 6000L) {
+                            signalPeakWindowAt = sampleAt;
+                            signalPeak = 0;
+                        }
+                        signalPeak = Math.max(signalPeak, level);
                         if (sampleAt - lastSignalSampleAt >= 1200L) {
                             lastSignalSampleAt = sampleAt;
-                            int level = MicSignalMeter.level(buffer, count);
                             microphoneSignal = "Entrée téléphone : " + level
-                                    + "/100 (volume relatif, pas une note de qualité)"
+                                    + "/100 · pic 6 s : " + signalPeak
+                                    + "/100 (niveaux relatifs)"
                                     + (silencedByPolicy.get() ? " · entrée muette imposée par Android" : "");
                         }
                         long phoneCheck = SystemClock.elapsedRealtime();
@@ -615,6 +641,7 @@ public class FridayService extends Service {
                             String resultJson = recognizer.getResult();
                             String segment = parse(resultJson, "text");
                             if (!segment.isEmpty()) {
+                                lastAsrTextAt = now;
                                 double[] stats = confidenceStats(resultJson);
                                 confidenceSum += stats[0];
                                 confidenceCount += (int) stats[1];
@@ -630,6 +657,7 @@ public class FridayService extends Service {
                         } else {
                             String next = parse(recognizer.getPartialResult(), "partial");
                             if (!next.isEmpty() && !next.equals(interim)) {
+                                lastAsrTextAt = now;
                                 interim = next;
                                 lastVoice = now;
                                 if (now - lastPartialPublished >= 250) {
