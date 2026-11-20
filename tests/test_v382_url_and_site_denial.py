@@ -48,8 +48,8 @@ class WebUrlV382(unittest.TestCase):
         manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text()
         self.assertIn('android:allowBackup="false"', manifest)
         gradle = (ROOT / "app/build.gradle").read_text()
-        self.assertRegex(gradle, r"versionCode (?:65|66|67|68|69|70|71|72|73|74|75|76|77|78|79|80|81|82|83|84|85|86|87|88|89)")
-        self.assertRegex(gradle, r"versionName '(?:3\.8\.[23456789]|3\.9\.0|3\.10\.0|3\.11\.0|3\.11\.1|3\.11\.2|3\.12\.0|3\.12\.1|3\.12\.2|3\.12\.3|3\.12\.4|3\.12\.5|3\.12\.6|3\.13\.0|3\.13\.1|3\.13\.2|3\.13\.3|3\.13\.4)'")
+        self.assertRegex(gradle, r"versionCode (?:65|66|67|68|69|70|71|72|73|74|75|76|77|78|79|80|81|82|83|84|85|86|87|88|89|90)")
+        self.assertRegex(gradle, r"versionName '(?:3\.8\.[23456789]|3\.9\.0|3\.10\.0|3\.11\.0|3\.11\.1|3\.11\.2|3\.12\.0|3\.12\.1|3\.12\.2|3\.12\.3|3\.12\.4|3\.12\.5|3\.12\.6|3\.13\.0|3\.13\.1|3\.13\.2|3\.13\.3|3\.13\.4|3\.13\.5)'")
 
 if __name__ == "__main__":
     unittest.main()
