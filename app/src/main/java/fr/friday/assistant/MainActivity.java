@@ -1103,8 +1103,12 @@ public class MainActivity extends Activity {
             try {
                 if (MemoryIntent.kind(request) != MemoryIntent.NONE)
                     answer = PersonalMemory.command(prefs, request);
-                // Ne pas chercher « quels sont tes capacités » sur Bing :
-                // le statut Internet et les fonctions de Jarvis sont locaux.
+                // Une question « Internet fonctionne ? » exige une vraie
+                // vérification réseau : aucun historique ni GPS transmis.
+                if (answer == null && WebSearch.requestsLiveConnectivityCheck(request))
+                    answer = JarvisInternet.liveConnectionDiagnostic(
+                            prefs, new NativeAI.CancelToken());
+                // Les capacités intrinsèques de Jarvis restent locales.
                 if (answer == null)
                     answer = WebSearch.assistantAnswer(request, JarvisInternet.enabled(prefs));
                 if (answer == null) {
