@@ -908,6 +908,10 @@ public class FridayService extends Service {
             if (live(turn)) event("status", memoryAction ? "Commande mémoire locale…"
                     : "Jarvis local réfléchit sur le téléphone…");
             String local = PersonalMemory.command(settings, question);
+            // Les questions sur les capacités de FRIDAY et son accès Web
+            // sont des diagnostics de l'application, pas une recherche publique.
+            if (local == null)
+                local = WebSearch.assistantAnswer(question, JarvisInternet.enabled(settings));
             // Les commandes strictement locales conservent leur fonctionnement.
             // Toutes les autres questions passent par le modèle Jarvis installé.
             String locationForApi = null;
