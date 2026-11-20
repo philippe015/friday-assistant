@@ -135,7 +135,7 @@ public final class WebSearch {
                 + "bloque|bloquee|panne|inaccessible)\\b.*")
                 || q.contains("toujours pas") || q.contains("pas acces");
         boolean assistant = q.matches(".*\\b(?:tu|toi|ton|ta|tes|vous|votre|vos|"
-                + "friday|jarvis|assistant|application|module)\\b.*");
+                + "jarvis|assistant|application|module)\\b.*");
         return status && (assistant || q.contains("toujours pas")
                 || q.startsWith("acces internet") || q.startsWith("internet ")
                 || q.startsWith("connexion internet")
