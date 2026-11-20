@@ -75,7 +75,7 @@ public final class WebSearchTest {
         check(!WebSearch.needsWeb("Jarvis, tu as accès au web ?"),
                 "Le statut Internet de Jarvis doit être un diagnostic local");
         check(WebSearch.assistantAnswer("Quels sont tes capacités ?", true)
-                        .contains("FRIDAY"),
+                        .contains("JARVIS"),
                 "Les capacités doivent recevoir une réponse locale déterministe");
         check(WebSearch.assistantAnswer("tu n'as toujours pas accès Internet", false)
                         .contains("désactivé"),
