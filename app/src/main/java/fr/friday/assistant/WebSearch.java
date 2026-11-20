@@ -43,6 +43,8 @@ public final class WebSearch {
             "en", "il", "elle", "je", "j", "tu", "ne", "pas", "toujours",
             "peux", "peut", "faire", "donne", "dire", "cherche", "recherche",
             "internet", "web", "regarde", "trouve", "verifie", "consulte",
+            "explique", "expliquer", "fonctionnement", "definition", "information",
+            "informations", "savoir", "question", "aide",
             "friday", "fraday", "freddy", "fredi", "jarvis", "jervis"
     };
     private static final Pattern NEEDS_LIVE_SOURCES = Pattern.compile(
@@ -83,6 +85,34 @@ public final class WebSearch {
 
     private static String withoutWake(String value) {
         return fold(value).replaceFirst("^(?:friday|fraday|frida|freiday|freday|freddy|fredi|fride|vendredi|jarvis|jarvise|jervis|jervi)\\s+", "");
+    }
+
+    /** Recherche Web par défaut pour les questions générales, jamais pour
+     * les commandes personnelles, les coordonnées ou les secrets privés.
+     * Ne jamais transformer une salutation ou une courte commande en mots-clés.
+     * Les préférences restent responsables de l'autorisation réseau. */
+    public static boolean safeForGeneralSearch(String question) {
+        String q = withoutWake(question);
+        if (q.isEmpty() || LOCAL_CHAT.matcher(q).find()) return false;
+        if (q.matches("^(?:qui|quoi|que|quel|quelle|quels|quelles|de|le|la|oui|non|stop|arrete)$"))
+            return false;
+        if (assistantAnswer(question, true) != null) return false;
+        // Les données personnelles ne doivent jamais être copiées vers un index.
+        if (q.matches(".*\\b(?:mon mot de passe|mon code secret|mes identifiants|"
+                + "mes notes|ma memoire|mes souvenirs|mes conversations|"
+                + "mon adresse|mon numero|ma position|ma localisation|"
+                + "mon gps|mes coordonnees|mes donnees personnelles)\\b.*"))
+            return false;
+        return firstUrl(question).length() > 0 || !keywordsForSearch(question).isEmpty();
+    }
+
+    /** Recherche spécialisée uniquement pour les publications scientifiques. */
+    public static boolean scientificResearch(String question) {
+        String q = withoutWake(question);
+        return q.matches(".*\\b(?:scientifique|scientifiques|etudes?|publications?|"
+                + "recherche medicale|etude clinique|essai clinique|doi|"
+                + "article scientifique|revue scientifique|these|"
+                + "bibliographie|recherche academique)\\b.*");
     }
 
     /** Réponse vérifiable localement aux questions sur l'assistant lui-même.
