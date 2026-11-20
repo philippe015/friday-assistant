@@ -540,7 +540,7 @@ public class FridayService extends Service {
                         if (currentTurn != null && bargeEnabled &&
                                 micNow - lastMicLevelAt >= 1200) {
                             lastMicLevelAt = micNow;
-                            int level = MicSignalMeter.level(buffer, count);
+                            // Réutiliser le niveau PCM déjà mesuré pour cette trame.
                             interruptDiagnostics = stopRecognizerUnavailable
                                     ? "Décodeur STOP indisponible · niveau micro " + level + "/100"
                                     : "Décodeur STOP actif · niveau micro " + level
