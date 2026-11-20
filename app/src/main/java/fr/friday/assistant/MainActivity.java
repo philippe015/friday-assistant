@@ -47,6 +47,9 @@ public class MainActivity extends Activity {
     private TextView jarvisInternetStatus;
     private final AtomicBoolean jarvisWebTesting = new AtomicBoolean(false);
     private TextView localJarvisStatus;
+    private CheckBox sherpaVoiceEnabled;
+    private TextView sherpaVoiceStatus;
+    private final AtomicBoolean sherpaVoiceImporting = new AtomicBoolean(false);
     private final AtomicBoolean localJarvisImporting = new AtomicBoolean(false);
     private final AtomicBoolean localJarvisTesting = new AtomicBoolean(false);
     /** Empêche les téléchargements Vosk concurrents et reprend la demande d'écoute. */
@@ -79,6 +82,7 @@ public class MainActivity extends Activity {
     private static final int REQ_PHOTO = 82;
     private static final int REQ_VOICE_SAMPLE = 83;
     private static final int REQ_LOCAL_LLM_MODEL = 84;
+    private static final int REQ_SHERPA_FR_MODEL = 85;
     private volatile String cachedLocation = "";
     private File captureFile;
     private TextToSpeech webVoice;
@@ -255,6 +259,40 @@ public class MainActivity extends Activity {
                 + "sur Android 14 et plus."));
         config.addView(label("MOTEUR VOCAL LOCAL · français Vosk (~41 Mo à télécharger une fois)"));
         config.addView(button(ModelInstaller.installed(this) ? "✓ Modèle installé" : "↓ Télécharger le modèle français", this::installModel));
+
+        config.addView(label("RECONNAISSANCE FRANÇAISE AVANCÉE · sherpa-onnx (bêta)"));
+        config.addView(label("Option facultative : Vosk reste installé, écoute STOP conservée "
+                + "et retour automatique à Vosk si sherpa ne démarre pas. "
+                + "L'IA Jarvis reste locale, sur le téléphone."));
+        sherpaVoiceEnabled = new CheckBox(this);
+        sherpaVoiceEnabled.setText("Essayer sherpa-onnx français (à la prochaine activation du micro)");
+        sherpaVoiceEnabled.setTextColor(Color.WHITE);
+        sherpaVoiceEnabled.setChecked("1".equals(prefs.get("sherpa_voice_enabled", "0")));
+        sherpaVoiceEnabled.setOnCheckedChangeListener((view, selected) -> {
+            if (selected && !SherpaVoiceModels.ready(this)) {
+                prefs.put("sherpa_voice_enabled", "0");
+                sherpaVoiceEnabled.setChecked(false);
+                sherpaVoiceStatus.setText("Modèle sherpa français absent : Vosk maintenu.");
+                return;
+            }
+            prefs.put("sherpa_voice_enabled", selected ? "1" : "0");
+            sherpaVoiceStatus.setText(SherpaVoicePolicy.explain(
+                    selected ? "1" : "0", SherpaVoiceModels.ready(this)));
+            if (FridayService.isActive()) {
+                status.setText("Pour changer le moteur vocal, appuyez sur Stop puis sur Écoute.");
+            }
+        });
+        config.addView(sherpaVoiceEnabled);
+        sherpaVoiceStatus = label(SherpaVoicePolicy.explain(
+                prefs.get("sherpa_voice_enabled", "0"), SherpaVoiceModels.ready(this)));
+        config.addView(sherpaVoiceStatus);
+        config.addView(button("1. Télécharger le modèle français officiel (.tar.bz2)",
+                this::openSherpaFrenchModel));
+        config.addView(button("2. Importer l'archive française sur le téléphone",
+                this::chooseSherpaFrenchArchive));
+        config.addView(label("L'importation conserve l'ancien modèle en cas d'échec. "
+                + "L'archive peut être volumineuse ; prévoir 450 Mo libres. "
+                + "N'activez ce mode que pour des essais sur votre appareil."));
         config.addView(label("MOTEUR UNIQUE · Jarvis IA installé sur le téléphone. "
                 + "Aucun fournisseur Mistral, aucune requête Web vers un LLM. "
                 + "Téléchargez et importez un modèle compatible pour générer vos réponses. "
@@ -710,8 +748,70 @@ public class MainActivity extends Activity {
         }
     }
 
+
+    private void openSherpaFrenchModel() {
+        Intent browser = new Intent(Intent.ACTION_VIEW, Uri.parse(
+                "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/"
+                + "sherpa-onnx-streaming-zipformer-fr-2023-04-14.tar.bz2"));
+        try { startActivity(browser); }
+        catch (Exception error) {
+            sherpaVoiceStatus.setText("Téléchargement indisponible : ouvrez le dépôt k2-fsa/sherpa-onnx.");
+        }
+    }
+
+    private void chooseSherpaFrenchArchive() {
+        if (FridayService.isActive()) {
+            sherpaVoiceStatus.setText("Appuyez sur Stop avant d'importer un moteur vocal.");
+            return;
+        }
+        if (!sherpaVoiceImporting.compareAndSet(false, true)) {
+            sherpaVoiceStatus.setText("Importation déjà en cours.");
+            return;
+        }
+        try {
+            Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            picker.addCategory(Intent.CATEGORY_OPENABLE);
+            picker.setType("*/*");
+            startActivityForResult(picker, REQ_SHERPA_FR_MODEL);
+        } catch (Exception error) {
+            sherpaVoiceImporting.set(false);
+            sherpaVoiceStatus.setText("Sélecteur de documents Android indisponible.");
+        }
+    }
+
+    private void finishSherpaFrenchArchive(int resultCode, Intent data) {
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+            sherpaVoiceImporting.set(false);
+            return;
+        }
+        final Uri selected = data.getData();
+        sherpaVoiceStatus.setText("Extraction sécurisée de l'archive française sur le téléphone…");
+        new Thread(() -> {
+            String output;
+            try {
+                output = SherpaVoiceModels.importOfficialArchive(this, selected);
+            } catch (Exception error) {
+                output = "Importation échouée : " + error.getMessage()
+                        + " (Vosk et l'ancien modèle sont conservés).";
+            }
+            final String diagnostic = output;
+            sherpaVoiceImporting.set(false);
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                sherpaVoiceStatus.setText(diagnostic);
+                status.setText(diagnostic);
+                new AlertDialog.Builder(this).setTitle("JARVIS · sherpa-onnx français")
+                        .setMessage(diagnostic).setPositiveButton("Fermer", null).show();
+            });
+        }, "jarvis-sherpa-fr-import").start();
+    }
+
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_SHERPA_FR_MODEL) {
+            finishSherpaFrenchArchive(resultCode, data);
+            return;
+        }
         if (requestCode != REQ_LOCAL_LLM_MODEL) return;
         if (resultCode != RESULT_OK || data == null || data.getData() == null) {
             localJarvisImporting.set(false);
