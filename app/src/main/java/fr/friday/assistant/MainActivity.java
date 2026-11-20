@@ -1154,6 +1154,12 @@ public class MainActivity extends Activity {
             try {
                 if (MemoryIntent.kind(request) != MemoryIntent.NONE)
                     answer = PersonalMemory.command(prefs, request);
+                if (answer == null && DialogueMemoryPolicy.asksMemoryStatus(request))
+                    answer = DialogueContext.memoryStatus(
+                            getApplicationContext(), prefs, request);
+                if (answer == null)
+                    answer = JarvisAndroidTools.answer(
+                            getApplicationContext(), prefs, request);
                 // Une question « Internet fonctionne ? » exige une vraie
                 // vérification réseau : aucun historique ni GPS transmis.
                 if (answer == null && WebSearch.requestsLiveConnectivityCheck(request))
