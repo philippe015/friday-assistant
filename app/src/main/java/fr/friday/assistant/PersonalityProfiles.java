@@ -62,10 +62,10 @@ public final class PersonalityProfiles {
             if ("F.R.I.D.A.Y.".equalsIgnoreCase(p.optString("name", "")))
                 p.put("name", "JARVIS");
             String text = p.optString("prompt", "").trim();
-            String oldNative = "Tu incarnes F.R.I.D.A.Y., un assistant vocal personnel francophone.\\n"
-                    + "Adopte un ton posé, réactif et précis.\\n"
-                    + "Réponds oralement avec des phrases fluides, sans longs préambules.\\n"
-                    + "Pour les tâches complexes, donne des étapes pratiques et vérifie les hypothèses.\\n"
+            String oldNative = "Tu incarnes F.R.I.D.A.Y., un assistant vocal personnel francophone.\n"
+                    + "Adopte un ton posé, réactif et précis.\n"
+                    + "Réponds oralement avec des phrases fluides, sans longs préambules.\n"
+                    + "Pour les tâches complexes, donne des étapes pratiques et vérifie les hypothèses.\n"
                     + "Distingue les faits vérifiés des suppositions et des capacités indisponibles.";
             String oldWeb = "Tu es F.R.I.D.A.Y., une assistante vocale personnelle inspirée des interfaces futuristes. "
                     + "Tu parles en français, avec précision, calme et intelligence. "
