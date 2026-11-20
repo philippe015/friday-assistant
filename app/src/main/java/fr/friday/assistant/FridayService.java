@@ -926,6 +926,10 @@ public class FridayService extends Service {
             // répondre en fonction de l'historique réellement déchiffrable.
             if (local == null && DialogueMemoryPolicy.asksMemoryStatus(question))
                 local = DialogueContext.memoryStatus(this, settings, question);
+            // Outils Android inspirés d'OpenJarvis : diagnostic réel du
+            // téléphone, du micro et du modèle, sans moteur distant.
+            if (local == null)
+                local = JarvisAndroidTools.answer(this, settings, question);
             // Ne jamais affirmer que le Web fonctionne en lisant seulement
             // un réglage : effectuer un vrai essai HTTPS sur une requête neutre.
             if (local == null && WebSearch.requestsLiveConnectivityCheck(question)) {
