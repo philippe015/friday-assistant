@@ -1,3 +1,15 @@
+# JARVIS — Assistant personnel IA local Android
+
+Le nom public de l'application est désormais **JARVIS**, avec **« Jarvis » comme seul mot d'activation**. Les anciens noms « Friday », « Fraday » et « vendredi » ne servent plus à déclencher l'écoute vocale.
+
+L'identifiant Android historique `fr.friday.assistant` est volontairement conservé afin de permettre une mise à jour sans changer d'application, d'espace privé, de mémoire chiffrée ni de modèle Gemma déjà importé. Les noms internes des classes, des ponts JavaScript et des clés de stockage ne sont pas des noms publics et sont également conservés.
+
+**IA principale : Gemma 4 E2B en local** (si le modèle compatible est installé). Les résultats Web publics et les actualités datées enrichissent la réponse, mais aucune question n'est envoyée à une IA distante. Le service vocal Vosk, la synthèse française, la fenêtre de dialogue continu et la commande STOP sont maintenus.
+
+> Cette transformation est proposée dans une branche de développement et doit être testée sur Android avant de remplacer la version officielle. Les notes historiques FRIDAY sont conservées ci-dessous pour traçabilité.
+
+---
+
 ## FRIDAY v3.11.0 — Gemma 4 .litertlm pris en charge sur Android
 
 FRIDAY prend en charge deux moteurs de langage fonctionnant sur le téléphone :
