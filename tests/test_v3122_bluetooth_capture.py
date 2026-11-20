@@ -26,6 +26,6 @@ class LocalCapture(unittest.TestCase):
     def test_error_diagnostics_and_version(self):
         self.assertIn("captureError.getMessage()",S)
         gradle=(ROOT/"app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 91",gradle)
-        self.assertIn("versionName '3.13.6'",gradle)
+        self.assertIn("versionCode 92",gradle)
+        self.assertIn("versionName '3.13.7'",gradle)
 if __name__=="__main__":unittest.main()
