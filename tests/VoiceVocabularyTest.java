@@ -16,7 +16,7 @@ public final class VoiceVocabularyTest {
         check(grammar.contains("\"stop\""));
         check(grammar.contains("\"attends\""));
         check(grammar.contains("\"j ai une precision\""));
-        check(grammar.contains("\"friday\""));
+        check(grammar.contains("\"jarvis\""));
         check(grammar.contains("saint-maur-des-fossés"));
         check(VoiceVocabulary.phrases("x\nnom").size() == 1);
         StringBuilder many = new StringBuilder();
