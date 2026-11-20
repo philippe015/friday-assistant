@@ -297,35 +297,65 @@ public final class JarvisInternet {
         if (cancellation != null) cancellation.check();
         String q = clip(query, 140);
         if (q.isEmpty()) return new ArrayList<>();
-        int hours = RecentNewsPolicy.requiresRecentNews(q)
-                ? RecentNewsPolicy.requestedHours(q) : 0;
+        int hours = RecentNewsPolicy.newsWindowHours(q);
         long now = System.currentTimeMillis();
         ArrayList<Source> found = new ArrayList<>();
         String trouble = "";
         if (hours > 0) {
-            // Pour une fenêtre de quelques heures, ne jamais retourner un résultat
-            // HTML non daté comme une vraie actualité récente.
+            // Une demande « actualités du jour » reçoit des articles avec
+            // un vrai horodatage de flux, comme « dernières 7 heures ».
+            // Les 24 heures sont glissantes et ne représentent pas seulement
+            // le jour civil. Les articles sont sélectionnés avant synthèse.
             String topic = recentNewsTopic(q);
             String feed = topic.isEmpty()
                     ? "https://news.google.com/rss?hl=fr&gl=FR&ceid=FR:fr"
                     : "https://news.google.com/rss/search?q="
                       + URLEncoder.encode(topic + " when:" + hours + "h", "UTF-8")
                       + "&hl=fr&gl=FR&ceid=FR:fr";
-            try { found.addAll(parseRss(fetch(feed), hours, now)); }
-            catch (Exception failure) { trouble = noteFailure(trouble, failure); }
-            // Compléter un flux trop pauvre par un second index. Les deux
-            // fournisseurs sont soumis au même filtre temporel RSS strict.
+            try {
+                mergeDated(found, parseRss(fetch(feed), hours, now), 3, topic);
+            } catch (Exception failure) { trouble = noteFailure(trouble, failure); }
+
+            // Un autre éditeur de titres francophones permet de ne pas
+            // dépendre uniquement de Google. Il peut refuser le robot ;
+            // dans ce cas on poursuit sans contourner le refus.
             if (found.size() < MAX_RESULTS) {
                 if (cancellation != null) cancellation.check();
                 try {
-                    mergeUnique(found, parseRss(fetch("https://www.bing.com/search?q="
-                            + URLEncoder.encode(q, "UTF-8") + "&format=rss"), hours, now));
+                    mergeDated(found, parseRss(fetch(
+                            "https://www.francetvinfo.fr/titres.rss"), hours, now),
+                            2, topic);
                 } catch (Exception failure) { trouble = noteFailure(trouble, failure); }
             }
+            if (found.size() < MAX_RESULTS) {
+                if (cancellation != null) cancellation.check();
+                try {
+                    String bing = "https://www.bing.com/search?q="
+                            + URLEncoder.encode(topic.isEmpty()
+                                ? "actualités France" : topic, "UTF-8")
+                            + "&format=rss";
+                    mergeDated(found, parseRss(fetch(bing), hours, now), 2, topic);
+                } catch (Exception failure) { trouble = noteFailure(trouble, failure); }
+            }
+
+            // Source institutionnelle distincte pour les droits et démarches,
+            // seulement si le sujet demandé s'y rapporte : aucune substitution
+            // de nouvelles administratives aux dernières nouvelles générales.
+            if (found.size() < MAX_RESULTS && legalNewsTopic(topic)) {
+                if (cancellation != null) cancellation.check();
+                try {
+                    mergeDated(found, parseRss(fetch(
+                            "https://www.service-public.gouv.fr/abonnements/rss/"
+                            + "actu-actualites-particuliers.rss"), hours, now), 2, topic);
+                } catch (Exception failure) { trouble = noteFailure(trouble, failure); }
+            }
+            // Les titres les plus récents d'abord, sans date future éloignée.
+            found.sort((a, b) -> Long.compare(b.publishedAt, a.publishedAt));
             if (found.isEmpty())
                 throw new IOException("Recherche Internet indisponible : aucun article avec horodatage "
-                        + "RSS dans les " + hours + " dernières heures. "
-                        + "Jarvis ne fabrique pas d'actualités. "
+                        + "RSS dans les " + hours + " dernières heures"
+                        + (topic.isEmpty() ? "" : " pour le sujet « " + clip(topic, 65) + " »")
+                        + ". Jarvis ne fabrique pas d'actualités. "
                         + clip(trouble == null ? "" : trouble, 120));
             return found;
         }
