@@ -138,7 +138,8 @@ public final class WebSearch {
         if (accessComplaint) {
             return internetEnabled
                     ? "Le module Internet de FRIDAY est activé. L'application peut chercher "
-                      + "des pages HTTPS publiques avec Bing et DuckDuckGo, et des actualités "
+                      + "des pages HTTPS publiques avec Bing et DuckDuckGo, des références "
+                      + "Wikipédia et Wikidata, des publications Crossref et des actualités "
                       + "horodatées avec Google Actualités. Ces recherches sont faites par "
                       + "l'application ; c'est Jarvis local qui produit mes réponses. "
                       + "Je n'ai pas un navigateur illimité : des pages privées, bloquées "
