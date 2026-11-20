@@ -68,7 +68,7 @@ public final class WebSearchTest {
                 "Vosk : une préposition isolée ne doit pas déclencher Bing");
         check(!WebSearch.needsWeb("Quels sont tes capacités ?"),
                 "Question sur les capacités de Jarvis ne doit pas ouvrir Bing");
-        check(!WebSearch.needsWeb("Fraday, quelles sont tes fonctionnalités ?"),
+        check(!WebSearch.needsWeb("Jarvis, quelles sont tes fonctionnalités ?"),
                 "Transcription wake + capacité doit rester locale");
         check(!WebSearch.needsWeb("A de toujours pas accès Internet"),
                 "Une plainte sur l'accès Web n'est pas un mot-clé de recherche");
@@ -96,10 +96,10 @@ public final class WebSearchTest {
         check(WebSearch.relevantResult("Code du travail durée de pause",
                         "Code du travail : repos et pause", "Code du travail en France"),
                 "Conserver des sources du thème réellement demandé");
-        check(WebSearch.keywordsForSearch("Friday, quels sont les derniers prix du carburant en France ?")
+        check(WebSearch.keywordsForSearch("Jarvis, quels sont les derniers prix du carburant en France ?")
                         .contains("carburant"),
                 "Recherche : le sujet carburant doit être conservé");
-        check(!WebSearch.keywordsForSearch("Friday, quels sont les derniers prix du carburant en France ?")
+        check(!WebSearch.keywordsForSearch("Jarvis, quels sont les derniers prix du carburant en France ?")
                         .contains("quels"),
                 "Recherche : aucun pronom interrogatif dans les mots-clés");
         check(WebSearch.keywordsForSearch("Quelle est la réglementation SSIAP 2 en France ?")
@@ -150,7 +150,7 @@ public final class WebSearchTest {
                         "a de toujours pas accès internet"),
                 "La formulation Vosk déformée rapportée doit déclencher un diagnostic");
         check(WebSearch.requestsLiveConnectivityCheck(
-                        "Friday, vérifie la connexion Internet"),
+                        "Jarvis, vérifie la connexion Internet"),
                 "Un mot-clé enlevé ne doit pas empêcher le vrai test réseau");
         check(WebSearch.requestsLiveConnectivityCheck(
                         "Vérifie la connexion Internet de FRIDAY"),
