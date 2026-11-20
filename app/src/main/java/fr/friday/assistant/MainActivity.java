@@ -365,7 +365,7 @@ public class MainActivity extends Activity {
         config.addView(label("Mode continu (case décochée) : le microphone reste actif "
                 + "après chaque réponse. La nouvelle question peut être dite directement "
                 + "pendant 20 secondes après l'anti-écho, sans appuyer sur un bouton. "
-                + "Ensuite, dites « Jarvis » ou « Jarvis » pour une autre question. "
+                + "Ensuite, dites « Jarvis » pour une autre question. "
                 + "Mode une question (case cochée) : l'écoute s'arrête après la réponse. "
                 + "Pendant la voix, l'anti-écho protège contre les fausses questions."));
         voskHintsEnabled = new CheckBox(this);
