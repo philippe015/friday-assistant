@@ -138,7 +138,8 @@ public final class WebSearch {
                 + "friday|jarvis|assistant|application|module)\\b.*");
         return status && (assistant || q.contains("toujours pas")
                 || q.startsWith("acces internet") || q.startsWith("internet ")
-                || q.startsWith("connexion internet"));
+                || q.startsWith("connexion internet")
+                || q.matches("^(?:verifie|verifier|teste|tester)\\b.*"));
     }
 
     /** Réponse vérifiable localement aux questions sur l'assistant lui-même.
