@@ -42,12 +42,15 @@ public class FridayService extends Service {
     private static volatile String interruptDiagnostics = "Micro non démarré";
     private static volatile String voiceReadiness = "Micro arrêté";
     private static volatile String microphoneSignal = "Mesure du microphone non démarrée";
+    /** État du dernier décodage Vosk, sans sauvegarder les paroles. */
+    private static volatile String recognitionDiagnostic = "Aucune phrase Vosk finalisée";
     private static volatile String lastTtsStatus = "Voix non initialisée";
     private static volatile boolean foregroundLocationEnabled = false;
     private static final long MAX_PENDING_WEB_MS = 150000L;
     private final Handler requestWatchdog = new Handler(Looper.getMainLooper());
     private volatile boolean running = false;
     private volatile boolean oneShotTriggered = false;
+    private volatile boolean firstQuestionOnMicStart = false;
     private Thread worker;
     private AudioRecord recorder;
     private TextToSpeech tts;
@@ -88,6 +91,11 @@ public class FridayService extends Service {
     public static String interruptionDiagnostics() { return interruptDiagnostics; }
     public static String voiceReadiness() { return voiceReadiness; }
     public static String microphoneSignal() { return microphoneSignal; }
+    public static String recognitionDiagnostic() { return recognitionDiagnostic; }
+    private void asrDiagnostic(String info) {
+        recognitionDiagnostic = info;
+        event("asr_diag", info);
+    }
     public static String lastTtsStatus() { return lastTtsStatus; }
     private void voiceState(String state) {
         if (!state.equals(voiceReadiness)) {
@@ -195,7 +203,10 @@ public class FridayService extends Service {
         running = true;
         oneShotTriggered = false;
         wakeArmed = false;
+        // Ne lancer le compte à rebours qu'une fois Vosk et AudioRecord prêts.
+        firstQuestionOnMicStart = true;
         wakeOnlyUntil = 0;
+        recognitionDiagnostic = "Vosk démarre, préparation de l'écoute directe";
         active = true;
         settings.put("bluetooth_mic_enabled", "0");
         PhoneAudioRoute.usePhoneSpeaker(this);
@@ -209,7 +220,8 @@ public class FridayService extends Service {
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "FRIDAY:MicroService");
         wakeLock.setReferenceCounted(false);
         wakeLock.acquire();
-        event("status", "Écoute native active. Dites Friday pour poser une question.");
+        event("status", "Écoute native active. Posez une question dans les 15 secondes, "
+                + "ou dites Friday / Jarvis à tout moment.");
         worker = new Thread(this::runLoop, "friday-voice-core");
         worker.start();
         return START_NOT_STICKY; // Pas de redémarrage clandestin après arrêt par le système.
@@ -286,6 +298,8 @@ public class FridayService extends Service {
             int consecutiveErrors = 0;
             int mutedMicroReopens = 0;
             while (running && !oneShotTriggered) {
+                // Ne temporiser qu'APRES libération du microphone en finally.
+                long retryMs = 0L;
                 AudioRecord ar = null;
                 Recognizer recognizer = null;
                 Recognizer stopRecognizer = null;
@@ -354,8 +368,13 @@ public class FridayService extends Service {
                     }
                     recognizer = createRecognizer(model);
                     ar.startRecording();
+                    if (firstQuestionOnMicStart) {
+                        firstQuestionOnMicStart = false;
+                        wakeOnlyUntil = SystemClock.elapsedRealtime() + 15_000L;
+                        asrDiagnostic("Micro et Vosk prêts : première question directe pendant 15 secondes");
+                    }
                     event("status", PhoneAudioRoute.inputStatus(ar));
-                    voiceState("Micro actif : dites Friday pour parler");
+                    voiceState("Micro actif : dites Friday ou Jarvis pour parler");
                     interruptDiagnostics = bargeEnabled
                             ? "Micro PCM prêt · décodeur STOP démarre à la réponse"
                             : "Désactivé dans Réglages · autoriser l'interruption vocale";
@@ -477,8 +496,8 @@ public class FridayService extends Service {
                             confidenceSum = 0; confidenceCount = 0;
                             earlyCancelled = false; sawSpeakerFeedback = false;
                             interruptDiagnostics = "Micro à nouveau accessible";
-                            voiceState("Micro restauré : dites Friday");
-                            event("status", "Microphone de nouveau accessible. Dites Friday.");
+                            voiceState("Micro restauré : dites Friday ou Jarvis");
+                            event("status", "Microphone de nouveau accessible. Dites Friday ou Jarvis.");
                         }
                         // Affiche uniquement une mesure d'énergie PCM indicative.
                         // Pas de transcription stockée, ni envoi de son au modèle.
@@ -575,7 +594,7 @@ public class FridayService extends Service {
                             confidenceSum = 0; confidenceCount = 0;
                             earlyCancelled = false; sawSpeakerFeedback = false;
                             generalInputBlocked = false;
-                            voiceState("Micro prêt : dites Friday pour votre question suivante");
+                            voiceState("Micro prêt : dites Friday ou Jarvis pour votre question suivante");
                             event("barge_diag", "Protection anti-écho terminée · questions autorisées");
                         }
                         boolean endpoint = recognizer.acceptWaveForm(buffer, count);
@@ -629,8 +648,10 @@ public class FridayService extends Service {
                             double confidence = (confidenceCount + (int) finalStats[1]) > 0
                                     ? (confidenceSum + finalStats[0]) / (confidenceCount + finalStats[1])
                                     : 0;
-                            String phrase = VoiceText.join(completed, tail);
-                            if (phrase.isEmpty()) phrase = interim;
+                            // getFinalResult peut être vide malgré un partiel Vosk
+                            // valide : conserver le texte déjà reconnu.
+                            String phrase = VoiceText.join(completed,
+                                    tail.isEmpty() ? interim : tail);
                             // Vosk fermé/réinitialisé, mais le micro reste ouvert sans interruption.
                             recognizer.close(); recognizer = createRecognizer(model);
                             boolean controlPhrase = BargeInPolicy.isBareStopAnswer(phrase)
@@ -643,10 +664,15 @@ public class FridayService extends Service {
                             confidenceSum = 0; confidenceCount = 0;
                             earlyCancelled = false; sawSpeakerFeedback = false;
 
+                            // Un mot-clé explicitement reconnu autorise un seuil
+                            // plus tolérant ; la dictée sans mot-clé reste prudente.
+                            boolean explicitWake = BargeInPolicy.startsWithWake(phrase);
                             boolean unclear = !controlPhrase && phrase.split("\\s+").length >= 3
-                                    && confidence > 0 && confidence < 0.55;
+                                    && confidence > 0 && confidence < (explicitWake ? 0.35 : 0.55);
                             if (!dropSpeaker && !phrase.trim().isEmpty()) {
                                 if (unclear) {
+                                    asrDiagnostic("Phrase reconnue mais confiance Vosk faible ("
+                                            + Math.round(confidence * 100) + " %)");
                                     // Transcription douteuse : on montre ce qui a été entendu au lieu d'interroger l'IA.
                                     event("user", phrase.trim());
                                     event("error", "Je n'ai pas bien compris : « " + phrase.trim()
@@ -665,7 +691,7 @@ public class FridayService extends Service {
                     // Cette version reessaie tant que l'utilisateur n'a pas
                     // demande l'arret du service. Temporisation bornee pour
                     // eviter une boucle de relance intensive.
-                    long retryMs = Math.min(10000L, 500L * Math.min(consecutiveErrors, 20));
+                    retryMs = Math.min(10000L, 500L * Math.min(consecutiveErrors, 20));
                     voiceState("Microphone indisponible · nouvelle tentative automatique");
                     String detail = captureError.getMessage();
                     if (detail == null) detail = "";
@@ -675,8 +701,6 @@ public class FridayService extends Service {
                             + (detail.isEmpty() ? "" : " — " + detail)
                             + ". Nouvelle tentative dans " + (retryMs / 1000.0)
                             + " secondes. Vérifiez autorisations et autres micros.");
-                    try { Thread.sleep(retryMs); }
-                    catch (InterruptedException ignored) { Thread.currentThread().interrupt(); break; }
                 } finally {
                     if (Build.VERSION.SDK_INT >= 29 && recordingCallback != null && ar != null) {
                         try { ar.unregisterAudioRecordingCallback(recordingCallback); }
@@ -692,6 +716,15 @@ public class FridayService extends Service {
                     recorder = null;
                     if (recognizer != null) recognizer.close();
                     if (stopRecognizer != null) stopRecognizer.close();
+                }
+                // AudioRecord, callbacks et effets doivent être fermés avant
+                // la pause : sinon Android peut refuser la prochaine capture.
+                if (running && retryMs > 0) {
+                    try { Thread.sleep(retryMs); }
+                    catch (InterruptedException ignored) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
                 }
             }
         } catch (Exception e) {
@@ -731,6 +764,10 @@ public class FridayService extends Service {
         wakeArmed = true;
         lastReplyAt = SystemClock.elapsedRealtime();
         bargePendingUntil = lastReplyAt + 15000L;
+        // Le bouton annonce une reprise de l'écoute : accepter réellement
+        // une question sans mot-clé après la queue anti-écho.
+        wakeOnlyUntil = bargePendingUntil;
+        asrDiagnostic("Interruption manuelle : question directe autorisée 15 secondes");
         event("interrupted", status);
         event("status", status);
     }
@@ -801,19 +838,25 @@ public class FridayService extends Service {
             if (question.isEmpty()) {
                 wakeOnlyUntil = now + 12_000L;
                 lastReplyAt = now;
-                event("status", "Friday à l'écoute : posez votre question.");
+                asrDiagnostic("Mot d'activation reconnu ; attente de la question (12 secondes)");
+                event("status", "Friday / Jarvis à l'écoute : posez votre question.");
                 return;
             }
         } else if ((now < wakeOnlyUntil ||
                 ("1".equals(settings.get("followup_handsfree", "0")) && wakeArmed &&
                 (now - lastReplyAt <= followupMs || now < clarificationUntil))) &&
-                now - lastSpeechEndedAt >= TtsEchoGate.TAIL_MS) {
+                now >= echoBlockUntil) {
             // Le mode mains libres est desactive par defaut : Vosk peut transcrire
             // le haut-parleur, une TV ou du bruit en fausse question.
-            // Un "Friday" prononce seul autorise toujours UNE question pendant 12 s.
+            // « Écoute ON », le bouton d'interruption ou un mot-clé isolé
+            // autorisent UNE question directe pendant une fenêtre courte.
+            if (heard.trim().split("\\s+").length < 2) return;
             question = heard;
         } else {
-            // Sans mot-cle ou invitation explicite, ignorer toute transcription.
+            // Le PCM est présent, Vosk comprend une phrase, mais aucun mot-clé :
+            // ce n'est pas une panne de Jarvis ou du microphone.
+            if (heard.trim().split("\\s+").length >= 2)
+                asrDiagnostic("Vosk a transcrit une phrase ; mot-clé Friday/Jarvis absent");
             return;
         }
         if (BargeInPolicy.wantsToAddDetails(question)) {
@@ -830,12 +873,14 @@ public class FridayService extends Service {
         clarificationAnchor = "";
         clarificationUntil = 0L;
         latestQuestion = request;
+        asrDiagnostic(activated ? "Mot-clé Friday/Jarvis reconnu, question envoyée à Jarvis"
+                : "Question directe reconnue, envoyée à Jarvis");
         ResponseTurn turn = new ResponseTurn(anchor);
         currentTurn = turn;
         boolean localJarvis = true; // Mode exclusif Jarvis pour toute demande vocale.
         voiceState("Question reçue · "
                 + "Jarvis sur le téléphone, sans réseau"
-                + " · micro disponible pour une nouvelle question avec Friday");
+                + " · micro disponible pour une nouvelle question avec Friday ou Jarvis");
         // Protège contre un fournisseur/API bloqué : aucun tour muet ne doit
         // garder l'écoute occupée indéfiniment. Un TTS en lecture n'est pas coupé.
         turn.watchdog = () -> {
@@ -844,7 +889,7 @@ public class FridayService extends Service {
                     turn.startedAt, MAX_PENDING_WEB_MS)) {
                 event("error", "Délai de réponse Jarvis local dépassé. "
                         + "Vous pouvez poser une nouvelle question.");
-                interruptResponse("Recherche expirée · microphone disponible · dites Friday.");
+                interruptResponse("Recherche expirée · microphone disponible · dites Friday ou Jarvis.");
             }
         };
         requestWatchdog.postDelayed(turn.watchdog, MAX_PENDING_WEB_MS);
@@ -943,7 +988,7 @@ public class FridayService extends Service {
             if (local != null) {
                 answer = local;
             } else if (JarvisInternet.shouldResearch(settings, question)) {
-                event("status", "Jarvis consulte des sources Internet publiques (Bing / DuckDuckGo).");
+                event("status", "Jarvis consulte des sources Internet publiques (Google Actualités / Bing / DuckDuckGo).");
                 webResearch = JarvisInternet.answer(this, settings, question, turn.api);
                 answer = webResearch.text;
                 if (webResearch.usedInternet) event("web_sources", webResearch.sources);
@@ -970,7 +1015,7 @@ public class FridayService extends Service {
             if (!live(turn)) return;
             lastReplyAt = SystemClock.elapsedRealtime();
             if (spoken) {
-                event("status", "Réponse terminée. Après 2,5 secondes, dites Friday pour une nouvelle question.");
+                event("status", "Réponse terminée. Après 2,5 secondes, dites Friday ou Jarvis pour une nouvelle question.");
             } else if ("1".equals(settings.get("voice_enabled", "1"))) {
                 event("error", "Réponse disponible en texte, mais lecture vocale incomplète. "
                         + "Le moteur TTS va être réinitialisé ; microphone toujours actif.");
@@ -986,7 +1031,7 @@ public class FridayService extends Service {
                 // sans inventer une réponse Mistral ni interrompre le micro.
                 if ("1".equals(settings.get("voice_enabled", "1")) && ttsReady) {
                     String notice = "Le moteur sélectionné n'a pas répondu à cette question. "
-                            + "Je reste à votre écoute. Dites Friday pour recommencer.";
+                            + "Je reste à votre écoute. Dites Friday ou Jarvis pour recommencer.";
                     spokenText = notice;
                     speakingNow = true;
                     if (!speak(notice, turn)) recoverTtsAsync();
@@ -1008,7 +1053,7 @@ public class FridayService extends Service {
                 spokenText = "";
                 lastReplyAt = finishedAt;
                 voiceState(hadSpoken ? "Fin de la voix · anti-écho 2,5 secondes"
-                        : "Réponse terminée · micro disponible, dites Friday");
+                        : "Réponse terminée · micro disponible, dites Friday ou Jarvis");
                 if (running && !"1".equals(settings.get("listen_once", "0"))) {
                     event("barge_diag", "Réponse clôturée · anti-écho temporaire · dictée bientôt active");
                 }
@@ -1302,6 +1347,7 @@ public class FridayService extends Service {
         spokenText = "";
         running = false;
         oneShotTriggered = false;
+        firstQuestionOnMicStart = false;
         wakeArmed = false;
         wakeOnlyUntil = 0;
         active = false;
