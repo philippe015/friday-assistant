@@ -50,6 +50,7 @@ public class FridayService extends Service {
     private final Handler requestWatchdog = new Handler(Looper.getMainLooper());
     private volatile boolean running = false;
     private volatile boolean oneShotTriggered = false;
+    private volatile boolean firstQuestionOnMicStart = false;
     private Thread worker;
     private AudioRecord recorder;
     private TextToSpeech tts;
@@ -202,10 +203,10 @@ public class FridayService extends Service {
         running = true;
         oneShotTriggered = false;
         wakeArmed = false;
-        // L'utilisateur vient d'appuyer sur « Écoute ON » :
-        // une première question directe est acceptée pendant 15 secondes.
-        wakeOnlyUntil = SystemClock.elapsedRealtime() + 15_000L;
-        recognitionDiagnostic = "Vosk démarre, écoute directe ouverte 15 secondes";
+        // Ne lancer le compte à rebours qu'une fois Vosk et AudioRecord prêts.
+        firstQuestionOnMicStart = true;
+        wakeOnlyUntil = 0;
+        recognitionDiagnostic = "Vosk démarre, préparation de l'écoute directe";
         active = true;
         settings.put("bluetooth_mic_enabled", "0");
         PhoneAudioRoute.usePhoneSpeaker(this);
@@ -367,6 +368,11 @@ public class FridayService extends Service {
                     }
                     recognizer = createRecognizer(model);
                     ar.startRecording();
+                    if (firstQuestionOnMicStart) {
+                        firstQuestionOnMicStart = false;
+                        wakeOnlyUntil = SystemClock.elapsedRealtime() + 15_000L;
+                        asrDiagnostic("Micro et Vosk prêts : première question directe pendant 15 secondes");
+                    }
                     event("status", PhoneAudioRoute.inputStatus(ar));
                     voiceState("Micro actif : dites Friday ou Jarvis pour parler");
                     interruptDiagnostics = bargeEnabled
@@ -839,7 +845,7 @@ public class FridayService extends Service {
         } else if ((now < wakeOnlyUntil ||
                 ("1".equals(settings.get("followup_handsfree", "0")) && wakeArmed &&
                 (now - lastReplyAt <= followupMs || now < clarificationUntil))) &&
-                now - lastSpeechEndedAt >= TtsEchoGate.TAIL_MS) {
+                now >= echoBlockUntil) {
             // Le mode mains libres est desactive par defaut : Vosk peut transcrire
             // le haut-parleur, une TV ou du bruit en fausse question.
             // « Écoute ON », le bouton d'interruption ou un mot-clé isolé
@@ -1341,6 +1347,7 @@ public class FridayService extends Service {
         spokenText = "";
         running = false;
         oneShotTriggered = false;
+        firstQuestionOnMicStart = false;
         wakeArmed = false;
         wakeOnlyUntil = 0;
         active = false;
