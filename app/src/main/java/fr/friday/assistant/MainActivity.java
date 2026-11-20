@@ -63,6 +63,7 @@ public class MainActivity extends Activity {
     /** One automatic start per Activity open; never rearm after manual Stop. */
     private boolean startupListenAttempted = false;
     private boolean manuallyStoppedListening = false;
+    private boolean activityVisible = false;
     private LinearLayout config;
     private ScrollView configScroll;
     private WebView hud;
@@ -1545,16 +1546,25 @@ public class MainActivity extends Activity {
     }
     @Override protected void onResume() {
         super.onResume();
+        activityVisible = true;
         replayVoiceHistory();
         if (!startupListenAttempted) {
-            startupListenAttempted = true;
-            if (AutoListenPolicy.shouldStart(
+            boolean shouldAutoStart = AutoListenPolicy.shouldStart(
                     prefs.get("jarvis_auto_listen_on_open", "1"),
-                    false, manuallyStoppedListening, FridayService.isActive())) {
+                    startupListenAttempted, manuallyStoppedListening,
+                    FridayService.isActive());
+            startupListenAttempted = true;
+            if (shouldAutoStart) {
                 status.setText("JARVIS se prépare : activation automatique du micro…");
                 // L'activité est désormais visible. Un seul démarrage
                 // et aucune relance automatique après un appui sur Stop.
                 status.post(() -> {
+                    if (!activityVisible) {
+                        // L'utilisateur a quitté JARVIS avant l'activation.
+                        // Réessayer seulement lors de la prochaine ouverture visible.
+                        startupListenAttempted = false;
+                        return;
+                    }
                     if (!isFinishing() && !isDestroyed()
                             && !manuallyStoppedListening
                             && AutoListenPolicy.enabled(
@@ -1576,6 +1586,11 @@ public class MainActivity extends Activity {
             else status.setText("Micro arrêté. Appuyez sur Écoute pour démarrer le service vocal.");
         }
     }
+    @Override protected void onPause() {
+        activityVisible = false;
+        super.onPause();
+    }
+
     /** Photo pleine définition dans le cache privé, partagée ponctuellement avec la caméra. */
             /** Évite le chargement de plusieurs dizaines de Mo depuis le capteur photo. */
         private static String safeError(Exception ex) {
