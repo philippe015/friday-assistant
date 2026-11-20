@@ -50,7 +50,8 @@ public final class SherpaVoiceDecoder implements JarvisVoiceDecoder {
     }
 
     private static String json(String key, String value) {
-        return new JSONObject().put(key, value == null ? "" : value).toString();
+        try { return new JSONObject().put(key, value == null ? "" : value).toString(); }
+        catch (org.json.JSONException ignored) { return "{}"; }
     }
 
     private void decodeReady() {
