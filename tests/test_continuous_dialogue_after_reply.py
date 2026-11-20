@@ -27,7 +27,7 @@ class ContinuousDialogue(unittest.TestCase):
         self.assertIn('voiceState(TtsEchoGate.followupAccepts(', SERVICE)
         self.assertIn("RECORDSTATE_RECORDING", SERVICE)
         self.assertIn("if (running && retryMs > 0)", SERVICE)
-        self.assertIn("if (running && !oneShotTriggered)", SERVICE)
+        self.assertIn("while (running && !oneShotTriggered)", SERVICE)
 
     def test_20s_after_echo_no_infinite_handsfree(self):
         self.assertIn("return oneShot ? 0L : afterVoice(finishedAtMs) + 20_000L;", GATE)
