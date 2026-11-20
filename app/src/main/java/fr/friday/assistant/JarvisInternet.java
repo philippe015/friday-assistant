@@ -163,7 +163,7 @@ public final class JarvisInternet {
                     + "« Autoriser Jarvis à rechercher des informations sur Internet ».";
         if (cancellation != null) cancellation.check();
         try {
-            List<Source> sources = search("planètes système solaire", cancellation);
+            List<Source> sources = quickConnectivitySources(cancellation);
             if (sources.isEmpty()) throw new IOException("Aucun résultat pertinent renvoyé.");
             java.util.LinkedHashSet<String> hosts = new java.util.LinkedHashSet<>();
             for (Source source : sources) {
@@ -188,6 +188,44 @@ public final class JarvisInternet {
                     + "d'un accès réseau absent ou de résultats sans rapport. "
                     + "Le modèle Jarvis reste disponible localement.";
         }
+    }
+
+    /** Vérification réseau courte sur des index indépendants. Un fournisseur
+     * bloqué (HTTP 202/403/429) ne condamne pas les autres et aucun texte privé
+     * n'est transmis : seule la requête publique fixe « système solaire ». */
+    private static List<Source> quickConnectivitySources(NativeAI.CancelToken cancellation)
+            throws Exception {
+        String query = "systeme solaire";
+        String encoded = URLEncoder.encode(query, "UTF-8");
+        ArrayList<Source> found = new ArrayList<>();
+        String problem = "";
+        if (cancellation != null) cancellation.check();
+        try {
+            String wiki = "https://fr.wikipedia.org/w/api.php?action=query"
+                    + "&list=search&format=json&srlimit=3&srsearch=" + encoded;
+            mergeRelevant(found, parseWikipediaSearch(fetch(wiki, true)), query);
+        } catch (Exception error) { problem = noteFailure(problem, error); }
+        if (found.isEmpty()) {
+            if (cancellation != null) cancellation.check();
+            try {
+                mergeRelevant(found, parseRss(fetch(
+                        "https://www.bing.com/search?q=" + encoded + "&format=rss", true),
+                        0, System.currentTimeMillis()), query);
+            } catch (Exception error) { problem = noteFailure(problem, error); }
+        }
+        if (found.isEmpty()) {
+            if (cancellation != null) cancellation.check();
+            try {
+                String wikidata = "https://www.wikidata.org/w/api.php"
+                        + "?action=wbsearchentities&format=json&language=fr"
+                        + "&limit=3&search=" + encoded;
+                mergeRelevant(found, parseWikidataSearch(fetch(wikidata, true)), query);
+            } catch (Exception error) { problem = noteFailure(problem, error); }
+        }
+        if (found.isEmpty())
+            throw new IOException("Aucune recherche HTTPS publique n'a abouti. "
+                    + clip(problem, 160));
+        return found;
     }
 
     /** Test du moteur de recherche sans modèle IA ni clés. */
@@ -374,6 +412,11 @@ public final class JarvisInternet {
 
     /** Transport HTTPS borné : redirections internes au fournisseur seulement. */
     private static String fetch(String url) throws Exception {
+        return fetch(url, false);
+    }
+
+    /** Pour un diagnostic court, limite chaque serveur à 4+6 secondes. */
+    private static String fetch(String url, boolean quickProbe) throws Exception {
         URI uri = WebPageReader.checkedUri(url);
         for (int redirect = 0; redirect <= 2; redirect++) {
             String host = uri.getHost().toLowerCase(Locale.ROOT);
@@ -385,6 +428,10 @@ public final class JarvisInternet {
             conn.setInstanceFollowRedirects(false);
             conn.setConnectTimeout(8_000);
             conn.setReadTimeout(10_000);
+            if (quickProbe) {
+                conn.setConnectTimeout(4_000);
+                conn.setReadTimeout(6_000);
+            }
             conn.setRequestMethod("GET");
             conn.setRequestProperty("User-Agent",
                     "FRIDAY-Jarvis/3.13.4 (https://github.com/philippe015/friday-assistant; Android public HTTPS client)");
