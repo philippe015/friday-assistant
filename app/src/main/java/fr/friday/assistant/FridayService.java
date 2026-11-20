@@ -911,8 +911,13 @@ public class FridayService extends Service {
             if (live(turn)) event("status", memoryAction ? "Commande mémoire locale…"
                     : "Jarvis local réfléchit sur le téléphone…");
             String local = PersonalMemory.command(settings, question);
-            // Les questions sur les capacités de FRIDAY et son accès Web
-            // sont des diagnostics de l'application, pas une recherche publique.
+            // Ne jamais affirmer que le Web fonctionne en lisant seulement
+            // un réglage : effectuer un vrai essai HTTPS sur une requête neutre.
+            if (local == null && WebSearch.requestsLiveConnectivityCheck(question)) {
+                event("status", "Jarvis vérifie réellement les moteurs de recherche HTTPS…");
+                local = JarvisInternet.liveConnectionDiagnostic(settings, turn.api);
+            }
+            // Les capacités intrinsèques de FRIDAY restent connues localement.
             if (local == null)
                 local = WebSearch.assistantAnswer(question, JarvisInternet.enabled(settings));
             // Les commandes strictement locales conservent leur fonctionnement.
