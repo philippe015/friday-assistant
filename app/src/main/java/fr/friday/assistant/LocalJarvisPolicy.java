@@ -17,7 +17,7 @@ public final class LocalJarvisPolicy {
 
     public static boolean explicit(String question) {
         String normalized = fold(question)
-                .replaceFirst("^(?:friday|frida|freiday|freday)[\\s,.:;!?-]*", "");
+                .replaceFirst("^(?:friday|fraday|frida|freiday|freday|freddy|fredi|jarvis|jarvise|jervis|jervi)[\\s,.:;!?-]*", "");
         return normalized.matches("^(?:jarvis|open ?jarvis|jarvis local|ia locale)(?:\\b.*)?")
                 || normalized.matches("^(?:demande|pose la question) (?:a |au )?(?:jarvis|open ?jarvis)\\b.*");
     }
@@ -31,7 +31,7 @@ public final class LocalJarvisPolicy {
     public static String cleanQuestion(String question) {
         if (question == null) return "";
         String q = question.trim()
-                .replaceFirst("(?iu)^(?:friday|frida|freiday|freday)[\\s,.:;!?-]*", "");
+                .replaceFirst("(?iu)^(?:friday|fraday|frida|freiday|freday|freddy|fredi|jarvis|jarvise|jervis|jervi)[\\s,.:;!?-]*", "");
         q = q.replaceFirst("(?iu)^(?:demande|pose la question) (?:à |a |au )?(?:open ?)?jarvis[\\s,.:;!?-]*", "");
         q = q.replaceFirst("(?iu)^(?:open ?jarvis|jarvis local|jarvis|ia locale)[\\s,.:;!?-]*", "");
         return q.trim();
