@@ -1,4 +1,4 @@
-import fr.jarvis.assistant.VoiceStopSpotter;
+import fr.friday.assistant.VoiceStopSpotter;
 
 public final class VoiceStopSpotterTest {
     private static void yes(boolean ok, String why) {
