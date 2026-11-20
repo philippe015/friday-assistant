@@ -49,6 +49,9 @@ public class MainActivity extends Activity {
     private TextView localJarvisStatus;
     private final AtomicBoolean localJarvisImporting = new AtomicBoolean(false);
     private final AtomicBoolean localJarvisTesting = new AtomicBoolean(false);
+    /** Empêche les téléchargements Vosk concurrents et reprend la demande d'écoute. */
+    private final AtomicBoolean voskDownloadRunning = new AtomicBoolean(false);
+    private volatile boolean startAfterVoskDownload = false;
     private TextView voiceSampleStatus;
     private volatile boolean voiceRecording = false;
     private volatile boolean voicePreview = false;
@@ -1185,12 +1188,48 @@ public class MainActivity extends Activity {
             status.setText("Suppression de l'historique impossible : stockage sécurisé indisponible.");
         }
     }
-    private void installModel() {
-        if (ModelInstaller.installed(this)) { status.setText("Modèle français déjà installé."); return; }
-        status.setText("Téléchargement du modèle français lancé…");
+    private void installModel() { installModel(false); }
+
+    /** Le téléchargement réseau est déclenché seulement par une action explicite. */
+    private void installModel(boolean startWhenReady) {
+        if (ModelInstaller.installed(this)) {
+            status.setText("Modèle français Vosk installé et vérifié.");
+            if (startWhenReady) startListening();
+            return;
+        }
+        if (startWhenReady) startAfterVoskDownload = true;
+        if (!voskDownloadRunning.compareAndSet(false, true)) {
+            status.setText("Téléchargement Vosk en cours. L'écoute démarrera après installation si demandé.");
+            return;
+        }
+        status.setText("Téléchargement du modèle Vosk français (~41 Mo) depuis Alphacephei…");
         new Thread(() -> {
-            try { ModelInstaller.download(this, s -> runOnUiThread(() -> status.setText(s))); }
-            catch (Exception e) { runOnUiThread(() -> status.setText("Erreur téléchargement : " + e.getMessage())); }
+            String problem = null;
+            try {
+                ModelInstaller.download(getApplicationContext(),
+                        update -> runOnUiThread(() -> status.setText(update)));
+                if (!ModelInstaller.installed(getApplicationContext()))
+                    throw new java.io.IOException("Le modèle Vosk reste absent après téléchargement.");
+            } catch (Exception failure) {
+                problem = failure.getMessage();
+                if (problem == null || problem.isEmpty())
+                    problem = failure.getClass().getSimpleName();
+            }
+            final String error = problem;
+            voskDownloadRunning.set(false);
+            runOnUiThread(() -> {
+                boolean launch = startAfterVoskDownload;
+                startAfterVoskDownload = false;
+                if (error == null) {
+                    status.setText("Modèle Vosk français prêt. "
+                            + (launch ? "Activation du microphone…" : "Appuyez sur Écoute pour parler."));
+                    if (launch) startListening();
+                } else {
+                    status.setText("Micro arrêté : téléchargement Vosk impossible — " + error
+                            + ". Vérifiez Internet, l'espace disponible, puis réessayez.");
+                    configScroll.setVisibility(View.VISIBLE);
+                }
+            });
         }, "friday-model-download").start();
     }
     /** Le partage de coordonnées avec Mistral requiert un consentement distinct. */
@@ -1278,8 +1317,20 @@ public class MainActivity extends Activity {
     }
     private void startListening() {
         if (!ModelInstaller.installed(this)) {
-            status.setText("Téléchargez d'abord le modèle vocal français dans Réglages.");
-            configScroll.setVisibility(View.VISIBLE); return;
+            status.setText("Micro arrêté : modèle Vosk français absent dans cette édition de FRIDAY.");
+            new AlertDialog.Builder(this)
+                    .setTitle("Activer le microphone de FRIDAY")
+                    .setMessage("Cette installation ne contient pas encore le modèle vocal français "
+                            + "Vosk (~41 Mo). Il est distinct du modèle IA de Jarvis. "
+                            + "Télécharger Vosk depuis Alphacephei, puis démarrer automatiquement "
+                            + "l'écoute ? Le fichier reste sur le téléphone.")
+                    .setPositiveButton("Télécharger et activer",
+                            (dialog, which) -> installModel(true))
+                    .setNeutralButton("Réglages",
+                            (dialog, which) -> configScroll.setVisibility(View.VISIBLE))
+                    .setNegativeButton("Annuler", null)
+                    .show();
+            return;
         }
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             promptStartAfterPermission = true;
@@ -1322,6 +1373,11 @@ public class MainActivity extends Activity {
     private void interruptSpeaking() {
         hudCloneSpeaking.set(false);
         if (webVoice != null) { try { webVoice.stop(); } catch (Exception ignored) { } }
+        if (!FridayService.isActive()) {
+            status.setText("Micro arrêté : tentative d'activation de l'écoute.");
+            startListening();
+            return;
+        }
         startService(new Intent(this, FridayService.class).setAction(FridayService.ACTION_INTERRUPT));
         status.setText("Réponse interrompue, micro toujours actif. Posez votre question.");
     }
@@ -1335,7 +1391,7 @@ public class MainActivity extends Activity {
             if (grants.length > 0 && grants[0] == PackageManager.PERMISSION_GRANTED && promptStartAfterPermission) {
                 promptStartAfterPermission = false; startListening();
             } else { promptStartAfterPermission = false; status.setText("Microphone refusé dans les autorisations Android."); }
-        } else if (requestCode == REQ_LOCATION) {        } else if (requestCode == REQ_LOCATION) {
+        } else if (requestCode == REQ_LOCATION) {
             if (FridayLocation.hasPermission(this)) {
                 locationEnabled.setChecked(true);
                 prefs.put("location_enabled", "1");
@@ -1404,7 +1460,13 @@ public class MainActivity extends Activity {
         if (status != null) {
             if (FridayService.isMicSilenced()) status.setText("Microphone momentanément rendu muet par Android : vérifiez les autres applications.");
             else if (FridayService.isActive()) status.setText("Écoute native active · " + FridayVersionGuard.thisVersion(this));
-            else status.setText(FridayVersionPolicy.warning(FridayVersionGuard.installed(this).size()));
+            else if (voskDownloadRunning.get())
+                status.setText("Micro arrêté : téléchargement du modèle Vosk en cours.");
+            else if (!ModelInstaller.installed(this))
+                status.setText("Micro arrêté : modèle Vosk français manquant. Appuyez sur Écoute pour l'installer.");
+            else if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED)
+                status.setText("Micro arrêté : autorisation Android du microphone manquante. Appuyez sur Écoute.");
+            else status.setText("Micro arrêté. Appuyez sur Écoute pour démarrer le service vocal.");
         }
     }
     /** Photo pleine définition dans le cache privé, partagée ponctuellement avec la caméra. */
