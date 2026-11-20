@@ -23,7 +23,7 @@ class VoiceFalseTriggersV311(unittest.TestCase):
         self.assertIn('prefs.put("followup_handsfree"', ui)
         self.assertIn('followupHandsfreeEnabled.isChecked()', ui)
         self.assertIn('prefs.put("stream_enabled", "0")', ui)
-        self.assertIn('LocalJarvisEngine.answer(this, settings, question, turn.api)', service)
+        self.assertIn('this, settings, question, privateDialogue, turn.api)', service)
         self.assertIn('prefs.get("listen_once", "0")', ui)
         self.assertIn('settings.get("barge_in_enabled", "0")', service)
 

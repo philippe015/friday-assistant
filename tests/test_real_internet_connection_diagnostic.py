@@ -56,7 +56,7 @@ class VerifiedConnectivity(unittest.TestCase):
         self.assertIn("RecentNewsPolicy.newsWindowHours(q)", SEARCH)
         self.assertIn("JarvisInternet.shouldResearch(settings, question)", VOICE)
         self.assertIn("JarvisInternet.shouldResearch(prefs, request)", TEXT)
-        self.assertIn("JarvisInternet.answer(this, settings, question, turn.api)", VOICE)
+        self.assertIn("this, settings, question, privateDialogue, turn.api)", VOICE)
         self.assertIn("JarvisInternet.answer(", TEXT)
 
 

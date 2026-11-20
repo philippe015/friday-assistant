@@ -50,7 +50,7 @@ class MicAndFreshNews(unittest.TestCase):
         self.assertIn("setInstanceFollowRedirects(false)",WEB)
         self.assertIn("destination.getHost()",WEB)
         self.assertIn("MAX_SEARCH_BYTES = 200_000",WEB)
-        self.assertIn("LocalJarvisEngine.answer(context, settings, prompt, cancellation)",WEB)
+        self.assertIn("context, settings, prompt, privateDialogue, cancellation)",WEB)
         self.assertNotIn("NativeAI.answer(",WEB)
         self.assertNotIn("PersonalMemory.",WEB)
         self.assertNotIn("FridayLocation.",WEB)

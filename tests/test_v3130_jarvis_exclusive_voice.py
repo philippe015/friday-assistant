@@ -36,7 +36,7 @@ class JarvisExclusiveVoice(unittest.TestCase):
 
     def test_voice_requests_use_local_model_only(self):
         handler=VOICE.split("private void answerTurn(",1)[1].split("private String streamAndSpeak(",1)[0]
-        self.assertIn("LocalJarvisEngine.answer(this, settings, question, turn.api)",handler)
+        self.assertIn("this, settings, question, privateDialogue, turn.api)",handler)
         self.assertNotIn("NativeAI.answer(",handler)
         self.assertNotIn("NativeAI.answerStreaming(",handler)
         self.assertNotIn("streamAndSpeak(prepared",handler)

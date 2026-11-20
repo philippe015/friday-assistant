@@ -156,7 +156,7 @@ public class FridayService extends Service {
                     } else {
                         // Un texte explicite a priorité sur la réponse vocale en cours.
                         if (currentTurn != null) interruptResponse("Réponse interrompue par une nouvelle question.");
-                        textQuestions.offer("Friday " + clean);
+                        textQuestions.offer("Jarvis " + clean);
                         event("status", "Question texte reçue, écoute maintenue active…");
                     }
                 }
@@ -908,9 +908,24 @@ public class FridayService extends Service {
         boolean requestedOnDevice = true; // Aucune réponse IA distante.
         try {
             if (!memoryAction && live(turn)) event("user", question);
+            // Récupération de l'historique AES-GCM AVANT toute recherche Web ;
+            // il sera fourni uniquement à Gemma local, jamais aux moteurs HTTPS.
+            String privateDialogue = "";
+            if (!memoryAction && !LocationIntent.nearby(question)) {
+                try {
+                    privateDialogue = DialogueContext.recent(this, settings, question);
+                } catch (Exception inaccessible) {
+                    event("status", "Contexte des dialogues chiffrés inaccessible ; "
+                            + "la réponse continue sans historique, sans envoi Web.");
+                }
+            }
             if (live(turn)) event("status", memoryAction ? "Commande mémoire locale…"
                     : "Jarvis local réfléchit sur le téléphone…");
             String local = PersonalMemory.command(settings, question);
+            // Ne jamais rechercher « mémoire de nos dialogues » sur Wikipédia :
+            // répondre en fonction de l'historique réellement déchiffrable.
+            if (local == null && DialogueMemoryPolicy.asksMemoryStatus(question))
+                local = DialogueContext.memoryStatus(this, settings, question);
             // Ne jamais affirmer que le Web fonctionne en lisant seulement
             // un réglage : effectuer un vrai essai HTTPS sur une requête neutre.
             if (local == null && WebSearch.requestsLiveConnectivityCheck(question)) {
@@ -1003,12 +1018,14 @@ public class FridayService extends Service {
                 event("status", "Jarvis recherche sur plusieurs sources HTTPS publiques "
                         + "(Bing, DuckDuckGo, Wikipédia, Wikidata, Crossref ou Google Actualités), "
                         + "puis répond avec son modèle local.");
-                webResearch = JarvisInternet.answer(this, settings, question, turn.api);
+                webResearch = JarvisInternet.answer(
+                        this, settings, question, privateDialogue, turn.api);
                 answer = webResearch.text;
                 if (webResearch.usedInternet) event("web_sources", webResearch.sources);
             } else {
                 event("status", "Jarvis local : réponse générée sur le téléphone sans moteur distant.");
-                answer = LocalJarvisEngine.answer(this, settings, question, turn.api);
+                answer = LocalJarvisEngine.answer(
+                        this, settings, question, privateDialogue, turn.api);
             }
             String speechAnswer = webResearch == null ? answer : webResearch.speech;
             if (!live(turn)) return;

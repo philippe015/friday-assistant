@@ -39,7 +39,7 @@ class FreshNewsResearch(unittest.TestCase):
         self.assertIn("candidate.publishedAt <= 0", WEB)
 
     def test_no_remote_llm_or_automatic_private_data(self):
-        self.assertIn("LocalJarvisEngine.answer(context, settings, prompt, cancellation)",WEB)
+        self.assertIn("context, settings, prompt, privateDialogue, cancellation)",WEB)
         self.assertNotIn("NativeAI.answer(", WEB)
         self.assertNotIn("PersonalMemory.", WEB)
         self.assertNotIn("FridayLocation.", WEB)

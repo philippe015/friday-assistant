@@ -70,7 +70,7 @@ class VoiceAndWebRegression(unittest.TestCase):
 
     def test_search_never_sends_personal_memory_or_uses_mistral(self):
         self.assertIn('settings.get("jarvis_web_enabled", "1")', WEB)
-        self.assertIn("LocalJarvisEngine.answer(context, settings, prompt, cancellation)", WEB)
+        self.assertIn("context, settings, prompt, privateDialogue, cancellation)", WEB)
         self.assertNotIn("api.mistral.ai", WEB)
         self.assertNotIn("PersonalMemory.", WEB)
         self.assertNotIn("FridayLocation.", WEB)

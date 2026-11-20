@@ -16,7 +16,7 @@ class JarvisOnlyMigration(unittest.TestCase):
         self.assertIn('prefs.put("location_share", "0")',UI)
     def test_voice_requests_do_not_use_legacy_web(self):
         voice_response=VOICE.split("private void answerTurn(",1)[1].split("private String streamAndSpeak(",1)[0]
-        self.assertIn("LocalJarvisEngine.answer(this, settings, question, turn.api)",voice_response)
+        self.assertIn("this, settings, question, privateDialogue, turn.api)",voice_response)
         self.assertNotIn("WebSearch.shouldSearch(",voice_response)
         self.assertNotIn("NativeAI.answer(",voice_response)
         self.assertIn("blockCloud();",CLOUD)

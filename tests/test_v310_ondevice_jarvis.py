@@ -40,7 +40,7 @@ class JarvisOnDeviceV310(unittest.TestCase):
         ui=java("MainActivity.java")
         cloud=java("NativeAI.java")
         self.assertIn("boolean requestedOnDevice = true;",service)
-        self.assertIn("LocalJarvisEngine.answer(this, settings, question, turn.api)",service)
+        self.assertIn("this, settings, question, privateDialogue, turn.api)",service)
         self.assertNotIn("NativeAI.answer(settings, prepared, historySnapshot()",service)
         self.assertNotIn("streamAndSpeak(prepared",service)
         self.assertIn('prefs.put("local_jarvis_all", "1")',ui)

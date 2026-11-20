@@ -19,7 +19,7 @@ class JarvisWebAccess(unittest.TestCase):
         self.assertIn("https://html.duckduckgo.com/html/?q=",WEB)
         self.assertIn("https://news.google.com/rss/search?q=",WEB)
         self.assertIn("WebPageReader.read(",WEB)
-        self.assertIn("LocalJarvisEngine.answer(context, settings, prompt, cancellation)",WEB)
+        self.assertIn("context, settings, prompt, privateDialogue, cancellation)",WEB)
         self.assertNotIn("NativeAI.answer(",WEB)
         self.assertNotIn("api.mistral.ai",WEB)
         self.assertIn("private static boolean cloudDisabled() { return true; }",NATIVE)
@@ -27,8 +27,8 @@ class JarvisWebAccess(unittest.TestCase):
     def test_voice_questions_use_web_when_needed_but_jarvis_always_generates(self):
         section=VOICE.split("private void answerTurn(",1)[1].split("private String streamAndSpeak(",1)[0]
         self.assertIn("JarvisInternet.shouldResearch(settings, question)",section)
-        self.assertIn("JarvisInternet.answer(this, settings, question, turn.api)",section)
-        self.assertIn("LocalJarvisEngine.answer(this, settings, question, turn.api)",section)
+        self.assertIn("this, settings, question, privateDialogue, turn.api)",section)
+        self.assertIn("this, settings, question, privateDialogue, turn.api)",section)
         self.assertIn("webResearch.speech",section)
         self.assertIn('event("web_sources", webResearch.sources)',section)
         self.assertIn("speak(speechAnswer, turn)",section)

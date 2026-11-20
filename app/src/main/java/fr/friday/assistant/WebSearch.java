@@ -92,6 +92,7 @@ public final class WebSearch {
      * Ne jamais transformer une salutation ou une courte commande en mots-clés.
      * Les préférences restent responsables de l'autorisation réseau. */
     public static boolean safeForGeneralSearch(String question) {
+        if (DialogueMemoryPolicy.keepLocal(question)) return false;
         String q = withoutWake(question);
         if (q.isEmpty() || LOCAL_CHAT.matcher(q).find()) return false;
         if (q.matches("^(?:qui|quoi|que|quel|quelle|quels|quelles|de|le|la|oui|non|stop|arrete)$"))
@@ -230,6 +231,7 @@ public final class WebSearch {
     }
 
     public static boolean needsWeb(String question) {
+        if (DialogueMemoryPolicy.keepLocal(question)) return false;
         if (firstUrl(question).length() > 0) return true;
         String clean = withoutWake(question);
         if (assistantAnswer(question, true) != null) return false;
