@@ -35,7 +35,7 @@ class FullVoiceAuditV389(unittest.TestCase):
         self.assertIn("mutedAt - mutedSince >= 8000L", area)
         self.assertIn("mutedMicroReopens == 0", service)
         self.assertIn("MediaRecorder.AudioSource.VOICE_RECOGNITION", service)
-        self.assertIn('voiceState("Micro restauré : dites Friday")', service)
+        self.assertIn('voiceState("Micro restauré : dites Friday ou Jarvis")', service)
 
     def test_network_watchdog_allows_new_question_and_avoids_cutting_tts(self):
         service = code("FridayService.java")
