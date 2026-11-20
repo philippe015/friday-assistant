@@ -17,7 +17,7 @@ jobs:
       - name: Checkout exact source
         uses: actions/checkout@v4
 
-      - name: Verify JARVIS 3.13.5 version, package and code
+      - name: Verify JARVIS 3.13.6 version, package and code
         run: |
           set -euo pipefail
           grep -Fq "applicationId 'fr.friday.assistant'" app/build.gradle
@@ -85,7 +85,7 @@ jobs:
           SDK="$ANDROID_HOME/build-tools/35.0.0"
           "$SDK/apksigner" verify --print-certs "$APK"
           "$SDK/aapt2" dump badging "$APK" | grep -E "^package:|^application-label:"
-          "$SDK/aapt2" dump badging "$APK" | grep -F "name='fr.friday.assistant' versionCode='90' versionName='3.13.5'"
+          "$SDK/aapt2" dump badging "$APK" | grep -F "name='fr.friday.assistant' versionCode='91' versionName='3.13.6'"
           if "$SDK/aapt2" dump badging "$APK" | grep -q 'application-debuggable'; then
             echo "Release contains a debuggable Android application"; exit 1
           fi
