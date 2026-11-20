@@ -173,7 +173,7 @@ public final class JarvisInternet {
                                                    NativeAI.CancelToken cancellation)
             throws Exception {
         if (!enabled(settings))
-            return "Le module Internet de FRIDAY est désactivé dans les réglages. "
+            return "Le module Internet de JARVIS est désactivé dans les réglages. "
                     + "Aucune recherche réseau n'a été tentée. Activez "
                     + "« Autoriser Jarvis à rechercher des informations sur Internet ».";
         if (cancellation != null) cancellation.check();
@@ -192,7 +192,7 @@ public final class JarvisInternet {
                     + "Cela confirme un accès à ces résultats publics, mais pas "
                     + "que tous les moteurs, pages ou sites privés sont accessibles. "
                     + "Pour les actualités, posez une question précise et récente ; "
-                    + "FRIDAY doit obtenir des sources datées.";
+                    + "JARVIS doit obtenir des sources datées.";
         } catch (Exception error) {
             if (cancellation != null) cancellation.check();
             return "Le module Internet est autorisé, mais la recherche HTTPS "
@@ -307,7 +307,7 @@ public final class JarvisInternet {
                 sources.get(i).page = clip(page.text, 1050);
             } catch (Exception siteDenied) {
                 // HTTP 403/429 et pages JavaScript : ne pas contourner.
-                Log.i("FRIDAY_WEB", "Une source indexée ne permet pas sa lecture complète");
+                Log.i("JARVIS_WEB", "Une source indexée ne permet pas sa lecture complète");
             }
         }
         return sources;
@@ -463,7 +463,7 @@ public final class JarvisInternet {
     private static String recentNewsTopic(String question) {
         String words = VoiceText.normalize(question).replaceAll("[^a-z0-9 ]+", " ")
                 .replaceAll("\\s+", " ").trim();
-        words = words.replaceAll("\\b(?:friday|frida|freiday|freday|fride|"
+        words = words.replaceAll("\\b(?:jarvis|jarvise|jarvice|jervis|jervi|"
                 + "actualites?|actus?|nouvelles?|infos?|informations?|news|"
                 + "titres?|journal|flash|evenements?|"
                 + "dernieres?|dernier|precedentes?|precedents?|recentes?|"
@@ -501,7 +501,7 @@ public final class JarvisInternet {
             }
             conn.setRequestMethod("GET");
             conn.setRequestProperty("User-Agent",
-                    "FRIDAY-Jarvis/3.13.4 (https://github.com/philippe015/friday-assistant; Android public HTTPS client)");
+                    "JARVIS-Jarvis/3.13.4 (https://github.com/philippe015/friday-assistant; Android public HTTPS client)");
             conn.setRequestProperty("Accept", "application/rss+xml, application/xml, application/json, text/xml, text/html");
             conn.setRequestProperty("Accept-Language", "fr-FR,fr;q=0.9,en;q=0.5");
             conn.setRequestProperty("Accept-Encoding", "identity");
