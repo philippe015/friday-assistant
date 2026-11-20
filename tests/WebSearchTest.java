@@ -114,6 +114,28 @@ public final class WebSearchTest {
         check(WebSearch.relevantResult("Explique le fonctionnement du système solaire",
                         "Système solaire — Wikipédia", "Planètes en orbite"),
                 "Les sources encyclopédiques pertinentes doivent être acceptées");
+        check(WebSearch.safeForGeneralSearch("Explique la différence entre étoile et planète"),
+                "Une question générale doit pouvoir déclencher la recherche multi-moteurs");
+        check(WebSearch.safeForGeneralSearch("Répare les problèmes Gradle sous Android"),
+                "Une question technique sans interrogation doit rechercher des sources");
+        check(WebSearch.safeForGeneralSearch("Jarvis, donne-moi une recette de pain"),
+                "L'assistant utilise le Web sur les demandes courantes non privées");
+        check(!WebSearch.safeForGeneralSearch("Bonjour"),
+                "Une salutation ne doit pas envoyer de requête publique");
+        check(!WebSearch.safeForGeneralSearch("Quels"),
+                "Une transcription vocale incomplète ne doit pas chercher des définitions");
+        check(!WebSearch.safeForGeneralSearch("Jarvis, quelles sont tes capacités ?"),
+                "Les capacités de l'application sont connues localement");
+        check(!WebSearch.safeForGeneralSearch("Quels sont mes souvenirs ?"),
+                "La mémoire privée ne doit jamais partir vers les moteurs");
+        check(!WebSearch.safeForGeneralSearch("Donne mon adresse"),
+                "Les données personnelles restent locales");
+        check(!WebSearch.safeForGeneralSearch("Quelle est ma position GPS ?"),
+                "La géolocalisation reste locale");
+        check(WebSearch.scientificResearch("Cherche des études scientifiques sur le sommeil"),
+                "Crossref doit être réservé aux recherches scientifiques");
+        check(!WebSearch.scientificResearch("Recherche des restaurants à Paris"),
+                "Ne pas interroger Crossref pour une demande sans rapport");
         System.out.println("WebSearchTest OK");
     }
 }
