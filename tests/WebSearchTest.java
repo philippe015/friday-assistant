@@ -62,6 +62,58 @@ public final class WebSearchTest {
         String query = WebSearch.searchQuery("Et demain ?", longPrior.toString());
         check(query.length() <= 128 && query.endsWith("Et demain ?"),
                 "Question actuelle perdue après coupe à 128 caractères");
+        check(!WebSearch.needsWeb("Quels"),
+                "Vosk : un mot interrogatif isolé ne doit pas déclencher Bing");
+        check(!WebSearch.needsWeb("de"),
+                "Vosk : une préposition isolée ne doit pas déclencher Bing");
+        check(!WebSearch.needsWeb("Quels sont tes capacités ?"),
+                "Question sur les capacités de Jarvis ne doit pas ouvrir Bing");
+        check(!WebSearch.needsWeb("Fraday, quelles sont tes fonctionnalités ?"),
+                "Transcription wake + capacité doit rester locale");
+        check(!WebSearch.needsWeb("A de toujours pas accès Internet"),
+                "Une plainte sur l'accès Web n'est pas un mot-clé de recherche");
+        check(!WebSearch.needsWeb("Jarvis, tu as accès au web ?"),
+                "Le statut Internet de Jarvis doit être un diagnostic local");
+        check(WebSearch.assistantAnswer("Quels sont tes capacités ?", true)
+                        .contains("FRIDAY"),
+                "Les capacités doivent recevoir une réponse locale déterministe");
+        check(WebSearch.assistantAnswer("tu n'as toujours pas accès Internet", false)
+                        .contains("désactivé"),
+                "La réponse doit respecter le réglage Internet réel");
+        check(WebSearch.assistantAnswer("Cherche sur Internet une source SSIAP", true) == null,
+                "Une commande de recherche explicite doit rester une recherche");
+        check(WebSearch.needsWeb("Recherche sur Internet la réglementation SSIAP 2"),
+                "Une vraie recherche doit fonctionner");
+        check(!WebSearch.relevantResult("Quels sont tes capacités ?",
+                        "Quels : définition française", "Accord de quel"),
+                "Ne jamais citer une définition de mot interrogatif hors sujet");
+        check(!WebSearch.relevantResult("Accès Internet de Jarvis",
+                        "De : préposition", "règles grammaticales"),
+                "Ne pas citer une définition de préposition");
+        check(WebSearch.relevantResult("Quelle est la météo à Paris ?",
+                        "Météo Paris demain", "Prévisions météo parisiennes"),
+                "Conserver un vrai résultat météorologique");
+        check(WebSearch.relevantResult("Code du travail durée de pause",
+                        "Code du travail : repos et pause", "Code du travail en France"),
+                "Conserver des sources du thème réellement demandé");
+        check(WebSearch.keywordsForSearch("Friday, quels sont les derniers prix du carburant en France ?")
+                        .contains("carburant"),
+                "Recherche : le sujet carburant doit être conservé");
+        check(!WebSearch.keywordsForSearch("Friday, quels sont les derniers prix du carburant en France ?")
+                        .contains("quels"),
+                "Recherche : aucun pronom interrogatif dans les mots-clés");
+        check(WebSearch.keywordsForSearch("Quelle est la réglementation SSIAP 2 en France ?")
+                        .contains("ssiap"),
+                "Recherche juridique : le sujet SSIAP est conservé");
+        check(WebSearch.requiresCurrentEvidence("Actualités des 7 dernières heures"),
+                "L'actualité horaire exige des sources");
+        check(WebSearch.requiresCurrentEvidence("Quel est le prix du gaz aujourd'hui ?"),
+                "Les prix actuels ne doivent pas être inventés");
+        check(!WebSearch.requiresCurrentEvidence("Explique le cycle de l'eau"),
+                "Les connaissances stables peuvent être traitées hors connexion");
+        check(WebSearch.relevantResult("Explique le fonctionnement du système solaire",
+                        "Système solaire — Wikipédia", "Planètes en orbite"),
+                "Les sources encyclopédiques pertinentes doivent être acceptées");
         System.out.println("WebSearchTest OK");
     }
 }

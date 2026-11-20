@@ -97,6 +97,9 @@ public final class WebPageReader {
 
     /** Explique le code HTTP sans suggérer de contourner les restrictions du site. */
     public static String explainHttpStatus(int status) {
+        if (status == 202)
+            return "HTTP 202 : le serveur a accepté la requête mais n'a pas fourni "
+                    + "de page exploitable pour FRIDAY. Cela ne prouve pas une panne Internet.";
         if (status == 401 || status == 403)
             return "Accès refusé par le site (HTTP " + status
                     + "). FRIDAY ne peut pas lire cette page automatiquement.";

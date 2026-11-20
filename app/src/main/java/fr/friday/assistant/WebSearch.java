@@ -34,7 +34,125 @@ public final class WebSearch {
             + "raconte moi une blague|que sais tu de moi|qui es tu|tu es qui)"
             + "(?:\\b|$)");
 
+    private static final String[] QUERY_STOP_WORDS = {
+            "quel", "quelle", "quels", "quelles", "est", "sont", "etre", "pourquoi",
+            "comment", "quoi", "qui", "que", "qu", "quand", "ou", "avec", "sans",
+            "vous", "nous", "moi", "mes", "tes", "ton", "ta", "mon", "ma",
+            "les", "des", "une", "dans", "pour", "sur", "par", "aux", "chez",
+            "leur", "leurs", "de", "du", "la", "le", "un", "et", "a", "au",
+            "en", "il", "elle", "je", "j", "tu", "ne", "pas", "toujours",
+            "peux", "peut", "faire", "donne", "dire", "cherche", "recherche",
+            "internet", "web", "regarde", "trouve", "verifie", "consulte",
+            "friday", "fraday", "freddy", "fredi", "jarvis", "jervis"
+    };
+    private static final Pattern NEEDS_LIVE_SOURCES = Pattern.compile(
+            "\\b(?:actualites?|actus?|news|aujourd hui|hier|demain|maintenant|"
+            + "cette semaine|en ce moment|derniers?|dernieres?|recentes?|"
+            + "meteo|temperatures?|previsions?|prix|tarifs?|bourse|"
+            + "scores?|resultats?|classements?|horaires?|ouvertures?|"
+            + "disponibilite|elections?)\\b|\\b20[2-9][0-9]\\b");
+
     private WebSearch() { }
+
+    /** Mots réellement recherchables : retire les salutations, l'ordre et les
+     * termes grammaticaux, sans transmettre l'historique ni la mémoire. */
+    public static String keywordsForSearch(String question) {
+        String text = fold(searchQuery(question, ""));
+        StringBuilder selected = new StringBuilder(100);
+        int count = 0;
+        for (String word : text.split(" ")) {
+            if (word.length() < 3) continue;
+            boolean skip = false;
+            for (String common : QUERY_STOP_WORDS) {
+                if (common.equals(word)) { skip = true; break; }
+            }
+            if (skip) continue;
+            if (selected.length() + word.length() + 1 > 100 || count >= 9) break;
+            if (selected.length() > 0) selected.append(' ');
+            selected.append(word);
+            count++;
+        }
+        return selected.toString();
+    }
+
+    /** L'application ne doit pas inventer un fait récent si aucun moteur
+     * n'a donné de résultats vérifiables. */
+    public static boolean requiresCurrentEvidence(String question) {
+        return NEEDS_LIVE_SOURCES.matcher(fold(question)).find();
+    }
+
+    private static String withoutWake(String value) {
+        return fold(value).replaceFirst("^(?:friday|fraday|frida|freiday|freday|freddy|fredi|fride|vendredi|jarvis|jarvise|jervis|jervi)\\s+", "");
+    }
+
+    /** Réponse vérifiable localement aux questions sur l'assistant lui-même.
+     * Évite d'envoyer « quels sont tes capacités » à un moteur de recherche. */
+    public static String assistantAnswer(String question, boolean internetEnabled) {
+        String q = withoutWake(question);
+        if (q.isEmpty() || firstUrl(question).length() > 0
+                || q.matches("^(?:cherche|recherche|verifie|consulte|trouve)\\b.*"))
+            return null;
+        boolean refersToAssistant = q.matches(".*\\b(?:tu|toi|ton|ta|tes|vous|votre|vos|jarvis|friday|fraday)\\b.*");
+        boolean ability = q.matches(".*\\b(?:capacites?|fonctionnalites?|possibilites?|competences?|capable)\\b.*")
+                || q.matches("^(?:que|qu est ce que) (?:peux tu|sais tu|pouvez vous) faire.*")
+                || q.matches("^(?:a quoi sers tu|que sais tu faire|presente toi).*");
+        boolean accessComplaint = (q.contains("internet") || q.matches(".*\\bweb\\b.*"))
+                && (q.matches(".*\\b(?:acces|connexion|connecte|connexion|naviguer|limite|limitee|recherche)\\b.*")
+                    || q.contains("pas acces") || q.contains("pas d acces"))
+                && (refersToAssistant || q.contains("toujours pas")
+                    || q.startsWith("acces internet") || q.startsWith("a de "));
+        if (accessComplaint) {
+            return internetEnabled
+                    ? "Le module Internet de FRIDAY est activé. L'application peut chercher "
+                      + "des pages HTTPS publiques avec Bing et DuckDuckGo, et des actualités "
+                      + "horodatées avec Google Actualités. Ces recherches sont faites par "
+                      + "l'application ; c'est Jarvis local qui produit mes réponses. "
+                      + "Je n'ai pas un navigateur illimité : des pages privées, bloquées "
+                      + "ou dépendantes de JavaScript peuvent rester inaccessibles. "
+                      + "Une option activée ne garantit pas que chaque recherche aboutit. "
+                      + "Pour vérifier la connexion actuelle, utilisez « Tester l'accès Internet Jarvis »."
+                    : "L'accès Internet de FRIDAY est désactivé dans les réglages. "
+                      + "Jarvis local peut encore répondre hors ligne. Activez "
+                      + "« Autoriser Jarvis à rechercher des informations sur Internet » "
+                      + "pour consulter des sources HTTPS publiques.";
+        }
+        if (refersToAssistant && ability) {
+            return "Je suis FRIDAY, assistant Jarvis local sur ce téléphone. "
+                    + "Je peux répondre aux questions et parler en français avec le modèle "
+                    + "installé, utiliser l'écoute Vosk, aider à expliquer des sujets, "
+                    + "et utiliser la mémoire locale chiffrée si elle est activée. "
+                    + (internetEnabled
+                       ? "Le module Internet est autorisé : il peut consulter certaines "
+                         + "sources HTTPS publiques et des actualités datées. "
+                       : "Les recherches Internet sont actuellement désactivées. ")
+                    + "Je ne peux pas garantir l'accès à tout le Web, ni aux sites "
+                    + "nécessitant une connexion à un compte. Mes réponses peuvent "
+                    + "comporter des erreurs ; vérifiez les informations importantes.";
+        }
+        return null;
+    }
+
+    /** Écarte les résultats qui ne reprennent aucun sujet significatif.
+     * Un mot grammatical (« quels », « de ») ne suffit jamais à faire source. */
+    public static boolean relevantResult(String query, String title, String summary) {
+        String corpus = " " + fold(title + " " + summary) + " ";
+        String[] terms = fold(searchQuery(query, "")).split(" ");
+        java.util.LinkedHashSet<String> topics = new java.util.LinkedHashSet<>();
+        for (String word : terms) {
+            if (word.length() < 4) continue;
+            boolean stop = false;
+            for (String common : QUERY_STOP_WORDS) {
+                if (common.equals(word)) { stop = true; break; }
+            }
+            if (!stop) topics.add(word);
+        }
+        if (topics.isEmpty()) return false;
+        int hits = 0;
+        for (String term : topics) {
+            if (corpus.contains(" " + term + " ")) hits++;
+        }
+        return hits >= (topics.size() >= 4 ? 2 : 1);
+    }
 
     private static String fold(String value) {
         String lower = Normalizer.normalize(value == null ? "" : value, Normalizer.Form.NFD)
@@ -55,8 +173,13 @@ public final class WebSearch {
 
     public static boolean needsWeb(String question) {
         if (firstUrl(question).length() > 0) return true;
-        String clean = fold(question).replaceFirst("^(?:friday|frida|freiday|freday|fride)\\s+", "");
+        String clean = withoutWake(question);
+        if (assistantAnswer(question, true) != null) return false;
         if (clean.isEmpty() || LOCAL_CHAT.matcher(clean).find()) return false;
+        // Une transcription Vosk réduite à « quels »/« quelle » ne doit
+        // jamais déclencher une recherche de dictionnaire.
+        if (clean.matches("^(?:qui|quoi|que|quel|quelle|quels|quelles|comment|pourquoi|de|le|la)$"))
+            return false;
         return EXPLICIT.matcher(clean).find() || CURRENT.matcher(clean).find()
                 || FACTUAL.matcher(clean).find();
     }
@@ -67,7 +190,7 @@ public final class WebSearch {
     }
 
     public static boolean isFollowUp(String question) {
-        String clean = fold(question).replaceFirst("^(?:friday|frida|freiday|freday|fride)\\s+", "");
+        String clean = withoutWake(question);
         return FOLLOW_UP.matcher(clean).find() && clean.split(" ").length <= 11;
     }
 
@@ -82,7 +205,7 @@ public final class WebSearch {
      */
     public static String searchQuery(String question, String previousUserQuestion) {
         String current = question == null ? "" : question.trim();
-        current = current.replaceFirst("(?i)^(?:friday|frida|freiday|freday|fride)[\\s,.:;!?-]+", "");
+        current = current.replaceFirst("(?i)^(?:friday|fraday|frida|freiday|freday|freddy|fredi|fride|vendredi|jarvis|jarvise|jervis|jervi)[\\s,.:;!?-]+", "");
         current = current.replaceFirst("(?i)^(?:cherche|recherche|verifie|trouve|regarde|consulte)\\s+"
                 + "(?:(?:sur\\s+)?(?:internet|le\\s+web)\\s+)?", "").trim();
         if (isFollowUp(current) && previousUserQuestion != null && !previousUserQuestion.trim().isEmpty()) {
