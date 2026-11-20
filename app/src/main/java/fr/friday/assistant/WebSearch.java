@@ -97,6 +97,10 @@ public final class WebSearch {
         if (q.matches("^(?:qui|quoi|que|quel|quelle|quels|quelles|de|le|la|oui|non|stop|arrete)$"))
             return false;
         if (assistantAnswer(question, true) != null) return false;
+        // Une interdiction explicite de réseau prime sur le mode automatique.
+        if (q.matches(".*\\b(?:sans internet|sans web|hors ligne|sans connexion|"
+                + "ne recherche pas|n utilise pas internet|reste en local|"
+                + "uniquement en local)\\b.*")) return false;
         // Les données personnelles ne doivent jamais être copiées vers un index.
         if (q.matches(".*\\b(?:mon mot de passe|mon code secret|mes identifiants|"
                 + "mes notes|ma memoire|mes souvenirs|mes conversations|"
