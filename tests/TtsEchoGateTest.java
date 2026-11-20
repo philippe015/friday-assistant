@@ -38,6 +38,22 @@ public final class TtsEchoGateTest {
         check(stop < end && stop > 10000L, "STOP reste plus réactif que la fin naturelle.");
         check(!TtsEchoGate.suppressGeneralAsr(false, stop, stop),
                 "Les questions deviennent possibles après un STOP et le bref délai.");
+        // FRIDAY ne doit pas répondre une seule fois en mode continu.
+        long talkEnds = 100_000L;
+        long firstAllowed = TtsEchoGate.afterVoice(talkEnds);
+        long dialogueEnds = TtsEchoGate.followupUntil(talkEnds, false);
+        check(dialogueEnds == firstAllowed + 20_000L,
+                "Fenêtre de dialogue de 20 secondes après 2,5 s anti-écho.");
+        check(!TtsEchoGate.followupAccepts(talkEnds + 1000L, firstAllowed, dialogueEnds),
+                "Ignorer la voix du haut-parleur avant la fin de l'anti-écho.");
+        check(TtsEchoGate.followupAccepts(firstAllowed, firstAllowed, dialogueEnds),
+                "Ré-accepter immédiatement une nouvelle question après l'anti-écho.");
+        check(TtsEchoGate.followupAccepts(firstAllowed + 15000L, firstAllowed, dialogueEnds),
+                "La deuxième question doit fonctionner après la première réponse.");
+        check(!TtsEchoGate.followupAccepts(dialogueEnds, firstAllowed, dialogueEnds),
+                "Ne jamais écouter sans mot-clé après la fenêtre de dialogue.");
+        check(TtsEchoGate.followupUntil(talkEnds, true) == 0L,
+                "Respecter le mode une question choisi dans les réglages.");
         System.out.println("TtsEchoGateTest OK");
     }
 }

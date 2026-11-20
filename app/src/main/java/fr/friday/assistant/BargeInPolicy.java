@@ -5,13 +5,13 @@ public final class BargeInPolicy {
     private BargeInPolicy() {}
     public static boolean startsWithWake(String phrase) {
         String s = VoiceText.normalize(phrase).trim();
-        return s.matches("^(friday|fraday|frida|freiday|freday|freddy|fredi|fride|vendredi|jarvis|jarvise|jervis|jervi)\\b.*");
+        return s.matches("^(jarvis|jarvise|jervis|jervi)\\b.*");
     }
     public static boolean isStopListening(String phrase) {
         if (!startsWithWake(phrase)) return false;
         String s = VoiceText.normalize(VoiceText.withoutWakeWord(phrase));
         return s.matches(".*(arrete|stoppe|coupe|desactive|ferme) (l.ecoute|le micro|le microphone|le service|completement).*" )
-            || s.equals("eteins toi") || s.equals("arrete friday");
+            || s.equals("eteins toi") || s.equals("arrete jarvis");
     }
     public static boolean isStopAnswer(String phrase) {
         if (!startsWithWake(phrase) || wantsToAddDetails(phrase)) return false;

@@ -43,7 +43,7 @@ public class MainActivity extends Activity {
     private TextView webDiagnosticLabel;
     private final AtomicBoolean webTestRunning = new AtomicBoolean(false);
     private CheckBox localJarvisEnabled, localJarvisAll;
-    private CheckBox jarvisInternetEnabled;
+    private CheckBox jarvisInternetEnabled, jarvisWebEveryAnswerEnabled;
     private TextView jarvisInternetStatus;
     private final AtomicBoolean jarvisWebTesting = new AtomicBoolean(false);
     private TextView localJarvisStatus;
@@ -167,7 +167,7 @@ public class MainActivity extends Activity {
         LinearLayout bar = new LinearLayout(this);
         bar.setPadding(dp(7),dp(3),dp(7),dp(3));
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = label("F.R.I.D.A.Y. · " + FridayVersionGuard.thisVersion(this));
+        TextView title = label("J.A.R.V.I.S. · " + FridayVersionGuard.thisVersion(this));
         title.setTextSize(15); title.setTextColor(Color.rgb(71,228,249));
         bar.addView(title, new LinearLayout.LayoutParams(0,dp(48),1));
         Button configure = button("⚙ Réglages", () -> configScroll.setVisibility(configScroll.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
@@ -246,11 +246,21 @@ public class MainActivity extends Activity {
         jarvisInternetEnabled.setTextColor(Color.WHITE);
         jarvisInternetEnabled.setChecked("1".equals(prefs.get("jarvis_web_enabled", "1")));
         config.addView(jarvisInternetEnabled);
-        config.addView(label("Les mots-clés de recherche sont envoyés à Bing ou DuckDuckGo "
-                + "(Google Actualités en secours pour les actualités). "
-                + "Les pages HTTPS sont lues directement. Ni clé IA, ni historique personnel, "
-                + "ni notes privées, ni GPS ne sont envoyés. Certaines pages peuvent refuser "
-                + "les accès automatisés (HTTP 403/429). La recherche n'est pas illimitée."));
+        jarvisWebEveryAnswerEnabled = new CheckBox(this);
+        jarvisWebEveryAnswerEnabled.setText("Rechercher sur le Web avant toute réponse générale "
+                + "(plusieurs fournisseurs, activé par défaut)");
+        jarvisWebEveryAnswerEnabled.setTextColor(Color.WHITE);
+        jarvisWebEveryAnswerEnabled.setChecked(
+                "1".equals(prefs.get("jarvis_web_every_answer", "1")));
+        config.addView(jarvisWebEveryAnswerEnabled);
+        config.addView(label("Fournisseurs : Bing RSS, DuckDuckGo, Wikipédia, Wikidata, "
+                + "Crossref (publications scientifiques) et Google Actualités. "
+                + "Les questions générales interrogent plusieurs sources publiques "
+                + "avant la réponse de Jarvis local. Le nom des moteurs ne garantit pas "
+                + "que chacun répondra à chaque requête (HTTP 202, 403 ou 429 possibles). "
+                + "Les commandes de mémoire privée, GPS et réglages restent locales ; "
+                + "ni historique, ni notes, ni coordonnées ne sont envoyés. "
+                + "Décochez cette case pour rétablir la recherche automatique ciblée."));
         config.addView(button("Tester l'accès Internet Jarvis", this::testJarvisInternet));
         config.addView(button("Tester les actualités des 7 dernières heures",
                 this::testJarvisRecentNews));
@@ -307,16 +317,22 @@ public class MainActivity extends Activity {
         silenceInput = field("2100", false);
         silenceInput.setInputType(InputType.TYPE_CLASS_NUMBER);
         silenceInput.setText(prefs.get("silence_ms", "2100")); config.addView(silenceInput);
-        config.addView(label("CONVERSATION SANS RÉPÉTER FRIDAY · fenêtre (secondes, 15 à 180)"));
+        config.addView(label("DIALOGUE CONTINU · relance directe 20 secondes après la voix ; "
+                + "fenêtre prolongée (15 à 180 secondes) si l'option ci-dessous est activée"));
         followupInput = field("75", false);
         followupInput.setInputType(InputType.TYPE_CLASS_NUMBER);
         followupInput.setText(prefs.get("followup_sec", "75")); config.addView(followupInput);
         followupHandsfreeEnabled = new CheckBox(this);
-        followupHandsfreeEnabled.setText("Autoriser les relances sans dire Friday (risque de fausses questions)");
+        followupHandsfreeEnabled.setText("Prolonger les relances sans dire Friday "
+                + "(75 secondes par défaut, risque de fausses questions)");
         followupHandsfreeEnabled.setTextColor(Color.WHITE);
         followupHandsfreeEnabled.setChecked("1".equals(prefs.get("followup_handsfree", "0")));
         config.addView(followupHandsfreeEnabled);
-        config.addView(label("Conseil : laissez cette option desactivee. Dites Friday a chaque question ; dire Friday seul puis la question reste possible pendant 12 s."));
+        config.addView(label("Mode continu : après chaque réponse, FRIDAY ignore 2,5 secondes "
+                + "d'écho du haut-parleur puis accepte une question directe pendant "
+                + "20 secondes. Passé ce délai, dites Friday ou Jarvis. "
+                + "La case ci-dessus permet de prolonger cette période, avec "
+                + "davantage de risque de déclenchements involontaires."));
         bargeEnabled = new CheckBox(this);
         bargeEnabled.setText("Activer STOP vocal pendant la réponse (« stop », « Friday stop », « j’ai une précision »)");
         bargeEnabled.setTextColor(Color.WHITE);
@@ -346,12 +362,12 @@ public class MainActivity extends Activity {
         oneShotEnabled.setTextColor(Color.WHITE);
         oneShotEnabled.setChecked("1".equals(prefs.get("listen_once", "0")));
         config.addView(oneShotEnabled);
-        config.addView(label("Mode Continu (case décochée) : le microphone reste actif "
-                + "après chaque réponse. Pour une nouvelle demande, dites « Friday ». "
-                + "Sans mot-clé, les relances sont désactivées par défaut pour éviter les "
-                + "questions fantômes ; elles sont possibles seulement si l'option correspondante est cochée. " 
-                + "Mode une question (case cochée) : le microphone s'arrête après la réponse. "
-                + "Pendant que FRIDAY parle, STOP reste disponible ; un casque limite l'écho."));
+        config.addView(label("Mode continu (case décochée) : le microphone reste actif "
+                + "après chaque réponse. La nouvelle question peut être dite directement "
+                + "pendant 20 secondes après l'anti-écho, sans appuyer sur un bouton. "
+                + "Ensuite, dites « Friday » ou « Jarvis » pour une autre question. "
+                + "Mode une question (case cochée) : l'écoute s'arrête après la réponse. "
+                + "Pendant la voix, l'anti-écho protège contre les fausses questions."));
         voskHintsEnabled = new CheckBox(this);
         voskHintsEnabled.setText("Vocabulaire Vosk spécialisé (expérimental, sur demande)");
         voskHintsEnabled.setTextColor(Color.WHITE);
@@ -457,6 +473,8 @@ public class MainActivity extends Activity {
             prefs.put("web_enabled", "0");
             prefs.put("web_mode", "off");
             prefs.put("jarvis_web_enabled", jarvisInternetEnabled.isChecked() ? "1" : "0");
+            prefs.put("jarvis_web_every_answer",
+                    jarvisWebEveryAnswerEnabled.isChecked() ? "1" : "0");
             prefs.put("stream_enabled", "0");
             prefs.put("location_share", "0");
             saveLocalJarvisPrefs();
@@ -1016,9 +1034,13 @@ public class MainActivity extends Activity {
                 + "\nAudio : microphone intégré et haut-parleur du téléphone (Bluetooth désactivé)"
                 + "\nMoteur IA : Jarvis local uniquement"
                 + "\nMode vocal : " + ("1".equals(prefs.get("listen_once", "0"))
-                        ? "Une question" : "Continu")
+                        ? "Une question (arrêt après réponse)"
+                        : "Continu (relance directe pendant 20 s après anti-écho)")
                 + "\nInternet Jarvis : " + (JarvisInternet.enabled(prefs)
                         ? "activé (requêtes HTTPS publiques)" : "désactivé")
+                + "\nRecherche Web pour les questions générales : "
+                + ("1".equals(prefs.get("jarvis_web_every_answer", "1"))
+                        ? "activée" : "désactivée (mode ciblé)")
                 + "\nDernier test Internet : " + prefs.get("jarvis_web_last_test", "non effectué")
                 + "\nDernière erreur à : " + prefs.get("last_error_time", "aucune")
                 + "\n\nLe niveau micro est un niveau PCM et ne garantit pas qu'une parole a été comprise."
@@ -1081,8 +1103,12 @@ public class MainActivity extends Activity {
             try {
                 if (MemoryIntent.kind(request) != MemoryIntent.NONE)
                     answer = PersonalMemory.command(prefs, request);
-                // Ne pas chercher « quels sont tes capacités » sur Bing :
-                // le statut Internet et les fonctions de Jarvis sont locaux.
+                // Une question « Internet fonctionne ? » exige une vraie
+                // vérification réseau : aucun historique ni GPS transmis.
+                if (answer == null && WebSearch.requestsLiveConnectivityCheck(request))
+                    answer = JarvisInternet.liveConnectionDiagnostic(
+                            prefs, new NativeAI.CancelToken());
+                // Les capacités intrinsèques de Jarvis restent locales.
                 if (answer == null)
                     answer = WebSearch.assistantAnswer(request, JarvisInternet.enabled(prefs));
                 if (answer == null) {

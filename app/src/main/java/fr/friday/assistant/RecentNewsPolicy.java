@@ -18,6 +18,15 @@ public final class RecentNewsPolicy {
 
     private static final Pattern NEWS = Pattern.compile(
             "\\b(?:actualites?|actus?|nouvelles?|infos?|informations?|news|flash|journal|evenements?)\\b");
+    /** « Informations sur les batteries » n'est pas une demande d'actualité.
+     * Un bulletin récent exige des mots d'actualité explicites ou une
+     * expression comme « dernières informations ». */
+    private static final Pattern NEWS_BRIEF = Pattern.compile(
+            "\\b(?:actualites?|actus?|nouvelles?|news|flash|journal)\\b"
+            + "|\\b(?:dernieres?|recents?|recentes?|nouveautes?)\\s+"
+            + "(?:infos?|informations?|evenements?)\\b"
+            + "|\\b(?:infos?|informations?|evenements?)\\s+"
+            + "(?:du jour|d aujourd hui|de ce matin|recents?|recentes?)\\b");
     private static final Pattern HOURS = Pattern.compile(
             "\\b(\\d{1,2}|sept|six|douze|trois|quatre|vingt quatre)"
             + "(?:\\s+(?:derniers?|dernieres?|precedents?|precedentes?)){0,3}\\s+heures?\\b");
@@ -60,6 +69,18 @@ public final class RecentNewsPolicy {
                 catch (NumberFormatException ignored) { return 0; }
         }
         return hours > 0 && hours <= 48 ? hours : 0;
+    }
+
+    /** Les demandes de titres sans précision (ex. « actualités du jour »)
+     * nécessitent quand même un flux daté. Fenêtre glissante de 24 h :
+     * ne prétend pas représenter exclusivement le jour civil courant. */
+    public static int newsWindowHours(String question) {
+        if (!isNews(question)) return 0;
+        int explicitHours = requestedHours(question);
+        if (explicitHours > 0) return explicitHours;
+        // Évite de détourner la recherche encyclopédique vers une actualité
+        // simplement parce que l'utilisateur a dit « informations sur ».
+        return NEWS_BRIEF.matcher(fold(question)).find() ? 24 : 0;
     }
 
     public static boolean requiresRecentNews(String question) {

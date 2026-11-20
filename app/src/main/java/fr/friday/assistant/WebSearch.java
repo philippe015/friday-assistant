@@ -43,6 +43,8 @@ public final class WebSearch {
             "en", "il", "elle", "je", "j", "tu", "ne", "pas", "toujours",
             "peux", "peut", "faire", "donne", "dire", "cherche", "recherche",
             "internet", "web", "regarde", "trouve", "verifie", "consulte",
+            "explique", "expliquer", "fonctionnement", "definition", "information",
+            "informations", "savoir", "question", "aide",
             "friday", "fraday", "freddy", "fredi", "jarvis", "jervis"
     };
     private static final Pattern NEEDS_LIVE_SOURCES = Pattern.compile(
@@ -85,6 +87,61 @@ public final class WebSearch {
         return fold(value).replaceFirst("^(?:friday|fraday|frida|freiday|freday|freddy|fredi|fride|vendredi|jarvis|jarvise|jervis|jervi)\\s+", "");
     }
 
+    /** Recherche Web par défaut pour les questions générales, jamais pour
+     * les commandes personnelles, les coordonnées ou les secrets privés.
+     * Ne jamais transformer une salutation ou une courte commande en mots-clés.
+     * Les préférences restent responsables de l'autorisation réseau. */
+    public static boolean safeForGeneralSearch(String question) {
+        String q = withoutWake(question);
+        if (q.isEmpty() || LOCAL_CHAT.matcher(q).find()) return false;
+        if (q.matches("^(?:qui|quoi|que|quel|quelle|quels|quelles|de|le|la|oui|non|stop|arrete)$"))
+            return false;
+        if (assistantAnswer(question, true) != null) return false;
+        // Une interdiction explicite de réseau prime sur le mode automatique.
+        if (q.matches(".*\\b(?:sans internet|sans web|hors ligne|sans connexion|"
+                + "ne recherche pas|n utilise pas internet|reste en local|"
+                + "uniquement en local)\\b.*")) return false;
+        // Les données personnelles ne doivent jamais être copiées vers un index.
+        if (q.matches(".*\\b(?:mon mot de passe|mon code secret|mes identifiants|"
+                + "mes notes|ma memoire|mes souvenirs|mes conversations|"
+                + "mon adresse|mon numero|ma position|ma localisation|"
+                + "mon gps|mes coordonnees|mes donnees personnelles)\\b.*"))
+            return false;
+        return firstUrl(question).length() > 0 || !keywordsForSearch(question).isEmpty();
+    }
+
+    /** Recherche spécialisée uniquement pour les publications scientifiques. */
+    public static boolean scientificResearch(String question) {
+        String q = withoutWake(question);
+        return q.matches(".*\\b(?:scientifique|scientifiques|etudes?|publications?|"
+                + "recherche medicale|etude clinique|essai clinique|doi|"
+                + "article scientifique|revue scientifique|these|"
+                + "bibliographie|recherche academique)\\b.*");
+    }
+
+    /** Reconnaît une demande de vérification de connexion de FRIDAY.
+     * Les questions sur un article, une loi ou les actualités continuent de
+     * suivre la recherche Web habituelle et ne reçoivent pas ce diagnostic. */
+    public static boolean requestsLiveConnectivityCheck(String question) {
+        String q = withoutWake(question);
+        if (q.isEmpty() || firstUrl(question).length() > 0
+                || q.matches("^(?:cherche|recherche|trouve|consulte)\\b.*"))
+            return false;
+        boolean internet = q.contains("internet") || q.matches(".*\\b(?:web|en ligne)\\b.*");
+        if (!internet) return false;
+        boolean status = q.matches(".*\\b(?:acces|connexion|connecte|connectee|"
+                + "actif|active|fonctionne|fonctionner|marche|disponible|"
+                + "limite|limitee|statut|etat|teste|tester|verifie|verifier|"
+                + "bloque|bloquee|panne|inaccessible)\\b.*")
+                || q.contains("toujours pas") || q.contains("pas acces");
+        boolean assistant = q.matches(".*\\b(?:tu|toi|ton|ta|tes|vous|votre|vos|"
+                + "friday|jarvis|assistant|application|module)\\b.*");
+        return status && (assistant || q.contains("toujours pas")
+                || q.startsWith("acces internet") || q.startsWith("internet ")
+                || q.startsWith("connexion internet")
+                || q.matches("^(?:verifie|verifier|teste|tester)\\b.*"));
+    }
+
     /** Réponse vérifiable localement aux questions sur l'assistant lui-même.
      * Évite d'envoyer « quels sont tes capacités » à un moteur de recherche. */
     public static String assistantAnswer(String question, boolean internetEnabled) {
@@ -104,7 +161,8 @@ public final class WebSearch {
         if (accessComplaint) {
             return internetEnabled
                     ? "Le module Internet de FRIDAY est activé. L'application peut chercher "
-                      + "des pages HTTPS publiques avec Bing et DuckDuckGo, et des actualités "
+                      + "des pages HTTPS publiques avec Bing et DuckDuckGo, des références "
+                      + "Wikipédia et Wikidata, des publications Crossref et des actualités "
                       + "horodatées avec Google Actualités. Ces recherches sont faites par "
                       + "l'application ; c'est Jarvis local qui produit mes réponses. "
                       + "Je n'ai pas un navigateur illimité : des pages privées, bloquées "

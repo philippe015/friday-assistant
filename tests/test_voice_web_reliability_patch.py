@@ -17,7 +17,7 @@ BARGE = (JAVA / "BargeInPolicy.java").read_text(encoding="utf-8")
 class VoiceAndWebRegression(unittest.TestCase):
     def test_wake_fallback_even_when_native_library_loaded(self):
         self.assertIn("hasWakeWord(normalized) || VoiceText.hasWakeWord(text)", RUST)
-        for spelling in ("friday", "fraday", "freddy", "fredi", "vendredi"):
+        for spelling in ("jarvis", "jarvise", "jervis", "jervi"):
             self.assertIn(spelling, VOICE)
             self.assertIn(spelling, BARGE)
 
@@ -28,7 +28,7 @@ class VoiceAndWebRegression(unittest.TestCase):
             import fr.friday.assistant.*;
             public class WakeSmoke {
                 public static void main(String[] args) {
-                    for (String name : new String[]{"Friday", "Fraday", "Freddy", "Fredi", "Vendredi"}) {
+                    for (String name : new String[]{"Jarvis", "Jarvise", "Jervis", "Jervi"}) {
                         String sentence = name + ", quelle heure est-il ?";
                         if (!BargeInPolicy.startsWithWake(sentence)) throw new AssertionError(name);
                         if (!VoiceText.hasWakeWord(sentence)) throw new AssertionError(name);

@@ -15,13 +15,13 @@ public final class VoiceStopSpotterTest {
         yes(d.accept("stop", "FRIDAY dit : stop, puis recommence.", true)
                 == VoiceStopSpotter.Action.NONE, "écho de la propre voix ignoré");
         d.reset();
-        yes(d.accept("friday stop", "Voici une longue réponse.", true)
+        yes(d.accept("jarvis stop", "Voici une longue réponse.", true)
                 == VoiceStopSpotter.Action.STOP, "commande avec nom détectée");
         yes(d.accept("j'ai une précision", "Voici une réponse.", true)
                 == VoiceStopSpotter.Action.CLARIFY, "demande de précision sans wake");
-        yes(d.accept("Friday, j'ai une précision", "Bonjour.", true)
+        yes(d.accept("Jarvis, j'ai une précision", "Bonjour.", true)
                 == VoiceStopSpotter.Action.CLARIFY, "demande de précision avec wake");
-        yes(d.accept("Friday arrête l'écoute", "Bonjour.", true)
+        yes(d.accept("Jarvis arrête l'écoute", "Bonjour.", true)
                 == VoiceStopSpotter.Action.STOP_MIC, "arrêt service explicite");
         yes(d.accept("quel est le temps", "Je vais répondre.", true)
                 == VoiceStopSpotter.Action.NONE, "aucun faux arrêt");

@@ -221,7 +221,7 @@ public class FridayService extends Service {
         wakeLock.setReferenceCounted(false);
         wakeLock.acquire();
         event("status", "Écoute native active. Posez une question dans les 15 secondes, "
-                + "ou dites Friday / Jarvis à tout moment.");
+                + "ou dites Jarvis à tout moment.");
         worker = new Thread(this::runLoop, "friday-voice-core");
         worker.start();
         return START_NOT_STICKY; // Pas de redémarrage clandestin après arrêt par le système.
@@ -374,7 +374,7 @@ public class FridayService extends Service {
                         asrDiagnostic("Micro et Vosk prêts : première question directe pendant 15 secondes");
                     }
                     event("status", PhoneAudioRoute.inputStatus(ar));
-                    voiceState("Micro actif : dites Friday ou Jarvis pour parler");
+                    voiceState("Micro actif : dites Jarvis pour parler");
                     interruptDiagnostics = bargeEnabled
                             ? "Micro PCM prêt · décodeur STOP démarre à la réponse"
                             : "Désactivé dans Réglages · autoriser l'interruption vocale";
@@ -496,8 +496,8 @@ public class FridayService extends Service {
                             confidenceSum = 0; confidenceCount = 0;
                             earlyCancelled = false; sawSpeakerFeedback = false;
                             interruptDiagnostics = "Micro à nouveau accessible";
-                            voiceState("Micro restauré : dites Friday ou Jarvis");
-                            event("status", "Microphone de nouveau accessible. Dites Friday ou Jarvis.");
+                            voiceState("Micro restauré : dites Jarvis");
+                            event("status", "Microphone de nouveau accessible. Dites Jarvis.");
                         }
                         // Affiche uniquement une mesure d'énergie PCM indicative.
                         // Pas de transcription stockée, ni envoi de son au modèle.
@@ -594,7 +594,10 @@ public class FridayService extends Service {
                             confidenceSum = 0; confidenceCount = 0;
                             earlyCancelled = false; sawSpeakerFeedback = false;
                             generalInputBlocked = false;
-                            voiceState("Micro prêt : dites Friday ou Jarvis pour votre question suivante");
+                            voiceState(TtsEchoGate.followupAccepts(
+                                    SystemClock.elapsedRealtime(), echoBlockUntil, wakeOnlyUntil)
+                                    ? "Micro prêt : dialogue continu, posez votre question sans mot-clé (20 secondes)"
+                                    : "Micro prêt : dites Jarvis pour votre question suivante");
                             event("barge_diag", "Protection anti-écho terminée · questions autorisées");
                         }
                         boolean endpoint = recognizer.acceptWaveForm(buffer, count);
@@ -839,10 +842,10 @@ public class FridayService extends Service {
                 wakeOnlyUntil = now + 12_000L;
                 lastReplyAt = now;
                 asrDiagnostic("Mot d'activation reconnu ; attente de la question (12 secondes)");
-                event("status", "Friday / Jarvis à l'écoute : posez votre question.");
+                event("status", "Jarvis à l'écoute : posez votre question.");
                 return;
             }
-        } else if ((now < wakeOnlyUntil ||
+        } else if ((TtsEchoGate.followupAccepts(now, echoBlockUntil, wakeOnlyUntil) ||
                 ("1".equals(settings.get("followup_handsfree", "0")) && wakeArmed &&
                 (now - lastReplyAt <= followupMs || now < clarificationUntil))) &&
                 now >= echoBlockUntil) {
@@ -856,7 +859,7 @@ public class FridayService extends Service {
             // Le PCM est présent, Vosk comprend une phrase, mais aucun mot-clé :
             // ce n'est pas une panne de Jarvis ou du microphone.
             if (heard.trim().split("\\s+").length >= 2)
-                asrDiagnostic("Vosk a transcrit une phrase ; mot-clé Friday/Jarvis absent");
+                asrDiagnostic("Vosk a transcrit une phrase ; mot-clé Jarvis absent");
             return;
         }
         if (BargeInPolicy.wantsToAddDetails(question)) {
@@ -873,14 +876,14 @@ public class FridayService extends Service {
         clarificationAnchor = "";
         clarificationUntil = 0L;
         latestQuestion = request;
-        asrDiagnostic(activated ? "Mot-clé Friday/Jarvis reconnu, question envoyée à Jarvis"
+        asrDiagnostic(activated ? "Mot-clé Jarvis reconnu, question envoyée à Jarvis"
                 : "Question directe reconnue, envoyée à Jarvis");
         ResponseTurn turn = new ResponseTurn(anchor);
         currentTurn = turn;
         boolean localJarvis = true; // Mode exclusif Jarvis pour toute demande vocale.
         voiceState("Question reçue · "
                 + "Jarvis sur le téléphone, sans réseau"
-                + " · micro disponible pour une nouvelle question avec Friday ou Jarvis");
+                + " · micro disponible pour une nouvelle question avec Jarvis");
         // Protège contre un fournisseur/API bloqué : aucun tour muet ne doit
         // garder l'écoute occupée indéfiniment. Un TTS en lecture n'est pas coupé.
         turn.watchdog = () -> {
@@ -908,8 +911,13 @@ public class FridayService extends Service {
             if (live(turn)) event("status", memoryAction ? "Commande mémoire locale…"
                     : "Jarvis local réfléchit sur le téléphone…");
             String local = PersonalMemory.command(settings, question);
-            // Les questions sur les capacités de FRIDAY et son accès Web
-            // sont des diagnostics de l'application, pas une recherche publique.
+            // Ne jamais affirmer que le Web fonctionne en lisant seulement
+            // un réglage : effectuer un vrai essai HTTPS sur une requête neutre.
+            if (local == null && WebSearch.requestsLiveConnectivityCheck(question)) {
+                event("status", "Jarvis vérifie réellement les moteurs de recherche HTTPS…");
+                local = JarvisInternet.liveConnectionDiagnostic(settings, turn.api);
+            }
+            // Les capacités intrinsèques de FRIDAY restent connues localement.
             if (local == null)
                 local = WebSearch.assistantAnswer(question, JarvisInternet.enabled(settings));
             // Les commandes strictement locales conservent leur fonctionnement.
@@ -992,7 +1000,9 @@ public class FridayService extends Service {
             if (local != null) {
                 answer = local;
             } else if (JarvisInternet.shouldResearch(settings, question)) {
-                event("status", "Jarvis consulte des sources Internet publiques (Google Actualités / Bing / DuckDuckGo).");
+                event("status", "Jarvis recherche sur plusieurs sources HTTPS publiques "
+                        + "(Bing, DuckDuckGo, Wikipédia, Wikidata, Crossref ou Google Actualités), "
+                        + "puis répond avec son modèle local.");
                 webResearch = JarvisInternet.answer(this, settings, question, turn.api);
                 answer = webResearch.text;
                 if (webResearch.usedInternet) event("web_sources", webResearch.sources);
@@ -1019,7 +1029,14 @@ public class FridayService extends Service {
             if (!live(turn)) return;
             lastReplyAt = SystemClock.elapsedRealtime();
             if (spoken) {
-                event("status", "Réponse terminée. Après 2,5 secondes, dites Friday ou Jarvis pour une nouvelle question.");
+                if ("1".equals(settings.get("listen_once", "0")))
+                    event("status", "Réponse terminée. Mode une question activé : "
+                            + "le microphone va s'arrêter. Décochez cette option "
+                            + "dans Réglages pour un dialogue continu.");
+                else
+                    event("status", "Réponse terminée. Après 2,5 secondes d'anti-écho, "
+                            + "posez directement votre prochaine question pendant 20 secondes "
+                            + "ou dites Jarvis à tout moment.");
             } else if ("1".equals(settings.get("voice_enabled", "1"))) {
                 event("error", "Réponse disponible en texte, mais lecture vocale incomplète. "
                         + "Le moteur TTS va être réinitialisé ; microphone toujours actif.");
@@ -1051,13 +1068,29 @@ public class FridayService extends Service {
                 if (hadSpoken) {
                     lastSpeechEndedAt = finishedAt;
                     echoBlockUntil = TtsEchoGate.afterVoice(finishedAt);
+                    // Le mode continu doit réellement accepter une nouvelle
+                    // question après la première réponse, sans second bouton
+                    // ni mot-clé pendant une fenêtre limitée. Le TTS et sa
+                    // queue d'écho restent exclus de cette fenêtre.
+                    if (!"1".equals(settings.get("listen_once", "0"))) {
+                        wakeOnlyUntil = Math.max(wakeOnlyUntil,
+                                TtsEchoGate.followupUntil(finishedAt, false));
+                        // La prolongation mains libres facultative fonctionne
+                        // aussi si la première question ne contenait pas Friday.
+                        wakeArmed = true;
+                    }
                 }
                 currentTurn = null;
                 speakingNow = false;
                 spokenText = "";
                 lastReplyAt = finishedAt;
-                voiceState(hadSpoken ? "Fin de la voix · anti-écho 2,5 secondes"
+                voiceState(hadSpoken && !"1".equals(settings.get("listen_once", "0"))
+                        ? "Fin de la voix · 2,5 s anti-écho puis dialogue continu 20 s"
+                        : hadSpoken ? "Fin de la voix · anti-écho 2,5 secondes"
                         : "Réponse terminée · micro disponible, dites Friday ou Jarvis");
+                if (hadSpoken && !"1".equals(settings.get("listen_once", "0")))
+                    asrDiagnostic("Réponse terminée ; après 2,5 s, question directe acceptée "
+                            + "pendant 20 s sans mot-clé");
                 if (running && !"1".equals(settings.get("listen_once", "0"))) {
                     event("barge_diag", "Réponse clôturée · anti-écho temporaire · dictée bientôt active");
                 }
