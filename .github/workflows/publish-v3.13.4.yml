@@ -24,6 +24,8 @@ jobs:
           grep -Fq "versionName '3.13.4'" app/build.gradle
           grep -Fq "HTTP 202" app/src/main/java/fr/friday/assistant/JarvisInternet.java
           grep -Fq "parseWikipediaSearch" app/src/main/java/fr/friday/assistant/JarvisInternet.java
+          grep -Fq "WebSearch.keywordsForSearch(q)" app/src/main/java/fr/friday/assistant/JarvisInternet.java
+          grep -Fq "if (status == 202)" app/src/main/java/fr/friday/assistant/WebPageReader.java
           grep -Fq "JarvisInternet.shouldResearch" app/src/main/java/fr/friday/assistant/FridayService.java
           grep -Fq "Télécharger et activer" app/src/main/java/fr/friday/assistant/MainActivity.java
 
