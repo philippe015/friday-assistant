@@ -140,6 +140,30 @@ public final class WebSearchTest {
                 "Crossref doit être réservé aux recherches scientifiques");
         check(!WebSearch.scientificResearch("Recherche des restaurants à Paris"),
                 "Ne pas interroger Crossref pour une demande sans rapport");
+        check(WebSearch.requestsLiveConnectivityCheck(
+                        "Jarvis, as-tu réellement accès à Internet ?"),
+                "Le statut Internet doit déclencher un vrai test de réseau");
+        check(WebSearch.requestsLiveConnectivityCheck(
+                        "FRIDAY, pourquoi tu n'as toujours pas accès au Web ?"),
+                "Une plainte sur l'accès Web doit lancer le diagnostic");
+        check(WebSearch.requestsLiveConnectivityCheck(
+                        "a de toujours pas accès internet"),
+                "La formulation Vosk déformée rapportée doit déclencher un diagnostic");
+        check(WebSearch.requestsLiveConnectivityCheck(
+                        "Vérifie la connexion Internet de FRIDAY"),
+                "Une commande explicite de test Internet doit lancer le diagnostic");
+        check(!WebSearch.requestsLiveConnectivityCheck(
+                        "Jarvis, recherche les actualités du jour en France"),
+                "Une recherche d'actualités ne doit pas devenir un simple diagnostic");
+        check(!WebSearch.requestsLiveConnectivityCheck(
+                        "Qui a inventé Internet ?"),
+                "La connaissance générale d'Internet n'est pas un diagnostic réseau");
+        check(!WebSearch.requestsLiveConnectivityCheck(
+                        "Quels sont tes capacités ?"),
+                "Les capacités de FRIDAY restent un fait local");
+        check(!WebSearch.requestsLiveConnectivityCheck(
+                        "Analyse https://exemple.fr/article"),
+                "Le diagnostic ne doit pas détourner la lecture d'une page précise");
         System.out.println("WebSearchTest OK");
     }
 }
