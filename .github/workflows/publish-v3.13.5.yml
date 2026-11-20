@@ -1,0 +1,106 @@
+name: Publish JARVIS v3.13.5 signed Android APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-v3.13.5.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+
+      - name: Verify JARVIS 3.13.5 version, package and code
+        run: |
+          set -euo pipefail
+          grep -Fq "applicationId 'fr.friday.assistant'" app/build.gradle
+          grep -Fq "versionCode 90" app/build.gradle
+          grep -Fq "versionName '3.13.5'" app/build.gradle
+          grep -Fq 'android:label="JARVIS · IA locale"' app/src/main/AndroidManifest.xml
+          grep -Fq 'RecentNewsPolicy.newsWindowHours(q)' app/src/main/java/fr/friday/assistant/JarvisInternet.java
+          grep -Fq 'BargeInPolicy.startsWithWake(heard)' app/src/main/java/fr/friday/assistant/FridayService.java
+
+      - name: Wait for tests and signed APK from exactly this commit
+        id: verified
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          BUILD_ID=""
+          TEST_ID=""
+          for attempt in $(seq 1 60); do
+            BUILD_ID="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "Build APK" \
+              --commit "$GITHUB_SHA" --limit 30 --json databaseId,conclusion \
+              --jq '[.[] | select(.conclusion == "success") | .databaseId][0] // empty')"
+            TEST_ID="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "Tests" \
+              --commit "$GITHUB_SHA" --limit 30 --json databaseId,conclusion \
+              --jq '[.[] | select(.conclusion == "success") | .databaseId][0] // empty')"
+            if [ -n "$BUILD_ID" ] && [ -n "$TEST_ID" ]; then break; fi
+            sleep 10
+          done
+          if [ -z "$BUILD_ID" ] || [ -z "$TEST_ID" ]; then
+            echo "Tests or build did not succeed for exact commit $GITHUB_SHA."
+            exit 1
+          fi
+          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+          echo "test_id=$TEST_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Download verified signed Android APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh run download "${{ steps.verified.outputs.build_id }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name FRIDAY-release-signed-apk --dir dist
+          test -s dist/app-release.apk
+          unzip -tq dist/app-release.apk
+          mv dist/app-release.apk dist/JARVIS-v3.13.5-Android-release.apk
+          sha256sum dist/JARVIS-v3.13.5-Android-release.apk
+
+      - name: Verify Android package, version, certificate and compatibility
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          APK=dist/JARVIS-v3.13.5-Android-release.apk
+          SDK="$ANDROID_HOME/build-tools/35.0.0"
+          "$SDK/apksigner" verify --print-certs "$APK"
+          "$SDK/aapt2" dump badging "$APK" | grep -E "^package:|^application-label:"
+          "$SDK/aapt2" dump badging "$APK" | grep -F "name='fr.friday.assistant' versionCode='90' versionName='3.13.5'"
+          if "$SDK/aapt2" dump badging "$APK" | grep -q 'application-debuggable'; then
+            echo "Release contains a debuggable Android application"; exit 1
+          fi
+          mkdir -p previous
+          gh release download v3.13.4 --repo "$GITHUB_REPOSITORY" \
+            --pattern 'FRIDAY-Jarvis-v3.13.4-Internet-HTTP202-release.apk' --dir previous
+          test -s previous/FRIDAY-Jarvis-v3.13.4-Internet-HTTP202-release.apk
+          PREV_CERT="$("$SDK/apksigner" verify --print-certs previous/FRIDAY-Jarvis-v3.13.4-Internet-HTTP202-release.apk | grep 'Signer #1 certificate SHA-256 digest:' | head -1)"
+          NEW_CERT="$("$SDK/apksigner" verify --print-certs "$APK" | grep 'Signer #1 certificate SHA-256 digest:' | head -1)"
+          test -n "$PREV_CERT"
+          test "$PREV_CERT" = "$NEW_CERT" || { echo "Signing certificate changed: refusing incompatible update"; exit 1; }
+          echo "APK signed with same certificate as v3.13.4; in-place Android update supported"
+
+      - name: Publish JARVIS v3.13.5 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=v3.13.5
+          APK=dist/JARVIS-v3.13.5-Android-release.apk
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Refusing to overwrite existing release $TAG."; exit 1
+          fi
+          gh release create "$TAG" "$APK" --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "JARVIS v3.13.5 — IA locale et actualités récentes" \
+            --notes "JARVIS remplace FRIDAY dans l'interface et la commande vocale. Nouvelle recherche multi-moteurs et bulletins RSS datés, meilleure reprise du dialogue vocal et commandes STOP. Moteur IA entièrement local après import d'un modèle compatible (Gemma 4 E2B non inclus dans l'APK). Pas d'API Mistral. APK officiel signé avec le certificat identique à v3.13.4, package Android fr.friday.assistant, versionCode 90. Installation de mise à jour possible sans désinstallation de l'application officielle précédente. Les versions de test smartpreview restent séparées. Les performances Web et microphone doivent être validées sur un téléphone réel ; tous les sites ou flux RSS ne sont pas nécessairement accessibles."
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets
