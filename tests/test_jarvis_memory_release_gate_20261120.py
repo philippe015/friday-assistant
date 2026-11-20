@@ -5,7 +5,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-FLOW = (ROOT / ".github/workflows/publish-v3.13.6.yml").read_text(encoding="utf-8")
+FLOW = (ROOT / ".github/workflows/publish-v3.13.7.yml").read_text(encoding="utf-8")
+PREVIOUS_FLOW = (ROOT / ".github/workflows/publish-v3.13.6.yml").read_text(encoding="utf-8")
 MEMORY = (ROOT / "app/src/main/java/fr/friday/assistant/DialogueContext.java").read_text(encoding="utf-8")
 HISTORY = (ROOT / "app/src/main/java/fr/friday/assistant/PrivateConversationHistory.java").read_text(encoding="utf-8")
 
@@ -15,12 +16,13 @@ class JarvisMemoryReleaseRegression(unittest.TestCase):
         version_name = re.search(r"versionName\s+'([^']+)'", BUILD).group(1)
         package = re.search(r"applicationId\s+'([^']+)'", BUILD).group(1)
         self.assertEqual((package, version_code, version_name),
-                         ("fr.friday.assistant", "91", "3.13.6"))
+                         ("fr.friday.assistant", "92", "3.13.7"))
         self.assertIn(
             "name='" + package + "' versionCode='" + version_code
             + "' versionName='" + version_name + "'", FLOW
         )
-        self.assertNotIn("versionCode='90' versionName='3.13.5'", FLOW)
+        self.assertIn("versionCode='91' versionName='3.13.6'", PREVIOUS_FLOW)
+        self.assertNotIn("versionCode='91' versionName='3.13.6'", FLOW)
 
     def test_update_never_publishes_without_matching_release_certificate(self):
         self.assertIn('if gh release view "$TAG"', FLOW)

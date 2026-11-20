@@ -59,7 +59,11 @@ public class MainActivity extends Activity {
     private boolean recordAfterMicPermission = false;
     private EditText memoryEditor, memorySearchInput;
     private EditText silenceInput, followupInput, ttsInput, voskHintsEditor;
-    private CheckBox bargeEnabled, followupHandsfreeEnabled;
+    private CheckBox bargeEnabled, followupHandsfreeEnabled, autoListenOnOpen;
+    /** One automatic start per Activity open; never rearm after manual Stop. */
+    private boolean startupListenAttempted = false;
+    private boolean manuallyStoppedListening = false;
+    private boolean activityVisible = false;
     private LinearLayout config;
     private ScrollView configScroll;
     private WebView hud;
@@ -230,6 +234,25 @@ public class MainActivity extends Activity {
                 Math.max(dp(160), getResources().getDisplayMetrics().heightPixels / 2));
         outer.addView(configScroll, new LinearLayout.LayoutParams(-1, settingsHeight));
         configScroll.setVisibility(View.GONE);
+        config.addView(label("DÉMARRAGE DE JARVIS · écoute prête à l'ouverture"));
+        autoListenOnOpen = new CheckBox(this);
+        autoListenOnOpen.setText("Démarrer automatiquement l'écoute quand j'ouvre JARVIS");
+        autoListenOnOpen.setTextColor(Color.WHITE);
+        autoListenOnOpen.setChecked(AutoListenPolicy.enabled(
+                prefs.get("jarvis_auto_listen_on_open", "1")));
+        autoListenOnOpen.setOnCheckedChangeListener((button, checked) -> {
+            // Enregistré immédiatement : aucun redémarrage et aucune permission cachée.
+            prefs.put("jarvis_auto_listen_on_open", checked ? "1" : "0");
+            if (status != null) status.setText(checked
+                    ? "Écoute automatique activée pour la prochaine ouverture de JARVIS."
+                    : "Écoute automatique désactivée. Le bouton Écoute reste disponible.");
+        });
+        config.addView(autoListenOnOpen);
+        config.addView(label("Par défaut JARVIS démarre le micro quand l'application est visible, "
+                + "avec l'autorisation Android. Stop arrête l'écoute sans redémarrage forcé. "
+                + "Si Vosk manque, JARVIS demande votre accord avant téléchargement. "
+                + "Le micro ne peut pas être démarré automatiquement au redémarrage du téléphone "
+                + "sur Android 14 et plus."));
         config.addView(label("MOTEUR VOCAL LOCAL · français Vosk (~41 Mo à télécharger une fois)"));
         config.addView(button(ModelInstaller.installed(this) ? "✓ Modèle installé" : "↓ Télécharger le modèle français", this::installModel));
         config.addView(label("MOTEUR UNIQUE · Jarvis IA installé sur le téléphone. "
@@ -498,6 +521,8 @@ public class MainActivity extends Activity {
             prefs.put("memory_share_mistral", "0");
             prefs.put("web_enabled", "0");
             prefs.put("web_mode", "off");
+            prefs.put("jarvis_auto_listen_on_open",
+                    autoListenOnOpen.isChecked() ? "1" : "0");
             prefs.put("jarvis_web_enabled", jarvisInternetEnabled.isChecked() ? "1" : "0");
             prefs.put("jarvis_web_every_answer",
                     jarvisWebEveryAnswerEnabled.isChecked() ? "1" : "0");
@@ -1371,11 +1396,14 @@ public class MainActivity extends Activity {
         requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION,
                 Manifest.permission.ACCESS_FINE_LOCATION}, REQ_LOCATION);
     }
-    private void startListening() {
+    private void startListening() { startListening(false); }
+
+    /** Invoked only from a visible Activity. Never at boot or in background. */
+    private void startListening(boolean automatically) {
         if (!ModelInstaller.installed(this)) {
-            status.setText("Micro arrêté : modèle Vosk français absent dans cette édition de FRIDAY.");
+            status.setText("Micro arrêté : modèle vocal Vosk français manquant.");
             new AlertDialog.Builder(this)
-                    .setTitle("Activer le microphone de FRIDAY")
+                    .setTitle("Préparer l'écoute JARVIS")
                     .setMessage("Cette installation ne contient pas encore le modèle vocal français "
                             + "Vosk (~41 Mo). Il est distinct du modèle IA de Jarvis. "
                             + "Télécharger Vosk depuis Alphacephei, puis démarrer automatiquement "
@@ -1396,14 +1424,15 @@ public class MainActivity extends Activity {
             status.setText("Le microphone natif est déjà actif, même écran verrouillé. Stoppez pour appliquer de nouveaux réglages.");
             return;
         }
-        if ("1".equals(prefs.get("location_enabled", "0")) && !FridayLocation.hasPermission(this)) {
-            status.setText("Localisation demandée : autorisez-la, puis redémarrez l'écoute.");
-            requestLocationAccess();
-            return;
-        }
-        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 18);
-        }
+        // Le GPS est facultatif. Une permission de localisation manquante
+        // ne doit jamais bloquer la reconnaissance vocale ni l'IA locale.
+        if ("1".equals(prefs.get("location_enabled", "0"))
+                && !FridayLocation.hasPermission(this))
+            status.setText("Écoute JARVIS sans GPS : localisation non autorisée.");
+        // POST_NOTIFICATIONS reste facultatif pour un service microphone.
+        // Ne pas afficher une deuxième boîte de dialogue en pleine activation,
+        // y compris après l'autorisation RECORD_AUDIO : l'activité doit rester
+        // visible au moment du démarrage du service de premier plan.
         java.util.List<FridayVersionGuard.Installed> others = FridayVersionGuard.installed(this);
         if (!others.isEmpty()) {
             new AlertDialog.Builder(this)
@@ -1423,7 +1452,10 @@ public class MainActivity extends Activity {
         try {
             Intent i = new Intent(this, FridayService.class).setAction(FridayService.ACTION_START);
             startForegroundService(i);
-            status.setText("Démarrage écoute native · " + FridayVersionGuard.thisVersion(this));
+            status.setText("JARVIS : écoute en cours d'activation · "
+                    + FridayVersionGuard.thisVersion(this)
+                    + (LocalJarvisEngine.ready(this) ? " · IA locale installée"
+                       : " · modèle IA local à importer pour les réponses"));
         } catch (Exception e) { status.setText("Démarrage refusé : " + e.getMessage()); }
     }
     private void interruptSpeaking() {
@@ -1438,8 +1470,10 @@ public class MainActivity extends Activity {
         status.setText("Réponse interrompue, micro toujours actif. Posez votre question.");
     }
     private void stopListening() {
+        manuallyStoppedListening = true;
         startService(new Intent(this, FridayService.class).setAction(FridayService.ACTION_STOP));
-        status.setText("Arrêt de l'écoute demandé.");
+        status.setText("JARVIS : écoute arrêtée à votre demande. "
+                + "Elle ne redémarrera pas toute seule pendant cette ouverture.");
     }
     @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grants) {
         super.onRequestPermissionsResult(requestCode, permissions, grants);
@@ -1512,7 +1546,34 @@ public class MainActivity extends Activity {
     }
     @Override protected void onResume() {
         super.onResume();
+        activityVisible = true;
         replayVoiceHistory();
+        if (!startupListenAttempted) {
+            boolean shouldAutoStart = AutoListenPolicy.shouldStart(
+                    prefs.get("jarvis_auto_listen_on_open", "1"),
+                    startupListenAttempted, manuallyStoppedListening,
+                    FridayService.isActive());
+            startupListenAttempted = true;
+            if (shouldAutoStart) {
+                status.setText("JARVIS se prépare : activation automatique du micro…");
+                // L'activité est désormais visible. Un seul démarrage
+                // et aucune relance automatique après un appui sur Stop.
+                status.post(() -> {
+                    if (!activityVisible) {
+                        // L'utilisateur a quitté JARVIS avant l'activation.
+                        // Réessayer seulement lors de la prochaine ouverture visible.
+                        startupListenAttempted = false;
+                        return;
+                    }
+                    if (!isFinishing() && !isDestroyed()
+                            && !manuallyStoppedListening
+                            && AutoListenPolicy.enabled(
+                                    prefs.get("jarvis_auto_listen_on_open", "1"))
+                            && !FridayService.isActive())
+                        startListening(true);
+                });
+            }
+        }
         if (status != null) {
             if (FridayService.isMicSilenced()) status.setText("Microphone momentanément rendu muet par Android : vérifiez les autres applications.");
             else if (FridayService.isActive()) status.setText("Écoute native active · " + FridayVersionGuard.thisVersion(this));
@@ -1525,6 +1586,11 @@ public class MainActivity extends Activity {
             else status.setText("Micro arrêté. Appuyez sur Écoute pour démarrer le service vocal.");
         }
     }
+    @Override protected void onPause() {
+        activityVisible = false;
+        super.onPause();
+    }
+
     /** Photo pleine définition dans le cache privé, partagée ponctuellement avec la caméra. */
             /** Évite le chargement de plusieurs dizaines de Mo depuis le capteur photo. */
         private static String safeError(Exception ex) {
