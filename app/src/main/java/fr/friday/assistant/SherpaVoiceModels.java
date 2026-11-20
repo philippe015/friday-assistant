@@ -14,6 +14,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
 
 /**
  * Import local du modèle officiel Zipformer FR : quatre fichiers sélectionnés
@@ -137,6 +140,78 @@ public final class SherpaVoiceModels {
             clean(backup);
             return "Modèle sherpa-onnx français importé dans le stockage privé. "
                     + "Activez le moteur expérimental puis relancez l'écoute.";
+        } finally {
+            clean(staging);
+        }
+    }
+
+    /**
+     * Import direct d'une archive .tar.bz2 officielle depuis Téléchargements.
+     * N'extrait que les quatre fichiers sélectionnés par leur nom exact.
+     * Aucun chemin de l'archive n'est utilisé comme destination (anti zip-slip).
+     */
+    public static synchronized String importOfficialArchive(Context ctx, Uri uri)
+            throws IOException {
+        if (uri == null || !"content".equals(uri.getScheme()))
+            throw new IOException("Sélectionnez le fichier officiel .tar.bz2 via Android.");
+        String sourceName = fileName(ctx, uri).toLowerCase(Locale.ROOT);
+        if (!sourceName.equals("sherpa-onnx-streaming-zipformer-fr-2023-04-14.tar.bz2"))
+            throw new IOException("Archive inattendue : utilisez le modèle français officiel sherpa-onnx.");
+        File root = ctx.getFilesDir();
+        File target = directory(ctx);
+        File staging = new File(root, TMP);
+        File backup = new File(root, BAK);
+        recover(ctx);
+        clean(staging);
+        if (!staging.mkdirs()) throw new IOException("Stockage temporaire indisponible.");
+        long total = 0;
+        Map<String, Boolean> found = new HashMap<>();
+        try {
+            if (new StatFs(root.getAbsolutePath()).getAvailableBytes() < 450_000_000L)
+                throw new IOException("Espace libre insuffisant : prévoyez 450 Mo.");
+            try (InputStream input = ctx.getContentResolver().openInputStream(uri)) {
+                if (input == null) throw new IOException("Archive inaccessible.");
+                try (TarArchiveInputStream tar = new TarArchiveInputStream(
+                        new BZip2CompressorInputStream(input))) {
+                    TarArchiveEntry entry;
+                    while ((entry = tar.getNextTarEntry()) != null) {
+                        if (!entry.isFile()) continue;
+                        String entryName = entry.getName();
+                        String fileName = entryName.substring(entryName.lastIndexOf('/') + 1);
+                        String role = role(fileName);
+                        if (role.isEmpty()) continue;
+                        if (found.put(role, true) != null)
+                            throw new IOException("Doublon dans l'archive française.");
+                        try (FileOutputStream out =
+                                     new FileOutputStream(new File(staging, role))) {
+                            byte[] chunk = new byte[64 * 1024];
+                            int n;
+                            long bytes = 0;
+                            while ((n = tar.read(chunk)) != -1) {
+                                if (n == 0) continue;
+                                bytes += n;
+                                total += n;
+                                if (bytes > MAX_FILE || total > MAX_TOTAL)
+                                    throw new IOException("Fichier du modèle trop volumineux.");
+                                out.write(chunk, 0, n);
+                            }
+                            out.getFD().sync();
+                        }
+                    }
+                }
+            }
+            if (found.size() != 4 || !isComplete(staging))
+                throw new IOException("L'archive du modèle français est incomplète.");
+            clean(backup);
+            if (target.exists() && !target.renameTo(backup))
+                throw new IOException("Ancien modèle impossible à sauvegarder.");
+            if (!staging.renameTo(target)) {
+                if (!target.exists()) backup.renameTo(target);
+                throw new IOException("Importation non finalisée : ancien modèle restauré.");
+            }
+            clean(backup);
+            return "Modèle sherpa-onnx français installé depuis l'archive officielle. "
+                    + "Activez l'essai puis redémarrez l'écoute.";
         } finally {
             clean(staging);
         }
