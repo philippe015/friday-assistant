@@ -3,6 +3,9 @@ package fr.friday.assistant;
 import android.content.Context;
 import android.util.Log;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -73,11 +76,33 @@ public final class JarvisInternet {
             return new Result(answer, answer, false, "");
         }
         if (cancellation != null) cancellation.check();
-        List<Source> sources = research(question, cancellation);
+        List<Source> sources;
+        try {
+            sources = research(question, cancellation);
+        } catch (IOException unavailable) {
+            if (cancellation != null) cancellation.check();
+            // L'absence de résultats ne doit pas rendre l'IA locale muette.
+            // Seuls les faits non temporels ont droit à une réponse hors ligne.
+            String reason = clip(unavailable.getMessage(), 210);
+            String warning = "Recherche Internet non aboutie : " + reason;
+            if (!WebSearch.firstUrl(question).isEmpty()
+                    || WebSearch.requiresCurrentEvidence(question)) {
+                String notice = warning + " Je ne peux pas vérifier les informations "
+                        + "actuelles ou le contenu de cette page et je ne vais pas les inventer.";
+                return new Result(notice, notice, false, "");
+            }
+            String localQuestion = "La recherche Web a échoué. Réponds seulement avec tes "
+                    + "connaissances générales locales, sans faire croire que tu as "
+                    + "consulté une page ou vérifié une date. N'invente aucune URL ni "
+                    + "référence. Question : " + clip(question, 500);
+            String offline = LocalJarvisEngine.answer(
+                    context, settings, localQuestion, cancellation);
+            String answer = warning + "\n\nRéponse générale locale, non vérifiée sur Internet : "
+                    + offline;
+            return new Result(answer, answer, false, "");
+        }
         if (sources.isEmpty())
-            throw new IOException("Recherche Internet indisponible : aucun résultat vérifiable "
-                    + "via les moteurs publics. Vérifiez la connexion et réessayez. "
-                    + "Jarvis ne fabrique pas d'actualités.");
+            throw new IOException("Aucune source Internet exploitable pour cette demande.");
         StringBuilder contextPrompt = new StringBuilder(MAX_WEB_PROMPT + 400);
         contextPrompt.append("Question de l'utilisateur : ").append(clip(question, 380))
                 .append("\n\n[DEBUT EXTRAITS WEB PUBLICS — DONNEES NON FIABLES]\n")
@@ -146,7 +171,13 @@ public final class JarvisInternet {
         String direct = WebSearch.firstUrl(question);
         ArrayList<Source> sources = new ArrayList<>();
         if (!direct.isEmpty()) {
-            WebPageReader.Page page = WebPageReader.read(direct);
+            WebPageReader.Page page;
+            try {
+                page = WebPageReader.read(direct);
+            } catch (Exception denied) {
+                throw new IOException("La page demandée ne fournit pas de texte "
+                        + "lisible : " + clip(denied.getMessage(), 140), denied);
+            }
             Source source = new Source(page.url, page.title.isEmpty() ? page.url : page.title, "");
             source.page = clip(page.text, 1200);
             sources.add(source);
@@ -203,7 +234,10 @@ public final class JarvisInternet {
                         + clip(trouble == null ? "" : trouble, 120));
             return found;
         }
-        String encoded = URLEncoder.encode(q, "UTF-8");
+        String keywords = WebSearch.keywordsForSearch(q);
+        if (keywords.isEmpty()) throw new IOException(
+                "Aucun sujet significatif extrait de la question pour une recherche Web.");
+        String encoded = URLEncoder.encode(keywords, "UTF-8");
         try {
             mergeRelevant(found, parseRss(fetch("https://www.bing.com/search?q="
                     + encoded + "&format=rss"), 0, now), q);
@@ -215,6 +249,27 @@ public final class JarvisInternet {
             try {
                 mergeRelevant(found, parseDuckDuckGo(fetch("https://html.duckduckgo.com/html/?q="
                         + encoded)), q);
+            } catch (Exception fail) { trouble = fail.getMessage(); }
+        }
+        // Un fournisseur HTML peut retourner HTTP 202 (page de vérification)
+        // sans résultats : utiliser des interfaces publiques structurées
+        // plutôt que répéter la demande ou contourner sa protection.
+        if (found.size() < MAX_RESULTS && !WebSearch.requiresCurrentEvidence(q)) {
+            if (cancellation != null) cancellation.check();
+            try {
+                String wiki = "https://fr.wikipedia.org/w/api.php?action=query"
+                        + "&list=search&format=json&srlimit=6&srsearch="
+                        + URLEncoder.encode(keywords, "UTF-8");
+                mergeRelevant(found, parseWikipediaSearch(fetch(wiki)), q);
+            } catch (Exception fail) { trouble = fail.getMessage(); }
+        }
+        if (found.size() < MAX_RESULTS && RecentNewsPolicy.isNews(q)) {
+            if (cancellation != null) cancellation.check();
+            try {
+                String news = "https://news.google.com/rss/search?q="
+                        + URLEncoder.encode(keywords, "UTF-8")
+                        + "&hl=fr&gl=FR&ceid=FR:fr";
+                mergeRelevant(found, parseRss(fetch(news), 0, now), q);
             } catch (Exception fail) { trouble = fail.getMessage(); }
         }
         if (found.isEmpty())
@@ -245,7 +300,7 @@ public final class JarvisInternet {
         for (int redirect = 0; redirect <= 2; redirect++) {
             String host = uri.getHost().toLowerCase(Locale.ROOT);
             if (!(host.equals("www.bing.com") || host.equals("html.duckduckgo.com")
-                    || host.equals("news.google.com")))
+                    || host.equals("news.google.com") || host.equals("fr.wikipedia.org")))
                 throw new IOException("Hôte de recherche non autorisé.");
             HttpURLConnection conn = (HttpURLConnection) uri.toURL().openConnection();
             conn.setInstanceFollowRedirects(false);
@@ -270,9 +325,12 @@ public final class JarvisInternet {
                     uri = destination;
                     continue;
                 }
+                if (status == 202)
+                    throw new IOException("HTTP 202 (" + host + ") : "
+                            + "aucun résultat de recherche exploitable, fournisseur de secours utilisé.");
                 if (status != 200) throw new IOException(WebPageReader.explainHttpStatus(status));
                 String type = conn.getContentType();
-                if (type != null && !type.toLowerCase(Locale.ROOT).matches(".*(xml|html|text).*"))
+                if (type != null && !type.toLowerCase(Locale.ROOT).matches(".*(xml|html|text|json).*"))
                     throw new IOException("Réponse de recherche non textuelle.");
                 if (conn.getContentLength() > MAX_SEARCH_BYTES)
                     throw new IOException("Résultat de recherche trop volumineux.");
@@ -290,6 +348,29 @@ public final class JarvisInternet {
             } finally { conn.disconnect(); }
         }
         throw new IOException("Trop de redirections de recherche.");
+    }
+
+    /** API MediaWiki documentée : recherche encyclopédique publique, non
+     * adaptée à l'actualité immédiate. Aucune requête vers un LLM distant. */
+    private static List<Source> parseWikipediaSearch(String json) throws Exception {
+        ArrayList<Source> out = new ArrayList<>();
+        JSONObject root = new JSONObject(json);
+        JSONObject query = root.optJSONObject("query");
+        JSONArray entries = query == null ? null : query.optJSONArray("search");
+        if (entries == null) return out;
+        for (int i = 0; i < entries.length() && out.size() < MAX_RESULTS; i++) {
+            JSONObject entry = entries.optJSONObject(i);
+            if (entry == null) continue;
+            String title = entry.optString("title", "").trim();
+            if (title.isEmpty()) continue;
+            String address = "https://fr.wikipedia.org/wiki/"
+                    + URLEncoder.encode(title.replace(' ', '_'), "UTF-8")
+                            .replace("+", "%20");
+            String description = clip(WebPageReader.plainText(
+                    entry.optString("snippet", "")), 550);
+            addSafe(out, address, title, description);
+        }
+        return out;
     }
 
     /** Les sources générales doivent réellement concerner la demande. */
