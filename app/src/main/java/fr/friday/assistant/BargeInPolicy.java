@@ -5,7 +5,7 @@ public final class BargeInPolicy {
     private BargeInPolicy() {}
     public static boolean startsWithWake(String phrase) {
         String s = VoiceText.normalize(phrase).trim();
-        return s.matches("^(friday|fraday|frida|freiday|freday|freddy|fredi|fride|vendredi)\\b.*");
+        return s.matches("^(friday|fraday|frida|freiday|freday|freddy|fredi|fride|vendredi|jarvis|jarvise|jervis|jervi)\\b.*");
     }
     public static boolean isStopListening(String phrase) {
         if (!startsWithWake(phrase)) return false;
