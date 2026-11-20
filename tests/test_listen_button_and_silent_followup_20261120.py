@@ -27,8 +27,9 @@ class NoAnswerRecovery(unittest.TestCase):
         self.assertIn("responseActive && confirmedWakeNotEcho", POLICY)
 
     def test_voice_playback_stays_protected(self):
-        self.assertIn('if (speakingNow && !', (JAVA / "TtsEchoGate.java").read_text(encoding="utf-8")
-                      + "if (speakingNow && !")
+        self.assertIn("(!speakingNow || bargeEnabled)", POLICY)
+        self.assertIn("return responseActive && confirmedWakeNotEcho", POLICY)
+        self.assertIn("if (!VoiceTurnPolicy.canReplace", SERVICE)
         self.assertIn("VoiceTurnPolicyTest.java", SCRIPT)
         self.assertIn("VoiceTurnPolicyTest RssFreshnessTest", SCRIPT)
 
