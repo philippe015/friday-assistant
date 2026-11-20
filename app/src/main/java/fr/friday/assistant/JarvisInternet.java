@@ -245,38 +245,59 @@ public final class JarvisInternet {
         if (keywords.isEmpty()) throw new IOException(
                 "Aucun sujet significatif extrait de la question pour une recherche Web.");
         String encoded = URLEncoder.encode(keywords, "UTF-8");
+        // Combiner plusieurs fournisseurs plutôt que remplir toutes les
+        // références avec le premier index rencontré. Au plus deux sources
+        // pertinentes par moteur, URLs validées et dédoublonnées.
         try {
             mergeRelevant(found, parseRss(fetch("https://www.bing.com/search?q="
                     + encoded + "&format=rss"), 0, now), q);
         } catch (Exception fail) { trouble = noteFailure(trouble, fail); }
-        // Bing peut renvoyer un ou deux liens seulement ; compléter plutôt
-        // que considérer une recherche partielle comme suffisante.
-        if (found.size() < MAX_RESULTS) {
+
+        if (WebSearch.scientificResearch(q) && !WebSearch.requiresCurrentEvidence(q)
+                && found.size() < MAX_RESULTS) {
             if (cancellation != null) cancellation.check();
             try {
-                mergeRelevant(found, parseDuckDuckGo(fetch("https://html.duckduckgo.com/html/?q="
-                        + encoded)), q);
+                String crossref = "https://api.crossref.org/works?rows=5"
+                        + "&select=DOI,title,container-title&query.bibliographic=" + encoded;
+                mergeRelevant(found, parseCrossrefSearch(fetch(crossref)), q);
             } catch (Exception fail) { trouble = noteFailure(trouble, fail); }
         }
-        // Un fournisseur HTML peut retourner HTTP 202 (page de vérification)
-        // sans résultats : utiliser des interfaces publiques structurées
-        // plutôt que répéter la demande ou contourner sa protection.
-        if (found.size() < MAX_RESULTS && !WebSearch.requiresCurrentEvidence(q)) {
+
+        // Wikidata et Wikipédia sont des index publics structurés, adaptés aux
+        // connaissances stables mais PAS aux prix ou faits d'actualité.
+        if (!WebSearch.requiresCurrentEvidence(q) && found.size() < MAX_RESULTS) {
+            if (cancellation != null) cancellation.check();
+            try {
+                String wd = "https://www.wikidata.org/w/api.php?action=wbsearchentities"
+                        + "&format=json&language=fr&limit=6&search=" + encoded;
+                mergeRelevant(found, parseWikidataSearch(fetch(wd)), q);
+            } catch (Exception fail) { trouble = noteFailure(trouble, fail); }
+        }
+        if (!WebSearch.requiresCurrentEvidence(q) && found.size() < MAX_RESULTS) {
             if (cancellation != null) cancellation.check();
             try {
                 String wiki = "https://fr.wikipedia.org/w/api.php?action=query"
-                        + "&list=search&format=json&srlimit=6&srsearch="
-                        + URLEncoder.encode(keywords, "UTF-8");
+                        + "&list=search&format=json&srlimit=6&srsearch=" + encoded;
                 mergeRelevant(found, parseWikipediaSearch(fetch(wiki)), q);
             } catch (Exception fail) { trouble = noteFailure(trouble, fail); }
         }
-        if (found.size() < MAX_RESULTS && RecentNewsPolicy.isNews(q)) {
+
+        if (RecentNewsPolicy.isNews(q) && found.size() < MAX_RESULTS) {
             if (cancellation != null) cancellation.check();
             try {
-                String news = "https://news.google.com/rss/search?q="
-                        + URLEncoder.encode(keywords, "UTF-8")
+                String news = "https://news.google.com/rss/search?q=" + encoded
                         + "&hl=fr&gl=FR&ceid=FR:fr";
                 mergeRelevant(found, parseRss(fetch(news), 0, now), q);
+            } catch (Exception fail) { trouble = noteFailure(trouble, fail); }
+        }
+
+        // Dernier fournisseur HTML : HTTP 202/403 n'entraîne ni contournement
+        // de captcha ni faux résultat. Une réponse locale reste possible.
+        if (found.size() < MAX_RESULTS) {
+            if (cancellation != null) cancellation.check();
+            try {
+                mergeRelevant(found, parseDuckDuckGo(fetch(
+                        "https://html.duckduckgo.com/html/?q=" + encoded)), q);
             } catch (Exception fail) { trouble = noteFailure(trouble, fail); }
         }
         if (found.isEmpty())
@@ -307,7 +328,8 @@ public final class JarvisInternet {
         for (int redirect = 0; redirect <= 2; redirect++) {
             String host = uri.getHost().toLowerCase(Locale.ROOT);
             if (!(host.equals("www.bing.com") || host.equals("html.duckduckgo.com")
-                    || host.equals("news.google.com") || host.equals("fr.wikipedia.org")))
+                    || host.equals("news.google.com") || host.equals("fr.wikipedia.org")
+                    || host.equals("www.wikidata.org") || host.equals("api.crossref.org")))
                 throw new IOException("Hôte de recherche non autorisé.");
             HttpURLConnection conn = (HttpURLConnection) uri.toURL().openConnection();
             conn.setInstanceFollowRedirects(false);
