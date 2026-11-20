@@ -1428,13 +1428,10 @@ public class MainActivity extends Activity {
         if ("1".equals(prefs.get("location_enabled", "0"))
                 && !FridayLocation.hasPermission(this))
             status.setText("Écoute JARVIS sans GPS : localisation non autorisée.");
-        // POST_NOTIFICATIONS n'est pas requis pour démarrer le microphone
-        // en foreground. Ne pas afficher sa boîte de dialogue lors d'un
-        // démarrage automatique, car elle masquerait l'activité visible.
-        if (!automatically && Build.VERSION.SDK_INT >= 33
-                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
-                        != PackageManager.PERMISSION_GRANTED)
-            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 18);
+        // POST_NOTIFICATIONS reste facultatif pour un service microphone.
+        // Ne pas afficher une deuxième boîte de dialogue en pleine activation,
+        // y compris après l'autorisation RECORD_AUDIO : l'activité doit rester
+        // visible au moment du démarrage du service de premier plan.
         java.util.List<FridayVersionGuard.Installed> others = FridayVersionGuard.installed(this);
         if (!others.isEmpty()) {
             new AlertDialog.Builder(this)
@@ -1576,9 +1573,6 @@ public class MainActivity extends Activity {
                 status.setText("Micro arrêté : modèle Vosk français manquant. Appuyez sur Écoute pour l'installer.");
             else if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED)
                 status.setText("Micro arrêté : autorisation Android du microphone manquante. Appuyez sur Écoute.");
-            else if (AutoListenPolicy.enabled(prefs.get("jarvis_auto_listen_on_open", "1"))
-                    && !manuallyStoppedListening && !startupListenAttempted)
-                status.setText("JARVIS : démarrage de l'écoute automatique…");
             else status.setText("Micro arrêté. Appuyez sur Écoute pour démarrer le service vocal.");
         }
     }
