@@ -20,10 +20,12 @@ public final class VoiceText {
     public static boolean hasWakeWord(String heard) { return WAKE.matcher(normalize(heard)).find(); }
     public static String withoutWakeWord(String heard) {
         if (heard == null) return "";
-        Matcher found = WAKE.matcher(normalize(heard));
-        if (!found.find()) return heard.trim();
-        // La normalisation ne change pas les indices UTF-16 des accents courants du mot-clé.
-        return heard.substring(Math.min(heard.length(), found.end()))
+        String clean = heard.trim();
+        Matcher found = WAKE.matcher(normalize(clean));
+        // Ne retirer le mot d'activation qu'en début de phrase.
+        // « Qui est Jarvis ? » reste une question entière, y compris par écrit.
+        if (!found.lookingAt()) return clean;
+        return clean.substring(Math.min(clean.length(), found.end()))
                 .replaceFirst("^[\\s,.:;!?—-]+", "").trim();
     }
 
