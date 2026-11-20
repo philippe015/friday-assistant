@@ -31,6 +31,8 @@ class FrenchSpeechBeta(unittest.TestCase):
         self.assertIn('settings.put("sherpa_voice_enabled", "0")', SERVICE)
         self.assertIn("SherpaVoiceModels.ready(this)", SERVICE)
         self.assertIn("SherpaVoiceDecoder.shutdown()", SERVICE)
+        self.assertIn("if (recognizer instanceof SherpaVoiceDecoder)", SERVICE)
+        self.assertIn("if (sherpaDecoderFailed) SherpaVoiceDecoder.shutdown()", SERVICE)
         self.assertNotIn("Mistral", SHERPA)
 
     def test_native_android_api_and_french_model(self):
