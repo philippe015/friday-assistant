@@ -29,7 +29,7 @@ import java.util.regex.Pattern;
 public final class JarvisInternet {
     private JarvisInternet() { }
 
-    private static final int MAX_RESULTS = 4;
+    private static final int MAX_RESULTS = 5;
     private static final int MAX_SEARCH_BYTES = 200_000;
     private static final int MAX_WEB_PROMPT = 3_500;
     private static final int MAX_RSS_ITEMS = 40;
@@ -65,7 +65,14 @@ public final class JarvisInternet {
     }
 
     public static boolean shouldResearch(SecurePrefs settings, String question) {
-        return enabled(settings) && WebSearch.needsWeb(question);
+        if (!enabled(settings)) return false;
+        // Ne jamais envoyer commandes de mémoire ni données de position
+        // aux moteurs de recherche publics, même en mode « toujours ».
+        if (MemoryIntent.kind(question) != MemoryIntent.NONE
+                || LocationIntent.nearby(question)) return false;
+        return "1".equals(settings.get("jarvis_web_every_answer", "1"))
+                ? WebSearch.safeForGeneralSearch(question)
+                : WebSearch.needsWeb(question);
     }
 
     /** Appelé sur un thread d'arrière-plan, jamais le thread Android UI. */
