@@ -398,7 +398,7 @@ public class FridayService extends Service {
                         asrDiagnostic("Micro et Vosk prêts : première question directe pendant 15 secondes");
                     }
                     event("status", PhoneAudioRoute.inputStatus(ar));
-                    voiceState("Micro actif : dites Jarvis pour parler");
+                    voiceState("Micro actif : dites Jarvis ou Friday pour parler");
                     interruptDiagnostics = bargeEnabled
                             ? "Micro PCM prêt · décodeur STOP démarre à la réponse"
                             : "Désactivé dans Réglages · autoriser l'interruption vocale";
@@ -904,8 +904,12 @@ public class FridayService extends Service {
         } else {
             // Le PCM est présent, Vosk comprend une phrase, mais aucun mot-clé :
             // ce n'est pas une panne de Jarvis ou du microphone.
-            if (heard.trim().split("\\s+").length >= 2)
-                asrDiagnostic("Phrase transcrite ; mot-clé Jarvis absent");
+            if (heard.trim().split("\\s+").length >= 2) {
+                asrDiagnostic("Phrase transcrite ; mot-clé Jarvis ou Friday absent");
+                // Uniquement pour l'interface visible, sans historique ni journal.
+                // Le cockpit effacera ce texte local automatiquement après 15 s.
+                event("asr_rejected", heard.trim());
+            }
             return;
         }
         if (BargeInPolicy.wantsToAddDetails(question)) {
