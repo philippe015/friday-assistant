@@ -45,7 +45,41 @@ public final class WebSearch {
             "internet", "web", "regarde", "trouve", "verifie", "consulte",
             "friday", "fraday", "freddy", "fredi", "jarvis", "jervis"
     };
+    private static final Pattern NEEDS_LIVE_SOURCES = Pattern.compile(
+            "\\b(?:actualites?|actus?|news|aujourd hui|hier|demain|maintenant|"
+            + "cette semaine|en ce moment|derniers?|dernieres?|recentes?|"
+            + "meteo|temperatures?|previsions?|prix|tarifs?|bourse|"
+            + "scores?|resultats?|classements?|horaires?|ouvertures?|"
+            + "disponibilite|elections?)\\b|\\b20[2-9][0-9]\\b");
+
     private WebSearch() { }
+
+    /** Mots réellement recherchables : retire les salutations, l'ordre et les
+     * termes grammaticaux, sans transmettre l'historique ni la mémoire. */
+    public static String keywordsForSearch(String question) {
+        String text = fold(searchQuery(question, ""));
+        StringBuilder selected = new StringBuilder(100);
+        int count = 0;
+        for (String word : text.split(" ")) {
+            if (word.length() < 3) continue;
+            boolean skip = false;
+            for (String common : QUERY_STOP_WORDS) {
+                if (common.equals(word)) { skip = true; break; }
+            }
+            if (skip) continue;
+            if (selected.length() + word.length() + 1 > 100 || count >= 9) break;
+            if (selected.length() > 0) selected.append(' ');
+            selected.append(word);
+            count++;
+        }
+        return selected.toString();
+    }
+
+    /** L'application ne doit pas inventer un fait récent si aucun moteur
+     * n'a donné de résultats vérifiables. */
+    public static boolean requiresCurrentEvidence(String question) {
+        return NEEDS_LIVE_SOURCES.matcher(fold(question)).find();
+    }
 
     private static String withoutWake(String value) {
         return fold(value).replaceFirst("^(?:friday|fraday|frida|freiday|freday|freddy|fredi|fride|vendredi|jarvis|jarvise|jervis|jervi)\\s+", "");
