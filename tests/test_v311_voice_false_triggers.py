@@ -11,7 +11,7 @@ class VoiceFalseTriggersV311(unittest.TestCase):
         self.assertIn('settings.get("followup_handsfree", "0")', src)
         self.assertIn('BargeInPolicy.startsWithWake(heard) && RustWake.detect(heard)', src)
         self.assertIn("now < wakeOnlyUntil", src)
-        self.assertIn("now - lastSpeechEndedAt >= TtsEchoGate.TAIL_MS", src)
+        self.assertIn("now >= echoBlockUntil", src)
         self.assertIn("wakeOnlyUntil = now + 12_000L", src)
         self.assertIn("wakeOnlyUntil = 0;", src)
         self.assertNotIn('} else if (wakeArmed && (now - lastReplyAt <= followupMs', src)
