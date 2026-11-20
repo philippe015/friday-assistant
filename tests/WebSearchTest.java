@@ -150,6 +150,9 @@ public final class WebSearchTest {
                         "a de toujours pas accès internet"),
                 "La formulation Vosk déformée rapportée doit déclencher un diagnostic");
         check(WebSearch.requestsLiveConnectivityCheck(
+                        "Friday, vérifie la connexion Internet"),
+                "Un mot-clé enlevé ne doit pas empêcher le vrai test réseau");
+        check(WebSearch.requestsLiveConnectivityCheck(
                         "Vérifie la connexion Internet de FRIDAY"),
                 "Une commande explicite de test Internet doit lancer le diagnostic");
         check(!WebSearch.requestsLiveConnectivityCheck(
