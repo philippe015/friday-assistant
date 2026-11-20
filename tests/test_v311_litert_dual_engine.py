@@ -44,12 +44,12 @@ class LiteRTDualEngineV311(unittest.TestCase):
         engine = read("LocalJarvisEngine.java")
         self.assertIn('if ("litertlm".equals(format(context)))', engine)
         self.assertIn("LiteRtJarvisEngine.answer(context, modelFile(context),", engine)
-        self.assertIn("buildLocalPrompt(cfg, cleaned)", engine)
+        self.assertIn("buildLocalPrompt(cfg, cleaned, privateDialogue)", engine)
         self.assertIn("PersonalMemory.search(cfg, cleaned, 3)", engine)
         self.assertIn("LocalJarvisArithmetic.tryAnswer(cleaned)", engine)
         self.assertIn("cached.generateResponse(prompt)", engine)
         service = read("FridayService.java")
-        self.assertIn("LocalJarvisEngine.answer(this, settings, question, turn.api)", service)
+        self.assertIn("this, settings, question, privateDialogue, turn.api)", service)
         self.assertNotIn("HttpURLConnection", read("LiteRtJarvisEngine.kt"))
 
     def test_two_exact_model_links_no_repository_ambiguity(self):
