@@ -271,22 +271,28 @@ public class FridayService extends Service {
         try { return new JSONObject(json).optString(key, "").trim(); }
         catch (Exception ignored) { return ""; }
     }
-    /** Active les scores de confiance Vosk sur chaque nouveau décodeur. */
-    private Recognizer createRecognizer(Model model) throws Exception {
-        Recognizer recognizer = new Recognizer(model, 16000.0f);
-        recognizer.setWords(true);
-        if ("1".equals(settings.get("vosk_hints_enabled", "0"))) {
-            String grammar = VoiceVocabulary.grammar(settings.secret("vosk_hints"));
-            if (grammar != null) {
-                try { recognizer.setGrammar(grammar); }
-                catch (RuntimeException | UnsatisfiedLinkError ex) {
-                    Log.w("FRIDAY_ASR", "Vocabulaire Vosk non compatible : mode normal conservé", ex);
-                    try { recognizer.setGrammar("[]"); }
-                    catch (Exception ignored) {}
-                }
+    /**
+     * Un moteur de dictée générale, sur le même PCM AudioRecord.
+     * Si sherpa ou le modèle français échoue au chargement, désactiver son
+     * opt-in pour éviter une boucle d'échec, puis revenir à Vosk.
+     * STOP reste pris en charge par un décodeur Vosk indépendant.
+     */
+    private JarvisVoiceDecoder createRecognizer(Model model) throws Exception {
+        if (SherpaVoicePolicy.useSherpa(settings.get("sherpa_voice_enabled", "0"),
+                SherpaVoiceModels.ready(this))) {
+            try {
+                return new SherpaVoiceDecoder(this);
+            } catch (Exception | LinkageError | OutOfMemoryError unavailable) {
+                settings.put("sherpa_voice_enabled", "0");
+                Log.w("JARVIS_SHERPA", "Sherpa FR indisponible : retour automatique à Vosk", unavailable);
+                event("error", "sherpa-onnx indisponible : Vosk réactivé. "
+                        + "Vérifiez les fichiers français et la mémoire du téléphone.");
+                SherpaVoiceDecoder.shutdown();
             }
         }
-        return recognizer;
+        String grammar = "1".equals(settings.get("vosk_hints_enabled", "0"))
+                ? VoiceVocabulary.grammar(settings.secret("vosk_hints")) : null;
+        return new JarvisVoiceDecoder.Vosk(model, grammar);
     }
 
     /** Capture Vosk continue pendant les appels Mistral et la lecture audio. */
@@ -301,7 +307,7 @@ public class FridayService extends Service {
                 // Ne temporiser qu'APRES libération du microphone en finally.
                 long retryMs = 0L;
                 AudioRecord ar = null;
-                Recognizer recognizer = null;
+                JarvisVoiceDecoder recognizer = null;
                 Recognizer stopRecognizer = null;
                 AudioManager.AudioRecordingCallback recordingCallback = null;
                 VoiceStopSpotter stopSpotter = new VoiceStopSpotter();
@@ -367,6 +373,8 @@ public class FridayService extends Service {
                         } catch (RuntimeException ignored) { recordingCallback = null; }
                     }
                     recognizer = createRecognizer(model);
+                    event("status", "Reconnaissance générale : " + recognizer.name()
+                            + " · commandes STOP conservées avec Vosk");
                     ar.startRecording();
                     if (firstQuestionOnMicStart) {
                         firstQuestionOnMicStart = false;
@@ -732,7 +740,7 @@ public class FridayService extends Service {
             }
         } catch (Exception e) {
             if (running) event("error", "Moteur vocal : " + e.getMessage());
-        } finally { shutdown(); stopSelf(); }
+        } finally { SherpaVoiceDecoder.shutdown(); shutdown(); stopSelf(); }
     }
     private void releaseAudioEffects() {
         try { if (echoCanceler != null) echoCanceler.release(); } catch (Exception ignored) { }
