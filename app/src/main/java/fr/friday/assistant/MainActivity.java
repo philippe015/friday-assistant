@@ -200,7 +200,7 @@ public class MainActivity extends Activity {
         }), new LinearLayout.LayoutParams(
                 compactPhone ? 0 : -2, dp(48), compactPhone ? 1 : 0));
         bar.addView(menuRow, new LinearLayout.LayoutParams(
-                -1, compactPhone ? dp(48) : -2));
+                compactPhone ? -1 : -2, compactPhone ? dp(48) : -2));
         outer.addView(bar);
         LinearLayout commands = new LinearLayout(this);
         commands.setPadding(dp(7),0,dp(7),0);
