@@ -11,8 +11,8 @@ android {
         applicationId 'fr.friday.assistant'
         minSdk 26
         targetSdk 35
-        versionCode 94
-        versionName '3.13.9'
+        versionCode 95
+        versionName '3.13.10'
         ndk { abiFilters 'arm64-v8a' }
     }
     compileOptions {
