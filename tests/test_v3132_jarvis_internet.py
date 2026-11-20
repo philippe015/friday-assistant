@@ -58,7 +58,7 @@ class JarvisWebAccess(unittest.TestCase):
         self.assertIn("setInstanceFollowRedirects(false)",WEB)
         self.assertIn("setConnectTimeout(8_000)",WEB)
         self.assertIn("setReadTimeout(10_000)",WEB)
-        self.assertIn("MAX_RESULTS = 4",WEB)
+        self.assertIn("MAX_RESULTS = 5",WEB)
         self.assertIn("checkPublicDns(target)",READER)
         self.assertNotIn("PersonalMemory.",WEB)
         self.assertNotIn("FridayLocation.",WEB)
@@ -69,14 +69,14 @@ class JarvisWebAccess(unittest.TestCase):
         self.assertIn('prefs.put("jarvis_web_enabled", jarvisInternetEnabled.isChecked() ? "1" : "0")',UI)
         self.assertIn('prefs.put("jarvis_web_migrated_v3132", "1")',UI)
         self.assertIn("JarvisInternet.probe()",UI)
-        self.assertIn("Les mots-clés de recherche sont envoyés",UI)
+        self.assertIn("Les questions générales interrogent plusieurs sources publiques",UI)
         self.assertIn("call('webTelemetry')",HTML)
         self.assertIn('android.permission.INTERNET',MANIFEST)
 
     def test_failure_does_not_fabricate_live_news(self):
         self.assertIn("Recherche Internet indisponible",WEB)
         self.assertIn("Jarvis ne fabrique pas d'actualités",WEB)
-        self.assertIn("HTTP 403/429",UI)
+        self.assertIn("HTTP 202, 403 ou 429",UI)
 
     def test_version(self):
         gradle=(ROOT/"app/build.gradle").read_text(encoding="utf-8")
