@@ -10,7 +10,7 @@ public final class AssistantIdentity {
     private AssistantIdentity() {}
 
     private static final Pattern IDENTITY_QUESTION = Pattern.compile(
-            "^(?:friday |frida |freiday )?(?:qui es tu|qui etes vous|"
+            "^(?:jarvis |jarvise |jarvice |jervis |jervi )?(?:qui es tu|qui etes vous|"
             + "comment tu t appelles|comment t appelles tu|comment t appelle tu|"
             + "quel est ton nom|c est quoi ton nom|tu t appelles comment|"
             + "presente toi|quelle est ton identite|"
@@ -38,7 +38,7 @@ public final class AssistantIdentity {
         if (name.isEmpty() || name.equalsIgnoreCase("Expert technique")
                 || name.equalsIgnoreCase("Assistant pragmatique")
                 || name.equalsIgnoreCase("Réponses détaillées"))
-            return "F.R.I.D.A.Y.";
+            return "JARVIS";
         return name;
     }
 
@@ -47,7 +47,7 @@ public final class AssistantIdentity {
         String assistant = displayName(profileName, profilePrompt);
         return "Je suis " + assistant + ", votre assistant personnel. "
                 + "Mon comportement est défini par le prompt du profil actif « "
-                + (profileName == null || profileName.trim().isEmpty() ? "F.R.I.D.A.Y." : profileName.trim())
+                + (profileName == null || profileName.trim().isEmpty() ? "JARVIS" : profileName.trim())
                 + " ». Mistral est uniquement le moteur d'intelligence artificielle que j'utilise.";
     }
 }
