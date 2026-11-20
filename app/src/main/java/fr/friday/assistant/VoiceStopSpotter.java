@@ -1,9 +1,9 @@
-package fr.friday.assistant;
+package fr.jarvis.assistant;
 
 /**
  * Commandes vocales courtes, séparées de la dictée libre Vosk.
  *
- * Utilisé seulement lorsque FRIDAY génère / prononce une réponse. Les résultats
+ * Utilisé seulement lorsque JARVIS génère / prononce une réponse. Les résultats
  * partiels doivent être confirmés pour réduire les fausses alertes causées par
  * les haut-parleurs ; un résultat final peut être traité immédiatement.
  */
@@ -16,12 +16,12 @@ public final class VoiceStopSpotter {
           + "\"attends\",\"pause\",\"tais toi\",\"arrete de parler\","
           + "\"j ai une precision\",\"j'ai une précision\",\"une precision\","
           + "\"je veux preciser\",\"je voudrais preciser\","
-          + "\"friday stop\",\"friday arrete\",\"friday arrête\","
-          + "\"friday attends\",\"friday silence\",\"friday j ai une precision\","
-          + "\"friday j'ai une précision\",\"friday arrete l ecoute\","
+          + "\"jarvis stop\",\"jarvis arrete\",\"jarvis arrête\","
+          + "\"jarvis attends\",\"jarvis silence\",\"jarvis j ai une precision\","
+          + "\"jarvis j'ai une précision\",\"jarvis arrete l ecoute\","
           + "\"stop stop\",\"stop stop stop\",\"stop stop stop stop\","
           + "\"arrete arrete\",\"arrete arrete arrete\","
-          + "\"friday stop stop\",\"friday stop stop stop\"]";
+          + "\"jarvis stop stop\",\"jarvis stop stop stop\"]";
 
     private Action last = Action.NONE;
     private int confirmations = 0;
