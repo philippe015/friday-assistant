@@ -62,7 +62,7 @@ public class FridayService extends Service {
     private int silenceMs = 2100;
     private long followupMs = 75000;
     private volatile boolean wakeArmed = false;  // shared with the Mistral response thread
-    /** Fenetre courte apres un vrai mot-cle seul : Friday ... puis question. */
+    /** Fenetre courte apres un vrai mot-cle seul : Jarvis ... puis question. */
     private volatile long wakeOnlyUntil = 0;
     private volatile long bargePendingUntil = 0;
     private volatile long lastSpeechEndedAt = 0;
@@ -131,7 +131,7 @@ public class FridayService extends Service {
     public void onCreate() {
         super.onCreate();
         settings = new SecurePrefs(this);
-        NotificationChannel ch = new NotificationChannel(CHANNEL, "F.R.I.D.A.Y. · écoute vocale", NotificationManager.IMPORTANCE_LOW);
+        NotificationChannel ch = new NotificationChannel(CHANNEL, "JARVIS · écoute vocale", NotificationManager.IMPORTANCE_LOW);
         ch.setDescription("Microphone actif tant que vous avez démarré le mode écran éteint");
         getSystemService(NotificationManager.class).createNotificationChannel(ch);
     }
@@ -156,7 +156,7 @@ public class FridayService extends Service {
                     } else {
                         // Un texte explicite a priorité sur la réponse vocale en cours.
                         if (currentTurn != null) interruptResponse("Réponse interrompue par une nouvelle question.");
-                        textQuestions.offer("Friday " + clean);
+                        textQuestions.offer("Jarvis " + clean);
                         event("status", "Question texte reçue, écoute maintenue active…");
                     }
                 }
@@ -217,11 +217,11 @@ public class FridayService extends Service {
         silenceMs = settingInt("silence_ms", 2100, 900, 6000);
         followupMs = settingInt("followup_sec", 75, 15, 180) * 1000L;
         PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
-        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "FRIDAY:MicroService");
+        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "JARVIS:MicroService");
         wakeLock.setReferenceCounted(false);
         wakeLock.acquire();
         event("status", "Écoute native active. Posez une question dans les 15 secondes, "
-                + "ou dites Friday / Jarvis à tout moment.");
+                + "ou dites Jarvis à tout moment.");
         worker = new Thread(this::runLoop, "friday-voice-core");
         worker.start();
         return START_NOT_STICKY; // Pas de redémarrage clandestin après arrêt par le système.
@@ -240,7 +240,7 @@ public class FridayService extends Service {
         PendingIntent showPi = PendingIntent.getActivity(this, 1, show, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this, CHANNEL)
                 .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-                .setContentTitle("F.R.I.D.A.Y. · écoute activée")
+                .setContentTitle("JARVIS · écoute activée")
                 .setContentText(message)
                 .setContentIntent(showPi)
                 .setOngoing(true)
@@ -258,7 +258,7 @@ public class FridayService extends Service {
                 msg.putExtra("seq", seq);
             } catch (Exception encryptedFailure) {
                 // Jamais de repli sur SharedPreferences en clair, même sans Keystore.
-                Log.w("FRIDAY_PRIVACY", "Historique non enregistré : protection chiffrée indisponible");
+                Log.w("JARVIS_PRIVACY", "Historique non enregistré : protection chiffrée indisponible");
             }
         }
         sendBroadcast(msg);
@@ -280,7 +280,7 @@ public class FridayService extends Service {
             if (grammar != null) {
                 try { recognizer.setGrammar(grammar); }
                 catch (RuntimeException | UnsatisfiedLinkError ex) {
-                    Log.w("FRIDAY_ASR", "Vocabulaire Vosk non compatible : mode normal conservé", ex);
+                    Log.w("JARVIS_ASR", "Vocabulaire Vosk non compatible : mode normal conservé", ex);
                     try { recognizer.setGrammar("[]"); }
                     catch (Exception ignored) {}
                 }
@@ -348,7 +348,7 @@ public class FridayService extends Service {
                                         && echoCanceler.getEnabled();
                         }
                     } catch (RuntimeException effectError) {
-                        Log.w("FRIDAY_MIC", "Prétraitement vocal indisponible, écoute Vosk conservée", effectError);
+                        Log.w("JARVIS_MIC", "Prétraitement vocal indisponible, écoute Vosk conservée", effectError);
                     }
                     final java.util.concurrent.atomic.AtomicBoolean silencedByPolicy =
                         new java.util.concurrent.atomic.AtomicBoolean(false);
@@ -374,7 +374,7 @@ public class FridayService extends Service {
                         asrDiagnostic("Micro et Vosk prêts : première question directe pendant 15 secondes");
                     }
                     event("status", PhoneAudioRoute.inputStatus(ar));
-                    voiceState("Micro actif : dites Friday ou Jarvis pour parler");
+                    voiceState("Micro actif : dites Jarvis pour parler");
                     interruptDiagnostics = bargeEnabled
                             ? "Micro PCM prêt · décodeur STOP démarre à la réponse"
                             : "Désactivé dans Réglages · autoriser l'interruption vocale";
@@ -465,7 +465,7 @@ public class FridayService extends Service {
                                 micSilenced = true;
                                 voiceState("Android a coupé le micro : contrôle des permissions / autre application");
                                 event("mic_conflict", "Micro muet selon Android. "
-                                        + "FRIDAY essaiera un autre mode de capture si possible.");
+                                        + "JARVIS essaiera un autre mode de capture si possible.");
                                 if (stopRecognizer != null) {
                                     stopRecognizer.close(); stopRecognizer = null;
                                     stopSpotter.reset();
@@ -496,8 +496,8 @@ public class FridayService extends Service {
                             confidenceSum = 0; confidenceCount = 0;
                             earlyCancelled = false; sawSpeakerFeedback = false;
                             interruptDiagnostics = "Micro à nouveau accessible";
-                            voiceState("Micro restauré : dites Friday ou Jarvis");
-                            event("status", "Microphone de nouveau accessible. Dites Friday ou Jarvis.");
+                            voiceState("Micro restauré : dites Jarvis");
+                            event("status", "Microphone de nouveau accessible. Dites Jarvis.");
                         }
                         // Affiche uniquement une mesure d'énergie PCM indicative.
                         // Pas de transcription stockée, ni envoi de son au modèle.
@@ -530,7 +530,7 @@ public class FridayService extends Service {
                                     }
                                     interruptDiagnostics = "Décodeur STOP non compatible · Vosk libre seulement";
                                     event("barge_diag", interruptDiagnostics);
-                                    Log.w("FRIDAY_VOICE", "Grammaire Vosk STOP indisponible", ex);
+                                    Log.w("JARVIS_VOICE", "Grammaire Vosk STOP indisponible", ex);
                                 }
                             }
                             if (stopRecognizer != null) {
@@ -547,7 +547,7 @@ public class FridayService extends Service {
                                     // provenir de l'echo de la voix Android. Ne JAMAIS
                                     // eteindre le micro sur un seul resultat Vosk TTS.
                                     // L'arret complet reste possible par bouton ou
-                                    // par ordre vocal clair lorsque FRIDAY est silencieuse.
+                                    // par ordre vocal clair lorsque JARVIS est silencieuse.
                                     interruptResponse(action == VoiceStopSpotter.Action.STOP_MIC
                                             ? "Réponse interrompue. Micro toujours actif ; utilisez Arrêter le micro pour l'éteindre."
                                             : action == VoiceStopSpotter.Action.CLARIFY
@@ -568,9 +568,9 @@ public class FridayService extends Service {
                             stopRecognizer.close(); stopRecognizer = null; stopSpotter.reset();
                             if (bargeEnabled) interruptDiagnostics = "Micro actif · prêt";
                         }
-                        // Pendant Mistral/Web en attente, FRIDAY NE PARLE PAS :
+                        // Pendant Mistral/Web en attente, JARVIS NE PARLE PAS :
                         // le Vosk général doit rester disponible pour une nouvelle
-                        // question « Friday ... », même si currentTurn est présent.
+                        // question « Jarvis ... », même si currentTurn est présent.
                         // Seule la sortie TTS effective et sa queue d'écho le bloquent.
                         long asrNow = SystemClock.elapsedRealtime();
                         boolean blocked = TtsEchoGate.suppressGeneralAsr(
@@ -597,7 +597,7 @@ public class FridayService extends Service {
                             voiceState(TtsEchoGate.followupAccepts(
                                     SystemClock.elapsedRealtime(), echoBlockUntil, wakeOnlyUntil)
                                     ? "Micro prêt : dialogue continu, posez votre question sans mot-clé (20 secondes)"
-                                    : "Micro prêt : dites Friday ou Jarvis pour votre question suivante");
+                                    : "Micro prêt : dites Jarvis pour votre question suivante");
                             event("barge_diag", "Protection anti-écho terminée · questions autorisées");
                         }
                         boolean endpoint = recognizer.acceptWaveForm(buffer, count);
@@ -842,7 +842,7 @@ public class FridayService extends Service {
                 wakeOnlyUntil = now + 12_000L;
                 lastReplyAt = now;
                 asrDiagnostic("Mot d'activation reconnu ; attente de la question (12 secondes)");
-                event("status", "Friday / Jarvis à l'écoute : posez votre question.");
+                event("status", "Jarvis à l'écoute : posez votre question.");
                 return;
             }
         } else if ((TtsEchoGate.followupAccepts(now, echoBlockUntil, wakeOnlyUntil) ||
@@ -859,7 +859,7 @@ public class FridayService extends Service {
             // Le PCM est présent, Vosk comprend une phrase, mais aucun mot-clé :
             // ce n'est pas une panne de Jarvis ou du microphone.
             if (heard.trim().split("\\s+").length >= 2)
-                asrDiagnostic("Vosk a transcrit une phrase ; mot-clé Friday/Jarvis absent");
+                asrDiagnostic("Vosk a transcrit une phrase ; mot-clé Jarvis absent");
             return;
         }
         if (BargeInPolicy.wantsToAddDetails(question)) {
@@ -876,14 +876,14 @@ public class FridayService extends Service {
         clarificationAnchor = "";
         clarificationUntil = 0L;
         latestQuestion = request;
-        asrDiagnostic(activated ? "Mot-clé Friday/Jarvis reconnu, question envoyée à Jarvis"
+        asrDiagnostic(activated ? "Mot-clé Jarvis reconnu, question envoyée à Jarvis"
                 : "Question directe reconnue, envoyée à Jarvis");
         ResponseTurn turn = new ResponseTurn(anchor);
         currentTurn = turn;
         boolean localJarvis = true; // Mode exclusif Jarvis pour toute demande vocale.
         voiceState("Question reçue · "
                 + "Jarvis sur le téléphone, sans réseau"
-                + " · micro disponible pour une nouvelle question avec Friday ou Jarvis");
+                + " · micro disponible pour une nouvelle question avec Jarvis");
         // Protège contre un fournisseur/API bloqué : aucun tour muet ne doit
         // garder l'écoute occupée indéfiniment. Un TTS en lecture n'est pas coupé.
         turn.watchdog = () -> {
@@ -892,7 +892,7 @@ public class FridayService extends Service {
                     turn.startedAt, MAX_PENDING_WEB_MS)) {
                 event("error", "Délai de réponse Jarvis local dépassé. "
                         + "Vous pouvez poser une nouvelle question.");
-                interruptResponse("Recherche expirée · microphone disponible · dites Friday ou Jarvis.");
+                interruptResponse("Recherche expirée · microphone disponible · dites Jarvis.");
             }
         };
         requestWatchdog.postDelayed(turn.watchdog, MAX_PENDING_WEB_MS);
@@ -917,7 +917,7 @@ public class FridayService extends Service {
                 event("status", "Jarvis vérifie réellement les moteurs de recherche HTTPS…");
                 local = JarvisInternet.liveConnectionDiagnostic(settings, turn.api);
             }
-            // Les capacités intrinsèques de FRIDAY restent connues localement.
+            // Les capacités intrinsèques de JARVIS restent connues localement.
             if (local == null)
                 local = WebSearch.assistantAnswer(question, JarvisInternet.enabled(settings));
             // Les commandes strictement locales conservent leur fonctionnement.
@@ -925,17 +925,17 @@ public class FridayService extends Service {
             String locationForApi = null;
             if (local == null && LocationIntent.nearby(question)) {
                 if (!"1".equals(settings.get("location_enabled", "0"))) {
-                    local = "La localisation de FRIDAY est désactivée. Dans Réglages, "
+                    local = "La localisation de JARVIS est désactivée. Dans Réglages, "
                             + "activez Localisation et autorisez Android.";
                 } else if (!FridayLocation.hasPermission(this)) {
-                    local = "FRIDAY n'a pas la permission Android de localisation. "
+                    local = "JARVIS n'a pas la permission Android de localisation. "
                             + "Ouvrez les réglages et autorisez la position.";
                 } else if (!FridayLocation.providerEnabled(this)) {
                     local = "Le service de localisation du téléphone est désactivé. "
                             + "Activez le GPS dans les paramètres Android.";
                 } else if (Build.VERSION.SDK_INT >= 29 && !foregroundLocationEnabled) {
                     local = "La localisation a été activée après le démarrage de l'écoute. "
-                            + "Arrêtez puis redémarrez l'écoute dans FRIDAY pour que le service vocal "
+                            + "Arrêtez puis redémarrez l'écoute dans JARVIS pour que le service vocal "
                             + "dispose du GPS Android, puis réessayez.";
                 } else {
                     event("status", "Acquisition GPS Android en cours, selon la précision disponible…");
@@ -1036,7 +1036,7 @@ public class FridayService extends Service {
                 else
                     event("status", "Réponse terminée. Après 2,5 secondes d'anti-écho, "
                             + "posez directement votre prochaine question pendant 20 secondes "
-                            + "ou dites Friday / Jarvis à tout moment.");
+                            + "ou dites Jarvis à tout moment.");
             } else if ("1".equals(settings.get("voice_enabled", "1"))) {
                 event("error", "Réponse disponible en texte, mais lecture vocale incomplète. "
                         + "Le moteur TTS va être réinitialisé ; microphone toujours actif.");
@@ -1052,7 +1052,7 @@ public class FridayService extends Service {
                 // sans inventer une réponse Mistral ni interrompre le micro.
                 if ("1".equals(settings.get("voice_enabled", "1")) && ttsReady) {
                     String notice = "Le moteur sélectionné n'a pas répondu à cette question. "
-                            + "Je reste à votre écoute. Dites Friday ou Jarvis pour recommencer.";
+                            + "Je reste à votre écoute. Dites Jarvis pour recommencer.";
                     spokenText = notice;
                     speakingNow = true;
                     if (!speak(notice, turn)) recoverTtsAsync();
@@ -1076,7 +1076,7 @@ public class FridayService extends Service {
                         wakeOnlyUntil = Math.max(wakeOnlyUntil,
                                 TtsEchoGate.followupUntil(finishedAt, false));
                         // La prolongation mains libres facultative fonctionne
-                        // aussi si la première question ne contenait pas Friday.
+                        // aussi si la première question ne contenait pas Jarvis.
                         wakeArmed = true;
                     }
                 }
@@ -1087,7 +1087,7 @@ public class FridayService extends Service {
                 voiceState(hadSpoken && !"1".equals(settings.get("listen_once", "0"))
                         ? "Fin de la voix · 2,5 s anti-écho puis dialogue continu 20 s"
                         : hadSpoken ? "Fin de la voix · anti-écho 2,5 secondes"
-                        : "Réponse terminée · micro disponible, dites Friday ou Jarvis");
+                        : "Réponse terminée · micro disponible, dites Jarvis");
                 if (hadSpoken && !"1".equals(settings.get("listen_once", "0")))
                     asrDiagnostic("Réponse terminée ; après 2,5 s, question directe acceptée "
                             + "pendant 20 s sans mot-clé");
@@ -1102,7 +1102,7 @@ public class FridayService extends Service {
     private String streamAndSpeak(String question, List<JSONObject> history,
             String locationForApi, ResponseTurn turn) throws Exception {
         final ArrayBlockingQueue<String> queue = new ArrayBlockingQueue<>(12);
-        final String end = "\u0000FRIDAY_STREAM_END";
+        final String end = "\u0000JARVIS_STREAM_END";
         final AtomicInteger count = new AtomicInteger();
         final AtomicInteger spokenParts = new AtomicInteger();
         final AtomicBoolean voiceOk = new AtomicBoolean(true);
@@ -1235,7 +1235,7 @@ public class FridayService extends Service {
                 if (old != null) {
                     try { old.stop(); old.shutdown(); }
                     catch (Exception failure) {
-                        Log.w("FRIDAY_TTS", "Fermeture TTS avant reprise", failure);
+                        Log.w("JARVIS_TTS", "Fermeture TTS avant reprise", failure);
                     }
                 }
                 if (running) initTts();
@@ -1288,7 +1288,7 @@ public class FridayService extends Service {
             ttsDiagnostic = "Erreur TTS : " + e.getClass().getSimpleName() + " : " + e.getMessage();
             lastTtsStatus = ttsDiagnostic;
             event("error", ttsDiagnostic);
-            Log.e("FRIDAY_TTS", "Initialisation TTS", e);
+            Log.e("JARVIS_TTS", "Initialisation TTS", e);
         }
     }
 
@@ -1364,7 +1364,7 @@ public class FridayService extends Service {
             } catch (Exception ex) {
                 if (!live(turn)) return false;
                 event("error", "Lecture TTS : " + ex.getMessage());
-                Log.e("FRIDAY_TTS", "Lecture TTS", ex);
+                Log.e("JARVIS_TTS", "Lecture TTS", ex);
                 return false;
             }
         }
