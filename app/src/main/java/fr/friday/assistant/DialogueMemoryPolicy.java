@@ -45,15 +45,17 @@ public final class DialogueMemoryPolicy {
         if (q.length() > 125 || q.isEmpty()) return false;
         if (q.matches(".*\\b(?:internet|web|actualites?|news|meteo|aujourd hui|maintenant|"
                 + "recherche|cherche|verifie|verifier|source|sources|en ligne)\\b.*")) return false;
-        return q.matches("^(?:pourquoi|et pourquoi|comment ca|et comment|et ensuite|et apres|"
-                + "developpe|developpe davantage|approfondis|approfondis davantage|"
-                + "explique davantage|explique moi davantage|explique un peu plus|"
-                + "donne des exemples|donne moi des exemples|donne plus de details|"
-                + "peux tu detailler|peux tu approfondir|peux tu developper|"
-                + "continue|poursuis|reprends|precise|sois plus precis|"
+        if (q.matches("^(?:pourquoi|pourquoi ca|pourquoi donc|et pourquoi|"
+                + "et pourquoi ca|comment ca|et ensuite|et apres|continue|"
+                + "poursuis|reprends|precise|et la suite)$")) return true;
+        return q.matches("^(?:developpe|developpe davantage|approfondis|"
+                + "approfondis davantage|explique davantage|explique moi davantage|"
+                + "explique un peu plus|donne des exemples|donne moi des exemples|"
+                + "donne plus de details|peux tu detailler|peux tu approfondir|"
+                + "peux tu developper|sois plus precis|"
                 + "qu est ce que tu veux dire|qu est ce que tu voulais dire|"
                 + "de quoi parlais tu|que veux tu dire|"
-                + "et lui|et elle|et eux|et la suite|et pour|et a)\\b.*")
+                + "et lui|et elle|et eux|et pour|et a)\\b.*")
                 || (q.startsWith("et ") && q.split(" ").length <= 7);
     }
 
