@@ -146,11 +146,14 @@ public final class JarvisInternet {
                     : "Texte de page HTTPS : " + source.page;
             contextPrompt.append("[").append(number).append("] ")
                     .append(clip(source.title, 120)).append(" | ").append(source.url)
+                    .append("\nNature de la source : ").append(OfficialSourcePolicy.sourceLabel(source.url))
                     .append("\nHorodatage du flux RSS : ").append(RssFreshness.display(source.publishedAt))
                     .append("\n").append(clip(summary, source.page.isEmpty() ? 320 : 760))
                     .append("\n");
             references.append("\n[").append(number).append("] ")
                     .append(clip(source.title, 90)).append(" — ")
+                    .append(OfficialSourcePolicy.isOfficialUrl(source.url)
+                            ? "domaine institutionnel — " : "source secondaire — ")
                     .append("horodatage RSS ").append(RssFreshness.display(source.publishedAt))
                     .append(" — ").append(source.url);
         }
@@ -397,6 +400,24 @@ public final class JarvisInternet {
         if (keywords.isEmpty()) throw new IOException(
                 "Aucun sujet significatif extrait de la question pour une recherche Web.");
         String encoded = URLEncoder.encode(keywords, "UTF-8");
+        // Interroger les sites institutionnels en premier pour les domaines
+        // juridiques, médicaux et techniques, sans envoyer l'historique privé.
+        for (String site : OfficialSourcePolicy.preferredSites(q)) {
+            if (cancellation != null) cancellation.check();
+            try {
+                String exact = URLEncoder.encode(keywords + " site:" + site, "UTF-8");
+                ArrayList<Source> candidates = new ArrayList<>();
+                mergeRelevant(candidates, parseRss(fetch(
+                        "https://www.bing.com/search?q=" + exact + "&format=rss", true),
+                        0, now), q);
+                for (Source candidate : candidates) {
+                    // Site: est un indice pour le moteur, jamais une preuve :
+                    // valider le domaine de l'URL réellement retournée.
+                    if (OfficialSourcePolicy.isOfficialUrl(candidate.url))
+                        mergeUnique(found, java.util.Collections.singletonList(candidate));
+                }
+            } catch (Exception failure) { trouble = noteFailure(trouble, failure); }
+        }
         // Combiner plusieurs fournisseurs plutôt que remplir toutes les
         // références avec le premier index rencontré. Au plus deux sources
         // pertinentes par moteur, URLs validées et dédoublonnées.
