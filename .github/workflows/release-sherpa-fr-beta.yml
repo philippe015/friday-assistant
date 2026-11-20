@@ -42,6 +42,7 @@ jobs:
           grep -Fq "if(kind==='partial')" app/src/main/assets/index.html
           grep -Fq "Moteur de reconnaissance actif" app/src/main/java/fr/friday/assistant/MainActivity.java
           grep -Fq "signalPeak = Math.max(signalPeak, level)" app/src/main/java/fr/friday/assistant/FridayService.java
+          grep -Fq 'lastAsrTextAt = now;' app/src/main/java/fr/friday/assistant/FridayService.java
           grep -Fq 'SherpaVoiceDecoder.shutdown()' app/src/main/java/fr/friday/assistant/FridayService.java
           test -f docs/SHERPA_FR_ANDROID_BETA_20261120.md
           if gh release view v3.13.9-sherpa-fr-beta.2 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
