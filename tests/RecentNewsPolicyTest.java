@@ -16,6 +16,18 @@ public final class RecentNewsPolicyTest {
                 "période 12h");
         ok(!RecentNewsPolicy.requiresRecentNews("quelle heure est-il ?"), "question locale");
         ok(!RecentNewsPolicy.requiresRecentNews("actualités du jour"), "pas de période horaire");
+        ok(RecentNewsPolicy.newsWindowHours("actualités du jour") == 24,
+                "Les actualités du jour déclenchent un flux daté sur 24 h");
+        ok(RecentNewsPolicy.newsWindowHours("Journal des nouvelles") == 24,
+                "Le journal récent doit chercher des titres datés");
+        ok(RecentNewsPolicy.newsWindowHours("Quelles sont les dernières informations sur DeepSeek") == 24,
+                "Dernières informations est une demande d'actualité");
+        ok(RecentNewsPolicy.newsWindowHours("actualités des 7 dernières heures") == 7,
+                "La période horaire explicite doit être respectée");
+        ok(RecentNewsPolicy.newsWindowHours("Donne-moi des informations sur les batteries") == 0,
+                "Les informations générales ne sont pas un bulletin d'actualités");
+        ok(RecentNewsPolicy.newsWindowHours("Explique les informations du code du travail") == 0,
+                "Le droit général doit rester une recherche non temporelle");
         ok(RecentNewsPolicy.requestedHours("actualités des 99 dernières heures") == 0,
                 "limite de recherche raisonnable");
         ok(RecentNewsPolicy.genericWebDenial("Je n'ai pas accès à Internet."),
