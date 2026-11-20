@@ -43,7 +43,7 @@ public class MainActivity extends Activity {
     private TextView webDiagnosticLabel;
     private final AtomicBoolean webTestRunning = new AtomicBoolean(false);
     private CheckBox localJarvisEnabled, localJarvisAll;
-    private CheckBox jarvisInternetEnabled;
+    private CheckBox jarvisInternetEnabled, jarvisWebEveryAnswerEnabled;
     private TextView jarvisInternetStatus;
     private final AtomicBoolean jarvisWebTesting = new AtomicBoolean(false);
     private TextView localJarvisStatus;
@@ -246,11 +246,21 @@ public class MainActivity extends Activity {
         jarvisInternetEnabled.setTextColor(Color.WHITE);
         jarvisInternetEnabled.setChecked("1".equals(prefs.get("jarvis_web_enabled", "1")));
         config.addView(jarvisInternetEnabled);
-        config.addView(label("Les mots-clés de recherche sont envoyés à Bing ou DuckDuckGo "
-                + "(Google Actualités en secours pour les actualités). "
-                + "Les pages HTTPS sont lues directement. Ni clé IA, ni historique personnel, "
-                + "ni notes privées, ni GPS ne sont envoyés. Certaines pages peuvent refuser "
-                + "les accès automatisés (HTTP 403/429). La recherche n'est pas illimitée."));
+        jarvisWebEveryAnswerEnabled = new CheckBox(this);
+        jarvisWebEveryAnswerEnabled.setText("Rechercher sur le Web avant toute réponse générale "
+                + "(plusieurs fournisseurs, activé par défaut)");
+        jarvisWebEveryAnswerEnabled.setTextColor(Color.WHITE);
+        jarvisWebEveryAnswerEnabled.setChecked(
+                "1".equals(prefs.get("jarvis_web_every_answer", "1")));
+        config.addView(jarvisWebEveryAnswerEnabled);
+        config.addView(label("Fournisseurs : Bing RSS, DuckDuckGo, Wikipédia, Wikidata, "
+                + "Crossref (publications scientifiques) et Google Actualités. "
+                + "Les questions générales interrogent plusieurs sources publiques "
+                + "avant la réponse de Jarvis local. Le nom des moteurs ne garantit pas "
+                + "que chacun répondra à chaque requête (HTTP 202, 403 ou 429 possibles). "
+                + "Les commandes de mémoire privée, GPS et réglages restent locales ; "
+                + "ni historique, ni notes, ni coordonnées ne sont envoyés. "
+                + "Décochez cette case pour rétablir la recherche automatique ciblée."));
         config.addView(button("Tester l'accès Internet Jarvis", this::testJarvisInternet));
         config.addView(button("Tester les actualités des 7 dernières heures",
                 this::testJarvisRecentNews));
@@ -463,6 +473,8 @@ public class MainActivity extends Activity {
             prefs.put("web_enabled", "0");
             prefs.put("web_mode", "off");
             prefs.put("jarvis_web_enabled", jarvisInternetEnabled.isChecked() ? "1" : "0");
+            prefs.put("jarvis_web_every_answer",
+                    jarvisWebEveryAnswerEnabled.isChecked() ? "1" : "0");
             prefs.put("stream_enabled", "0");
             prefs.put("location_share", "0");
             saveLocalJarvisPrefs();
@@ -1026,6 +1038,9 @@ public class MainActivity extends Activity {
                         : "Continu (relance directe pendant 20 s après anti-écho)")
                 + "\nInternet Jarvis : " + (JarvisInternet.enabled(prefs)
                         ? "activé (requêtes HTTPS publiques)" : "désactivé")
+                + "\nRecherche Web pour les questions générales : "
+                + ("1".equals(prefs.get("jarvis_web_every_answer", "1"))
+                        ? "activée" : "désactivée (mode ciblé)")
                 + "\nDernier test Internet : " + prefs.get("jarvis_web_last_test", "non effectué")
                 + "\nDernière erreur à : " + prefs.get("last_error_time", "aucune")
                 + "\n\nLe niveau micro est un niveau PCM et ne garantit pas qu'une parole a été comprise."
