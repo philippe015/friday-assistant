@@ -142,6 +142,10 @@ public final class WebSearch {
         String clean = withoutWake(question);
         if (assistantAnswer(question, true) != null) return false;
         if (clean.isEmpty() || LOCAL_CHAT.matcher(clean).find()) return false;
+        // Une transcription Vosk réduite à « quels »/« quelle » ne doit
+        // jamais déclencher une recherche de dictionnaire.
+        if (clean.matches("^(?:qui|quoi|que|quel|quelle|quels|quelles|comment|pourquoi|de|le|la)$"))
+            return false;
         return EXPLICIT.matcher(clean).find() || CURRENT.matcher(clean).find()
                 || FACTUAL.matcher(clean).find();
     }
