@@ -315,7 +315,10 @@ public final class JarvisInternet {
                       + URLEncoder.encode(topic + " when:" + hours + "h", "UTF-8")
                       + "&hl=fr&gl=FR&ceid=FR:fr";
             try {
-                mergeDated(found, parseRss(fetch(feed), hours, now), 3, topic);
+                // Ce flux résulte déjà d'une requête ciblée par Google.
+                // Pour « économie », les titres peuvent dire « inflation » sans
+                // répéter exactement le mot demandé.
+                mergeDated(found, parseRss(fetch(feed), hours, now), 3, "");
             } catch (Exception failure) { trouble = noteFailure(trouble, failure); }
 
             // Un autre éditeur de titres francophones permet de ne pas
@@ -336,7 +339,7 @@ public final class JarvisInternet {
                             + URLEncoder.encode(topic.isEmpty()
                                 ? "actualités France" : topic, "UTF-8")
                             + "&format=rss";
-                    mergeDated(found, parseRss(fetch(bing), hours, now), 2, topic);
+                    mergeDated(found, parseRss(fetch(bing), hours, now), 2, "");
                 } catch (Exception failure) { trouble = noteFailure(trouble, failure); }
             }
 
@@ -613,6 +616,31 @@ public final class JarvisInternet {
             if (selected.size() >= 2) break;
         }
         mergeUnique(into, selected);
+    }
+
+    /** Fusion prudente des actualités : dates vérifiables, doublons et
+     * diversité des flux. Ne reprend JAMAIS des résultats Web HTML non datés
+     * pour remplir une demande horaire. */
+    private static void mergeDated(List<Source> into, List<Source> candidates,
+                                   int maxPerFeed, String topic) {
+        candidates.sort((a, b) -> Long.compare(b.publishedAt, a.publishedAt));
+        int added = 0;
+        for (Source candidate : candidates) {
+            if (into.size() >= MAX_RESULTS || added >= maxPerFeed) break;
+            if (candidate.publishedAt <= 0 || candidate.title.isEmpty()) continue;
+            if (topic != null && !topic.trim().isEmpty()
+                    && !WebSearch.relevantResult(topic, candidate.title, candidate.summary))
+                continue;
+            boolean duplicate = false;
+            String normTitle = VoiceText.normalize(candidate.title).trim();
+            for (Source previous : into) {
+                if (previous.url.equals(candidate.url)
+                        || VoiceText.normalize(previous.title).trim().equals(normTitle)) {
+                    duplicate = true; break;
+                }
+            }
+            if (!duplicate) { into.add(candidate); added++; }
+        }
     }
 
     /** Fusion de résultats publics sans doublons, en conservant les horodatages. */
