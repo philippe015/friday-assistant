@@ -4,7 +4,7 @@ use jni::{JNIEnv, objects::{JClass, JString}, sys::{jboolean, JNI_TRUE, JNI_FALS
 
 fn wake_word(text: &str) -> bool {
     text.split(|c: char| !c.is_alphanumeric())
-        .any(|w| matches!(w, "friday" | "fridai" | "fridey" | "freday"))
+        .any(|w| matches!(w, "jarvis" | "jarvise" | "jarvice" | "jervis" | "jervi"))
 }
 
 #[no_mangle]
@@ -24,9 +24,10 @@ mod tests {
     use super::wake_word;
     #[test]
     fn activation() {
-        assert!(wake_word("friday quelle heure est il"));
-        assert!(wake_word("bonjour friday"));
+        assert!(wake_word("jarvis quelle heure est il"));
+        assert!(wake_word("bonjour jarvis"));
         assert!(!wake_word("un vendredi normal"));
-        assert!(!wake_word("fridayx"));
+        assert!(!wake_word("friday quel temps fait il"));
+        assert!(!wake_word("jarvisx"));
     }
 }
