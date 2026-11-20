@@ -217,7 +217,7 @@ public final class JarvisInternet {
                       + URLEncoder.encode(topic + " when:" + hours + "h", "UTF-8")
                       + "&hl=fr&gl=FR&ceid=FR:fr";
             try { found.addAll(parseRss(fetch(feed), hours, now)); }
-            catch (Exception failure) { trouble = failure.getMessage(); }
+            catch (Exception failure) { trouble = noteFailure(trouble, failure); }
             // Compléter un flux trop pauvre par un second index. Les deux
             // fournisseurs sont soumis au même filtre temporel RSS strict.
             if (found.size() < MAX_RESULTS) {
@@ -225,7 +225,7 @@ public final class JarvisInternet {
                 try {
                     mergeUnique(found, parseRss(fetch("https://www.bing.com/search?q="
                             + URLEncoder.encode(q, "UTF-8") + "&format=rss"), hours, now));
-                } catch (Exception failure) { trouble = failure.getMessage(); }
+                } catch (Exception failure) { trouble = noteFailure(trouble, failure); }
             }
             if (found.isEmpty())
                 throw new IOException("Recherche Internet indisponible : aucun article avec horodatage "
@@ -241,7 +241,7 @@ public final class JarvisInternet {
         try {
             mergeRelevant(found, parseRss(fetch("https://www.bing.com/search?q="
                     + encoded + "&format=rss"), 0, now), q);
-        } catch (Exception fail) { trouble = fail.getMessage(); }
+        } catch (Exception fail) { trouble = noteFailure(trouble, fail); }
         // Bing peut renvoyer un ou deux liens seulement ; compléter plutôt
         // que considérer une recherche partielle comme suffisante.
         if (found.size() < MAX_RESULTS) {
@@ -249,7 +249,7 @@ public final class JarvisInternet {
             try {
                 mergeRelevant(found, parseDuckDuckGo(fetch("https://html.duckduckgo.com/html/?q="
                         + encoded)), q);
-            } catch (Exception fail) { trouble = fail.getMessage(); }
+            } catch (Exception fail) { trouble = noteFailure(trouble, fail); }
         }
         // Un fournisseur HTML peut retourner HTTP 202 (page de vérification)
         // sans résultats : utiliser des interfaces publiques structurées
@@ -261,7 +261,7 @@ public final class JarvisInternet {
                         + "&list=search&format=json&srlimit=6&srsearch="
                         + URLEncoder.encode(keywords, "UTF-8");
                 mergeRelevant(found, parseWikipediaSearch(fetch(wiki)), q);
-            } catch (Exception fail) { trouble = fail.getMessage(); }
+            } catch (Exception fail) { trouble = noteFailure(trouble, fail); }
         }
         if (found.size() < MAX_RESULTS && RecentNewsPolicy.isNews(q)) {
             if (cancellation != null) cancellation.check();
@@ -270,7 +270,7 @@ public final class JarvisInternet {
                         + URLEncoder.encode(keywords, "UTF-8")
                         + "&hl=fr&gl=FR&ceid=FR:fr";
                 mergeRelevant(found, parseRss(fetch(news), 0, now), q);
-            } catch (Exception fail) { trouble = fail.getMessage(); }
+            } catch (Exception fail) { trouble = noteFailure(trouble, fail); }
         }
         if (found.isEmpty())
             throw new IOException("Aucune source Web suffisamment pertinente trouvée pour cette question. "
@@ -309,7 +309,7 @@ public final class JarvisInternet {
             conn.setRequestMethod("GET");
             conn.setRequestProperty("User-Agent",
                     "FRIDAY-Jarvis/3.13.3 (https://github.com/philippe015/friday-assistant; Android public HTTPS client)");
-            conn.setRequestProperty("Accept", "application/rss+xml, application/xml, text/xml, text/html");
+            conn.setRequestProperty("Accept", "application/rss+xml, application/xml, application/json, text/xml, text/html");
             conn.setRequestProperty("Accept-Language", "fr-FR,fr;q=0.9,en;q=0.5");
             conn.setRequestProperty("Accept-Encoding", "identity");
             try {
@@ -349,6 +349,17 @@ public final class JarvisInternet {
             } finally { conn.disconnect(); }
         }
         throw new IOException("Trop de redirections de recherche.");
+    }
+
+    /** Conserve la première anomalie HTTP 202 utile au diagnostic.
+     * Les moteurs bloqués sont contournés uniquement par une autre source
+     * publique indépendante, jamais par un captcha ou une usurpation. */
+    private static String noteFailure(String previous, Exception failure) {
+        String next = clip(failure.getMessage(), 150);
+        if (previous != null && previous.contains("HTTP 202")) return previous;
+        if (next.contains("HTTP 202")) return next;
+        if (previous == null || previous.isEmpty()) return next;
+        return clip(previous + " ; " + next, 180);
     }
 
     /** API MediaWiki documentée : recherche encyclopédique publique, non
