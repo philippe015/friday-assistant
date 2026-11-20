@@ -62,6 +62,10 @@ public final class WebSearchTest {
         String query = WebSearch.searchQuery("Et demain ?", longPrior.toString());
         check(query.length() <= 128 && query.endsWith("Et demain ?"),
                 "Question actuelle perdue après coupe à 128 caractères");
+        check(!WebSearch.needsWeb("Quels"),
+                "Vosk : un mot interrogatif isolé ne doit pas déclencher Bing");
+        check(!WebSearch.needsWeb("de"),
+                "Vosk : une préposition isolée ne doit pas déclencher Bing");
         check(!WebSearch.needsWeb("Quels sont tes capacités ?"),
                 "Question sur les capacités de Jarvis ne doit pas ouvrir Bing");
         check(!WebSearch.needsWeb("Fraday, quelles sont tes fonctionnalités ?"),
