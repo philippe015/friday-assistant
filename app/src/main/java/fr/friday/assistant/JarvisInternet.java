@@ -230,7 +230,7 @@ public final class JarvisInternet {
 
     /** Test du moteur de recherche sans modèle IA ni clés. */
     public static String probe() throws Exception {
-        List<Source> sources = search("planètes système solaire", null);
+        List<Source> sources = quickConnectivitySources(null);
         if (sources.isEmpty()) throw new IOException("Aucun résultat fourni par le service Web.");
         java.util.LinkedHashSet<String> hosts = new java.util.LinkedHashSet<>();
         for (Source source : sources) {
