@@ -36,9 +36,9 @@ class FrenchSpeechBeta(unittest.TestCase):
         self.assertNotIn("Mistral", SHERPA)
 
     def test_native_android_api_and_french_model(self):
-        self.assertIn("OnlineRecognizerConfig.builder()", SHERPA)
-        self.assertIn("OnlineRecognizer(config)", SHERPA)
-        self.assertIn("OnlineModelConfig.builder()", SHERPA)
+        self.assertIn("new OnlineRecognizerConfig()", SHERPA)
+        self.assertIn("OnlineRecognizer(ctx.getAssets(), config)", SHERPA)
+        self.assertIn("new OnlineModelConfig()", SHERPA)
         self.assertIn("getResult(stream)", SHERPA)
         self.assertIn("stream.acceptWaveform(pcm, 16000)", SHERPA)
         self.assertIn("getNextTarEntry()", MODELS)
