@@ -1,4 +1,4 @@
-package fr.jarvis.assistant;
+package fr.friday.assistant;
 
 /**
  * Commandes vocales courtes, séparées de la dictée libre Vosk.
