@@ -13,7 +13,9 @@ import org.json.JSONObject;
 public final class PrivateConversationHistory {
     private static final String KEY = "voice_history_v380";
     private static final String OLD = "friday_voice_history";
-    private static final int MAX_EVENTS = 40;
+    // Les 40 derniers échanges (80 messages) restent chiffrés sur le téléphone.
+    // L'IA ne reçoit qu'un extrait court sélectionné à chaque réponse.
+    private static final int MAX_EVENTS = 80;
     private PrivateConversationHistory() {}
 
     public static synchronized String read(Context ctx, SecurePrefs prefs) throws Exception {
