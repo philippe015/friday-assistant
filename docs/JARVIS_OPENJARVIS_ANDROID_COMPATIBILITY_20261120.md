@@ -45,6 +45,58 @@ Ces outils sont disponibles **à la voix et par écrit**, sans API distante, san
 5. Le micro ne peut pas être activé arbitrairement à la mise sous tension ou quand Android l'interdit. Le bouton Stop reste prioritaire.
 6. Les dépôts externes ont leurs propres dépendances, licences et formats ; aucune promesse de compatibilité binaire « plug-and-play ».
 
+## Extension proposée : rappels d'anciens échanges chiffrés
+
+Sur cette branche, l'assistant ne se limite plus aux dix
+derniers messages lorsque l'utilisateur demande explicitement :
+« Jarvis, tu te souviens de notre conversation sur le chauffage ? ».
+
+- DialogueRecallPolicy sélectionne **au plus deux** anciens tours par
+  correspondance de mots normalisés (accents et casse ignorés).
+- DialogueContext injecte un extrait limité des tours retrouvés dans le
+  prompt du **moteur IA local Android**. Aucun nouveau fichier personnel
+  ni base de données n'est créé : on relit l'historique déjà chiffré.
+- Une question générale ou Web ne déclenche **pas** cette récupération.
+  Les recherches Internet reçoivent uniquement la question de recherche,
+  jamais le rappel privé.
+- Sans correspondance, Jarvis ne doit pas inventer d'anciens messages.
+  Le système n'est **pas** une mémoire sémantique : synonymes, homonymes,
+  messages effacés ou au-delà de la limite de 80 événements peuvent manquer.
+- L'interface de suppression et la gestion actuelle de la mémoire restent
+  inchangées. L'appareil physique doit valider une question avec reprise du
+  sujet, puis un STOP et une nouvelle question.
+
+Cette extension suit l'idée **Tools & Memory** d'OpenJarvis, sans embarquer
+son runtime Python ni ses mécanismes autonomes. Ce n'est pas une synchronisation
+des conversations avec OpenJarvis, GitHub ou un autre service.
+
+## Dépôts candidats pour les prochaines intégrations Android
+
+| Dépôt source | Fonction | Décision de compatibilité |
+| --- | --- | --- |
+| https://github.com/k2-fsa/sherpa-onnx | VAD, reconnaissance et mots d'activation locaux | **Candidat prioritaire à tester** en parallèle de Vosk, seulement après validation du français, de l'ABI arm64, des modèles et de l'empreinte mémoire |
+| https://github.com/ggml-org/whisper.cpp | Transcription vocale multilingue | Exemples Android existants ; **alternative**, pas une deuxième capture micro simultanée |
+| https://github.com/google-ai-edge/LiteRT-LM | Moteur IA Android, outils et inférence | **Déjà intégré** via dépendance Android ; vérifier la compatibilité API avant tout appel d'outil nouveau |
+| https://github.com/ggml-org/llama.cpp | Inférence GGUF native | Support Android/NDK, mais **non intégré** à l'APK ; GGUF incompatible avec l'import .task/.litertlm existant |
+| https://github.com/open-jarvis/OpenJarvis | Architecture en primitives, agents et mémoire | **Référence conceptuelle** ; le runtime Python/Rust et les fonctions desktop ne sont pas des dépendances Android directement intégrables |
+
+La licence et les conditions de chaque dépôt et de chaque modèle doivent être
+revues au moment de l'intégration. Ne pas changer l'API, le moteur vocal ou le
+format de modèle de la version stable sans tests sur téléphone.
+
+### Validation de cette proposition
+
+1. Exécuter bash scripts/tester_sources.sh : les tests Java et Python
+   contrôlent le rappel et les protections existantes.
+2. Compiler l'APK avec la CI Android du dépôt. Le rappel local n'ajoute
+   **aucune dépendance Gradle native**.
+3. Sur le téléphone : aborder un sujet, en poser au moins dix autres,
+   puis demander « Jarvis, tu te souviens de notre conversation sur le chauffage ? ».
+4. Vérifier les mêmes étapes après redémarrage, le silence en cas de mémoire
+   absente, l'absence de requête Web non demandée et la suppression de l'historique.
+5. Tester le micro et le STOP : cette modification ne change ni FridayService
+   ni le pipeline audio.
+
 ## Prochaines étapes candidates (non implémentées ici)
 
 - Pipeline ASR/TTS plus moderne et adapté au français selon validation sur appareils réels.

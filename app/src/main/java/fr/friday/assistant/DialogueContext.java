@@ -4,6 +4,8 @@ import android.content.Context;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Récupère, uniquement sur le téléphone, le contexte de dialogue chiffré.
@@ -48,6 +50,29 @@ public final class DialogueContext {
             throws Exception {
         JSONArray events = new JSONArray(PrivateConversationHistory.read(context, prefs));
         int end = previousEnd(events, currentQuestion);
+        // En plus des derniers échanges, retrouver au plus deux anciens tours
+        // correspondant explicitement au sujet d'une question sur notre historique.
+        // La sélection reste sur le téléphone et n'enrichit jamais une recherche Web.
+        ArrayList<DialogueRecallPolicy.Event> indexed = new ArrayList<>();
+        for (int i = 0; i < end; i++) {
+            JSONObject event = events.optJSONObject(i);
+            if (event != null) indexed.add(new DialogueRecallPolicy.Event(
+                    event.optString("kind", ""), event.optString("text", "")));
+        }
+        List<DialogueRecallPolicy.Turn> olderTurns =
+                DialogueRecallPolicy.relevant(currentQuestion, indexed, MAX_DIALOGUE_MESSAGES, 2);
+        StringBuilder older = new StringBuilder();
+        for (DialogueRecallPolicy.Turn turn : olderTurns) {
+            String excerpt = "Utilisateur : " + clip(turn.question, 185) + "\n";
+            if (!turn.answer.isEmpty()) excerpt += "Jarvis : " + clip(turn.answer, 270) + "\n";
+            if (older.length() + excerpt.length() > 960) break;
+            older.append(excerpt);
+        }
+        String olderContext = older.length() == 0 ? ""
+                : "[ANCIENS ÉCHANGES PERTINENTS — extrait local, non exhaustif]\n"
+                + older.toString() + "[FIN ANCIENS ÉCHANGES]\n";
+        int recentBudget = MAX_DIALOGUE_CHARACTERS - olderContext.length() - 140;
+
         ArrayDeque<String> chosen = new ArrayDeque<>();
         int chars = 0;
         for (int i = end - 1; i >= 0 && chosen.size() < MAX_DIALOGUE_MESSAGES; i--) {
@@ -59,7 +84,7 @@ public final class DialogueContext {
             if (text.isEmpty()) continue;
             String line = ("user".equals(kind) ? "Utilisateur : " : "Jarvis : ")
                     + text;
-            if (chars + line.length() + 1 > MAX_DIALOGUE_CHARACTERS) break;
+            if (chars + line.length() + 1 > recentBudget) break;
             chosen.addFirst(line);
             chars += line.length() + 1;
         }
@@ -67,6 +92,9 @@ public final class DialogueContext {
         StringBuilder result = new StringBuilder(chars + 250);
         result.append("[CONTEXTE PRIVÉ DES ÉCHANGES PRÉCÉDENTS — TÉLÉPHONE UNIQUEMENT]\n");
         for (String line : chosen) result.append(line).append('\n');
+        // Le prompt local tronque parfois le DÉBUT du contexte à 2200 caractères :
+        // laisser les rappels ciblés en dernier pour qu'ils restent accessibles.
+        result.append(olderContext);
         result.append("[FIN CONTEXTE PRIVÉ]\n");
         return result.toString();
     }
