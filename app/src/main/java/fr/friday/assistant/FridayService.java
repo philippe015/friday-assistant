@@ -312,6 +312,7 @@ public class FridayService extends Service {
                 AudioManager.AudioRecordingCallback recordingCallback = null;
                 VoiceStopSpotter stopSpotter = new VoiceStopSpotter();
                 boolean stopRecognizerUnavailable = false;
+                boolean sherpaDecoderFailed = false;
                 try {
                     int minimum = AudioRecord.getMinBufferSize(16000, AudioFormat.CHANNEL_IN_MONO,
                         AudioFormat.ENCODING_PCM_16BIT);
@@ -694,8 +695,16 @@ public class FridayService extends Service {
                             }
                         }
                     }
-                } catch (Exception captureError) {
+                } catch (Exception | LinkageError captureError) {
                     if (!running) break;
+                    if (recognizer instanceof SherpaVoiceDecoder) {
+                        // Un crash ASR après chargement ne doit pas réouvrir
+                        // éternellement sherpa dans la boucle du microphone.
+                        sherpaDecoderFailed = true;
+                        settings.put("sherpa_voice_enabled", "0");
+                        event("error", "Le moteur vocal sherpa-onnx a échoué. "
+                                + "Vosk sera rétabli à la prochaine tentative.");
+                    }
                     consecutiveErrors++;
                     // La v3.11.1 arretait definitivement le service apres trois
                     // echec AudioRecord, ou restait muette apres deux reprises.
@@ -727,6 +736,7 @@ public class FridayService extends Service {
                     recorder = null;
                     if (recognizer != null) recognizer.close();
                     if (stopRecognizer != null) stopRecognizer.close();
+                    if (sherpaDecoderFailed) SherpaVoiceDecoder.shutdown();
                 }
                 // AudioRecord, callbacks et effets doivent être fermés avant
                 // la pause : sinon Android peut refuser la prochaine capture.
@@ -867,7 +877,7 @@ public class FridayService extends Service {
             // Le PCM est présent, Vosk comprend une phrase, mais aucun mot-clé :
             // ce n'est pas une panne de Jarvis ou du microphone.
             if (heard.trim().split("\\s+").length >= 2)
-                asrDiagnostic("Vosk a transcrit une phrase ; mot-clé Jarvis absent");
+                asrDiagnostic("Phrase transcrite ; mot-clé Jarvis absent");
             return;
         }
         if (BargeInPolicy.wantsToAddDetails(question)) {
