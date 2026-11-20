@@ -27,6 +27,9 @@ public final class DialogueMemoryPolicy {
                 || q.matches(".*\\b(?:tu te souviens|te souviens tu|tu te rappelles|rappelle toi|reprends notre|on parlait de|nous parlions de|de quoi parlions nous)\\b.*")
                 || q.matches(".*\\b(?:historique|memoire|souvenir)\\s+(?:de |des |de nos |de notre )?(?:nos |notre |mes )?(?:dialogues?|conversations?|discussions?|echanges?)\\b.*")
                 || q.matches(".*\\b(?:nos |notre )(?:dernier|derniers|derniere|dernieres)\\s+(?:sujets?|questions?|echanges?)\\b.*")
+                || q.matches(".*\\b(?:ta|ton|tes)\\s+(?:memoire|historique|souvenirs?)\\b.*")
+                || q.matches(".*\\b(?:mes |ma )(?:dernieres?|precedentes?)\\s+(?:questions?|demandes?|messages?)\\b.*")
+                || q.matches(".*\\b(?:de quoi on parlait|de quoi nous parlions|qu avons nous dit|que t ai je demande|ce qu on a dit|reprends ou on en etait|notre sujet precedent)\\b.*")
                 || q.matches(".*\\b(?:tu as|as tu|avez vous|tu gardes|gardes tu)\\s+(?:une |de la |un )?(?:memoire|historique)\\s+(?:de |des |sur )?(?:nos |notre |mes )?(?:dialogues?|conversations?|discussions?|echanges?)\\b.*");
     }
 
@@ -35,7 +38,8 @@ public final class DialogueMemoryPolicy {
         String q = fold(question);
         boolean asksCapacity = q.matches(".*\\b(?:as tu|tu as|avez vous|tu gardes|gardes tu|conserves tu|peux tu|tu peux|est ce que tu as|est ce que tu gardes)\\b.*")
                 && q.matches(".*\\b(?:memoire|historique|memoriser|souvenir|souvenir de)\\b.*");
-        return asksCapacity && isPrivateDialogue(q)
+        boolean asksHow = q.matches(".*\\b(?:comment fonctionne|comment marche|comment geres tu|comment tu geres)\\s+(?:ta |ton |tes )?(?:memoire|historique|souvenirs)\\b.*");
+        return (asksCapacity || asksHow) && isPrivateDialogue(q)
                 && !q.matches(".*\\b(?:qu est ce|qu avons|que nous|qu est ce que|resume|raconte)\\b.*");
     }
 
