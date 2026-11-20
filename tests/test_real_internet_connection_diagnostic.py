@@ -27,7 +27,7 @@ class VerifiedConnectivity(unittest.TestCase):
         )[0]
         self.assertIn("quickConnectivitySources(cancellation)", section)
         self.assertIn("if (!enabled(settings))", section)
-        self.assertIn("search HTTPS réelle", section)
+        self.assertIn("recherche HTTPS réelle", section)
         self.assertIn("la recherche HTTPS", section)
         self.assertNotIn("PersonalMemory", section)
         self.assertNotIn("FridayLocation", section)
