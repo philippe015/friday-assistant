@@ -1005,6 +1005,7 @@ public class MainActivity extends Activity {
                 + "\nMicro Android rendu muet : " + (FridayService.isMicSilenced() ? "oui" : "non")
                 + "\nÉtat de l'écoute : " + FridayService.voiceReadiness()
                 + "\nSignal du microphone : " + FridayService.microphoneSignal()
+                + "\nDernière reconnaissance Vosk : " + FridayService.recognitionDiagnostic()
                 + "\nSilence de base : " + prefs.get("silence_ms", "2100")
                         + " ms (adaptatif pour les phrases incomplètes)"
                 + "\nInterruption STOP : " + FridayService.interruptionDiagnostics()
@@ -1017,7 +1018,8 @@ public class MainActivity extends Activity {
                         ? "activé (requêtes HTTPS publiques)" : "désactivé")
                 + "\nDernier test Internet : " + prefs.get("jarvis_web_last_test", "non effectué")
                 + "\nDernière erreur à : " + prefs.get("last_error_time", "aucune")
-                + "\n\nAucune clé, aucun GPS, aucun contenu de conversation dans ce diagnostic.";
+                + "\n\nLe niveau micro est un niveau PCM et ne garantit pas qu'une parole a été comprise."
+                + "\nAucune clé, aucun GPS, aucun contenu de conversation dans ce diagnostic.";
         new AlertDialog.Builder(this)
                 .setTitle("FRIDAY · état des composants")
                 .setMessage(report)
@@ -1369,7 +1371,7 @@ public class MainActivity extends Activity {
                 }
                 if (kind.equals("status") || kind.equals("error") || kind.equals("tts")
                         || kind.equals("mic_conflict") || kind.equals("interrupted")
-                        || kind.equals("voice_state")) status.setText(text);
+                        || kind.equals("voice_state") || kind.equals("asr_diag")) status.setText(text);
                 if (pageReady) {
                     if (kind.equals("user") || kind.equals("assistant")) replayVoiceHistory();
                     else {
