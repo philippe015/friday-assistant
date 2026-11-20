@@ -65,9 +65,9 @@ public final class DialogueContext {
         }
         if (chosen.isEmpty()) return "";
         StringBuilder result = new StringBuilder(chars + 250);
-        result.append("[CONTEXTE PRIVÉ DES ÉCHANGES PRÉCÉDENTS — TÉLÉPHONE UNIQUEMENT]\\n");
-        for (String line : chosen) result.append(line).append('\\n');
-        result.append("[FIN CONTEXTE PRIVÉ]\\n");
+        result.append("[CONTEXTE PRIVÉ DES ÉCHANGES PRÉCÉDENTS — TÉLÉPHONE UNIQUEMENT]\n");
+        for (String line : chosen) result.append(line).append('\n');
+        result.append("[FIN CONTEXTE PRIVÉ]\n");
         return result.toString();
     }
 
