@@ -50,6 +50,10 @@ class AutoListeningStartup(unittest.TestCase):
         self.assertIn("status.post(() -> {", ACTIVITY)
         self.assertIn("startListening(true);", ACTIVITY)
         self.assertIn("!isFinishing() && !isDestroyed()", ACTIVITY)
+        self.assertIn("activityVisible = true", ACTIVITY)
+        self.assertIn("activityVisible = false", ACTIVITY)
+        self.assertIn("if (!activityVisible)", ACTIVITY)
+        self.assertIn("@Override protected void onPause()", ACTIVITY)
         self.assertNotIn("BOOT_COMPLETED", MANIFEST)
 
     def test_permissions_models_and_user_stop_respected(self):
