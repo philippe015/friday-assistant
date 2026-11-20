@@ -150,9 +150,49 @@ public final class JarvisInternet {
         return new Result(spoken + "\n\n" + references, spoken, true, references.toString());
     }
 
+    /** Un vrai essai de recherche publique, sans transmettre la question,
+     * l'historique, les données privées ni la localisation de l'utilisateur.
+     * Ne prétend jamais que tous les moteurs sont accessibles lorsqu'un seul
+     * index a répondu. Appelé exclusivement après une question de diagnostic. */
+    public static String liveConnectionDiagnostic(SecurePrefs settings,
+                                                   NativeAI.CancelToken cancellation)
+            throws Exception {
+        if (!enabled(settings))
+            return "Le module Internet de FRIDAY est désactivé dans les réglages. "
+                    + "Aucune recherche réseau n'a été tentée. Activez "
+                    + "« Autoriser Jarvis à rechercher des informations sur Internet ».";
+        if (cancellation != null) cancellation.check();
+        try {
+            List<Source> sources = search("planètes système solaire", cancellation);
+            if (sources.isEmpty()) throw new IOException("Aucun résultat pertinent renvoyé.");
+            java.util.LinkedHashSet<String> hosts = new java.util.LinkedHashSet<>();
+            for (Source source : sources) {
+                try { hosts.add(URI.create(source.url).getHost()); }
+                catch (Exception ignored) { }
+            }
+            return "J'ai effectué une recherche HTTPS réelle à l'instant depuis "
+                    + "cette application. Résultat : recherche réussie sur "
+                    + sources.size() + " source(s) pertinente(s), domaine(s) "
+                    + String.join(", ", hosts) + ". "
+                    + "Cela confirme un accès à ces résultats publics, mais pas "
+                    + "que tous les moteurs, pages ou sites privés sont accessibles. "
+                    + "Pour les actualités, posez une question précise et récente ; "
+                    + "FRIDAY doit obtenir des sources datées.";
+        } catch (Exception error) {
+            if (cancellation != null) cancellation.check();
+            return "Le module Internet est autorisé, mais la recherche HTTPS "
+                    + "de vérification a échoué maintenant. "
+                    + "Je ne prétends pas avoir vérifié les pages demandées. "
+                    + "Détail : " + clip(error.getMessage(), 220) + ". "
+                    + "Cela peut venir d'un moteur inaccessible (HTTP 202/403/429), "
+                    + "d'un accès réseau absent ou de résultats sans rapport. "
+                    + "Le modèle Jarvis reste disponible localement.";
+        }
+    }
+
     /** Test du moteur de recherche sans modèle IA ni clés. */
     public static String probe() throws Exception {
-        List<Source> sources = search("France science actualités", null);
+        List<Source> sources = search("planètes système solaire", null);
         if (sources.isEmpty()) throw new IOException("Aucun résultat fourni par le service Web.");
         java.util.LinkedHashSet<String> hosts = new java.util.LinkedHashSet<>();
         for (Source source : sources) {
