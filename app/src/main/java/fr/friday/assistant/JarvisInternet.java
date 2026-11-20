@@ -205,21 +205,24 @@ public final class JarvisInternet {
         }
         String encoded = URLEncoder.encode(q, "UTF-8");
         try {
-            found.addAll(parseRss(fetch("https://www.bing.com/search?q="
-                    + encoded + "&format=rss"), 0, now));
+            mergeRelevant(found, parseRss(fetch("https://www.bing.com/search?q="
+                    + encoded + "&format=rss"), 0, now), q);
         } catch (Exception fail) { trouble = fail.getMessage(); }
         // Bing peut renvoyer un ou deux liens seulement ; compléter plutôt
         // que considérer une recherche partielle comme suffisante.
         if (found.size() < MAX_RESULTS) {
             if (cancellation != null) cancellation.check();
             try {
-                mergeUnique(found, parseDuckDuckGo(fetch("https://html.duckduckgo.com/html/?q="
-                        + encoded)));
+                mergeRelevant(found, parseDuckDuckGo(fetch("https://html.duckduckgo.com/html/?q="
+                        + encoded)), q);
             } catch (Exception fail) { trouble = fail.getMessage(); }
         }
         if (found.isEmpty())
-            throw new IOException("Recherche Internet indisponible : aucun résultat Web obtenu "
-                    + "(Bing / DuckDuckGo). " + clip(trouble == null ? "" : trouble, 120));
+            throw new IOException("Aucune source Web suffisamment pertinente trouvée pour cette question. "
+                    + "La connexion Internet peut fonctionner, mais les moteurs de recherche "
+                    + "renvoient parfois des définitions ou des résultats hors sujet. "
+                    + "Reformulez avec des mots-clés précis. "
+                    + clip(trouble == null ? "" : trouble, 120));
         return found;
     }
 
@@ -287,6 +290,16 @@ public final class JarvisInternet {
             } finally { conn.disconnect(); }
         }
         throw new IOException("Trop de redirections de recherche.");
+    }
+
+    /** Les sources générales doivent réellement concerner la demande. */
+    private static void mergeRelevant(List<Source> into, List<Source> candidates, String query) {
+        ArrayList<Source> selected = new ArrayList<>();
+        for (Source candidate : candidates) {
+            if (WebSearch.relevantResult(query, candidate.title, candidate.summary))
+                selected.add(candidate);
+        }
+        mergeUnique(into, selected);
     }
 
     /** Fusion de résultats publics sans doublons, en conservant les horodatages. */
