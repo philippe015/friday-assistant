@@ -167,7 +167,7 @@ public class MainActivity extends Activity {
         LinearLayout bar = new LinearLayout(this);
         bar.setPadding(dp(7),dp(3),dp(7),dp(3));
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = label("F.R.I.D.A.Y. · " + FridayVersionGuard.thisVersion(this));
+        TextView title = label("J.A.R.V.I.S. · " + FridayVersionGuard.thisVersion(this));
         title.setTextSize(15); title.setTextColor(Color.rgb(71,228,249));
         bar.addView(title, new LinearLayout.LayoutParams(0,dp(48),1));
         Button configure = button("⚙ Réglages", () -> configScroll.setVisibility(configScroll.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
