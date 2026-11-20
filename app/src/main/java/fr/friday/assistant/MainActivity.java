@@ -307,16 +307,22 @@ public class MainActivity extends Activity {
         silenceInput = field("2100", false);
         silenceInput.setInputType(InputType.TYPE_CLASS_NUMBER);
         silenceInput.setText(prefs.get("silence_ms", "2100")); config.addView(silenceInput);
-        config.addView(label("CONVERSATION SANS RÉPÉTER FRIDAY · fenêtre (secondes, 15 à 180)"));
+        config.addView(label("DIALOGUE CONTINU · relance directe 20 secondes après la voix ; "
+                + "fenêtre prolongée (15 à 180 secondes) si l'option ci-dessous est activée"));
         followupInput = field("75", false);
         followupInput.setInputType(InputType.TYPE_CLASS_NUMBER);
         followupInput.setText(prefs.get("followup_sec", "75")); config.addView(followupInput);
         followupHandsfreeEnabled = new CheckBox(this);
-        followupHandsfreeEnabled.setText("Autoriser les relances sans dire Friday (risque de fausses questions)");
+        followupHandsfreeEnabled.setText("Prolonger les relances sans dire Friday "
+                + "(75 secondes par défaut, risque de fausses questions)");
         followupHandsfreeEnabled.setTextColor(Color.WHITE);
         followupHandsfreeEnabled.setChecked("1".equals(prefs.get("followup_handsfree", "0")));
         config.addView(followupHandsfreeEnabled);
-        config.addView(label("Conseil : laissez cette option desactivee. Dites Friday a chaque question ; dire Friday seul puis la question reste possible pendant 12 s."));
+        config.addView(label("Mode continu : après chaque réponse, FRIDAY ignore 2,5 secondes "
+                + "d'écho du haut-parleur puis accepte une question directe pendant "
+                + "20 secondes. Passé ce délai, dites Friday ou Jarvis. "
+                + "La case ci-dessus permet de prolonger cette période, avec "
+                + "davantage de risque de déclenchements involontaires."));
         bargeEnabled = new CheckBox(this);
         bargeEnabled.setText("Activer STOP vocal pendant la réponse (« stop », « Friday stop », « j’ai une précision »)");
         bargeEnabled.setTextColor(Color.WHITE);
@@ -346,12 +352,12 @@ public class MainActivity extends Activity {
         oneShotEnabled.setTextColor(Color.WHITE);
         oneShotEnabled.setChecked("1".equals(prefs.get("listen_once", "0")));
         config.addView(oneShotEnabled);
-        config.addView(label("Mode Continu (case décochée) : le microphone reste actif "
-                + "après chaque réponse. Pour une nouvelle demande, dites « Friday ». "
-                + "Sans mot-clé, les relances sont désactivées par défaut pour éviter les "
-                + "questions fantômes ; elles sont possibles seulement si l'option correspondante est cochée. " 
-                + "Mode une question (case cochée) : le microphone s'arrête après la réponse. "
-                + "Pendant que FRIDAY parle, STOP reste disponible ; un casque limite l'écho."));
+        config.addView(label("Mode continu (case décochée) : le microphone reste actif "
+                + "après chaque réponse. La nouvelle question peut être dite directement "
+                + "pendant 20 secondes après l'anti-écho, sans appuyer sur un bouton. "
+                + "Ensuite, dites « Friday » ou « Jarvis » pour une autre question. "
+                + "Mode une question (case cochée) : l'écoute s'arrête après la réponse. "
+                + "Pendant la voix, l'anti-écho protège contre les fausses questions."));
         voskHintsEnabled = new CheckBox(this);
         voskHintsEnabled.setText("Vocabulaire Vosk spécialisé (expérimental, sur demande)");
         voskHintsEnabled.setTextColor(Color.WHITE);
@@ -1016,7 +1022,8 @@ public class MainActivity extends Activity {
                 + "\nAudio : microphone intégré et haut-parleur du téléphone (Bluetooth désactivé)"
                 + "\nMoteur IA : Jarvis local uniquement"
                 + "\nMode vocal : " + ("1".equals(prefs.get("listen_once", "0"))
-                        ? "Une question" : "Continu")
+                        ? "Une question (arrêt après réponse)"
+                        : "Continu (relance directe pendant 20 s après anti-écho)")
                 + "\nInternet Jarvis : " + (JarvisInternet.enabled(prefs)
                         ? "activé (requêtes HTTPS publiques)" : "désactivé")
                 + "\nDernier test Internet : " + prefs.get("jarvis_web_last_test", "non effectué")
