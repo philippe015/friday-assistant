@@ -62,6 +62,15 @@ public final class RecentNewsPolicy {
         return hours > 0 && hours <= 48 ? hours : 0;
     }
 
+    /** Les demandes de titres sans précision (ex. « actualités du jour »)
+     * nécessitent quand même un flux daté. Fenêtre glissante de 24 h :
+     * ne prétend pas représenter exclusivement le jour civil courant. */
+    public static int newsWindowHours(String question) {
+        if (!isNews(question)) return 0;
+        int explicitHours = requestedHours(question);
+        return explicitHours > 0 ? explicitHours : 24;
+    }
+
     public static boolean requiresRecentNews(String question) {
         return isNews(question) && requestedHours(question) > 0;
     }
