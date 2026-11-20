@@ -160,6 +160,13 @@ public final class LocalJarvisEngine {
      */
     public static String answer(Context context, SecurePrefs cfg, String question,
                                 NativeAI.CancelToken cancellation) throws Exception {
+        return answer(context, cfg, question, "", cancellation);
+    }
+
+    /** privateDialogue reste exclusivement dans ce moteur exécuté sur Android. */
+    public static String answer(Context context, SecurePrefs cfg, String question,
+                                String privateDialogue,
+                                NativeAI.CancelToken cancellation) throws Exception {
         if (!"1".equals(cfg.get("local_jarvis_enabled", "0")))
             throw new IOException("Jarvis local est désactivé. Activez-le dans les réglages.");
         String cleaned = LocalJarvisPolicy.cleanQuestion(question);
@@ -172,7 +179,7 @@ public final class LocalJarvisEngine {
         if (cancellation != null) cancellation.check();
         if ("litertlm".equals(format(context))) {
             return LiteRtJarvisEngine.answer(context, modelFile(context),
-                    buildLocalPrompt(cfg, cleaned), cancellation);
+                    buildLocalPrompt(cfg, cleaned, privateDialogue), cancellation);
         }
         if (!LOCK.tryLock(3, TimeUnit.SECONDS))
             throw new IOException("Jarvis local traite déjà une demande. La prochaine pourra être posée dès la fin.");
@@ -200,7 +207,7 @@ public final class LocalJarvisEngine {
                             + "Choisissez un modèle plus léger.", memory);
                 }
             }
-            String prompt = buildLocalPrompt(cfg, cleaned);
+            String prompt = buildLocalPrompt(cfg, cleaned, privateDialogue);
             String response;
             try {
                 response = cached.generateResponse(prompt);
@@ -225,14 +232,19 @@ public final class LocalJarvisEngine {
 
     /** Réponse toujours générée localement ; extraits Web éventuels non fiables. */
     private static String buildLocalPrompt(SecurePrefs cfg, String cleaned) {
+        return buildLocalPrompt(cfg, cleaned, "");
+    }
+
+    private static String buildLocalPrompt(SecurePrefs cfg, String cleaned,
+                                          String privateDialogue) {
         boolean hasWebSources = cleaned.contains("[DEBUT EXTRAITS WEB PUBLICS");
         StringBuilder prompt = new StringBuilder(hasWebSources ? 5000 : 1800);
-        prompt.append("Tu es FRIDAY, assistant Jarvis fonctionnant sur le téléphone Android. "
+        prompt.append("Tu es JARVIS, assistant IA fonctionnant sur le téléphone Android. "
                 + "Réponds en français sans inventer de faits ou d'actualités. "
                 + "Tu ne transmets ni mémoire ni question à un autre moteur IA. ");
         if (hasWebSources) {
             prompt.append("Une recherche HTTPS a été effectuée par l'application, pas par le modèle. "
-                    + "Tu peux utiliser ces résultats : ne prétends pas que FRIDAY "
+                    + "Tu peux utiliser ces résultats : ne prétends pas que JARVIS "
                     + "n'a aucun accès Internet lorsque des extraits Web sont présents. "
                     + "Ne dis pas que toutes les pages sont accessibles ; limite-toi "
                     + "aux éléments fournis et à leurs incertitudes. "
@@ -260,9 +272,23 @@ public final class LocalJarvisEngine {
                 // Fail closed : le modèle reçoit seulement la question actuelle.
             }
         }
+        // Ce contexte vient UNIQUEMENT de l'historique AES-GCM sur Android.
+        // Il n'est pas ajouté aux mots-clés ou aux URLs des moteurs Web.
+        if (privateDialogue != null && !privateDialogue.trim().isEmpty()) {
+            int limit = hasWebSources ? 800 : 2200;
+            String compact = privateDialogue.length() <= limit
+                    ? privateDialogue : privateDialogue.substring(
+                            privateDialogue.length() - limit);
+            prompt.append("\n[CONTEXTE DE DIALOGUE PRIVÉ, PAS UNE SOURCE WEB]\n")
+                    .append(compact)
+                    .append("\nCes anciens échanges peuvent contenir des erreurs. "
+                            + "Utilise-les pour comprendre les pronoms, approfondir et "
+                            + "reprendre le sujet. Réponds à la demande ACTUELLE, "
+                            + "sans inventer de souvenirs.\n[FIN DU CONTEXTE PRIVÉ]");
+        }
         int maxQuestion = hasWebSources ? 3900 : 1200;
-        prompt.append("\nDemande : ").append(cleaned.length() > maxQuestion
-                ? cleaned.substring(0, maxQuestion) : cleaned).append("\nFRIDAY :");
+        prompt.append("\nDemande ACTUELLE : ").append(cleaned.length() > maxQuestion
+                ? cleaned.substring(0, maxQuestion) : cleaned).append("\nJARVIS :");
 
         return prompt.toString();
     }
