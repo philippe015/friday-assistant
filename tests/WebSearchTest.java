@@ -96,6 +96,24 @@ public final class WebSearchTest {
         check(WebSearch.relevantResult("Code du travail durée de pause",
                         "Code du travail : repos et pause", "Code du travail en France"),
                 "Conserver des sources du thème réellement demandé");
+        check(WebSearch.keywordsForSearch("Friday, quels sont les derniers prix du carburant en France ?")
+                        .contains("carburant"),
+                "Recherche : le sujet carburant doit être conservé");
+        check(!WebSearch.keywordsForSearch("Friday, quels sont les derniers prix du carburant en France ?")
+                        .contains("quels"),
+                "Recherche : aucun pronom interrogatif dans les mots-clés");
+        check(WebSearch.keywordsForSearch("Quelle est la réglementation SSIAP 2 en France ?")
+                        .contains("ssiap"),
+                "Recherche juridique : le sujet SSIAP est conservé");
+        check(WebSearch.requiresCurrentEvidence("Actualités des 7 dernières heures"),
+                "L'actualité horaire exige des sources");
+        check(WebSearch.requiresCurrentEvidence("Quel est le prix du gaz aujourd'hui ?"),
+                "Les prix actuels ne doivent pas être inventés");
+        check(!WebSearch.requiresCurrentEvidence("Explique le cycle de l'eau"),
+                "Les connaissances stables peuvent être traitées hors connexion");
+        check(WebSearch.relevantResult("Explique le fonctionnement du système solaire",
+                        "Système solaire — Wikipédia", "Planètes en orbite"),
+                "Les sources encyclopédiques pertinentes doivent être acceptées");
         System.out.println("WebSearchTest OK");
     }
 }
