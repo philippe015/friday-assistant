@@ -1528,7 +1528,13 @@ public class MainActivity extends Activity {
             requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_MIC); return;
         }
         if (FridayService.isActive()) {
-            status.setText("Le microphone natif est déjà actif, même écran verrouillé. Stoppez pour appliquer de nouveaux réglages.");
+            // Le bouton Écoute n'est plus inerte lorsque le micro tourne déjà :
+            // c'est une action explicite qui permet une nouvelle question sans
+            // mot d'activation pendant 15 s, sans fermer ni recréer AudioRecord.
+            startService(new Intent(this, FridayService.class)
+                    .setAction(FridayService.ACTION_INTERRUPT));
+            status.setText("JARVIS vous écoute : posez une question sans dire Jarvis "
+                    + "pendant 15 secondes. La réponse précédente est interrompue si nécessaire.");
             return;
         }
         // Le GPS est facultatif. Une permission de localisation manquante
