@@ -9,7 +9,11 @@ import java.util.regex.Pattern;
 
 /** Règles testables de dictée, mot-clé et lecture vocale. Aucune dépendance Android. */
 public final class VoiceText {
-    private static final Pattern WAKE = Pattern.compile("(?:^|\\b)(?:jarvis|jarvise|jervis|jervi)(?:\\b)");
+    // Variantes françaises limitées : éviter les déclenchements par ressemblance
+    // arbitraire, tout en acceptant les deux noms affichés dans l'interface.
+    private static final Pattern WAKE = Pattern.compile(
+            "(?:^|\\b)(?:jarvis|jarvise|jarvice|jervis|jervi|djarvis|jar vis|jar vies"
+            + "|friday|fridai|fridey|freday)\\b");
     private VoiceText() { }
 
     public static String normalize(String text) {
@@ -18,6 +22,10 @@ public final class VoiceText {
     }
 
     public static boolean hasWakeWord(String heard) { return WAKE.matcher(normalize(heard)).find(); }
+    /** Les demandes nécessitent le nom en début de phrase, jamais en fin. */
+    public static boolean startsWithWakeWord(String heard) {
+        return WAKE.matcher(normalize(heard).trim()).lookingAt();
+    }
     public static String withoutWakeWord(String heard) {
         if (heard == null) return "";
         String clean = heard.trim();
