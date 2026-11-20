@@ -1022,9 +1022,14 @@ public class FridayService extends Service {
             if (!live(turn)) return;
             lastReplyAt = SystemClock.elapsedRealtime();
             if (spoken) {
-                event("status", "Réponse terminée. Après 2,5 secondes d'anti-écho, "
-                        + "posez directement votre prochaine question pendant 20 secondes "
-                        + "ou dites Friday / Jarvis à tout moment.");
+                if ("1".equals(settings.get("listen_once", "0")))
+                    event("status", "Réponse terminée. Mode une question activé : "
+                            + "le microphone va s'arrêter. Décochez cette option "
+                            + "dans Réglages pour un dialogue continu.");
+                else
+                    event("status", "Réponse terminée. Après 2,5 secondes d'anti-écho, "
+                            + "posez directement votre prochaine question pendant 20 secondes "
+                            + "ou dites Friday / Jarvis à tout moment.");
             } else if ("1".equals(settings.get("voice_enabled", "1"))) {
                 event("error", "Réponse disponible en texte, mais lecture vocale incomplète. "
                         + "Le moteur TTS va être réinitialisé ; microphone toujours actif.");
@@ -1060,9 +1065,13 @@ public class FridayService extends Service {
                     // question après la première réponse, sans second bouton
                     // ni mot-clé pendant une fenêtre limitée. Le TTS et sa
                     // queue d'écho restent exclus de cette fenêtre.
-                    if (!"1".equals(settings.get("listen_once", "0")))
+                    if (!"1".equals(settings.get("listen_once", "0"))) {
                         wakeOnlyUntil = Math.max(wakeOnlyUntil,
                                 TtsEchoGate.followupUntil(finishedAt, false));
+                        // La prolongation mains libres facultative fonctionne
+                        // aussi si la première question ne contenait pas Friday.
+                        wakeArmed = true;
+                    }
                 }
                 currentTurn = null;
                 speakingNow = false;
