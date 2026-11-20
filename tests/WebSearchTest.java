@@ -132,6 +132,10 @@ public final class WebSearchTest {
                 "Les données personnelles restent locales");
         check(!WebSearch.safeForGeneralSearch("Quelle est ma position GPS ?"),
                 "La géolocalisation reste locale");
+        check(!WebSearch.safeForGeneralSearch("Réponds hors ligne, sans Internet"),
+                "Une demande explicite hors connexion doit rester locale");
+        check(!WebSearch.safeForGeneralSearch("Ne recherche pas sur le Web pour cette réponse"),
+                "Le refus explicite de recherche Internet doit être respecté");
         check(WebSearch.scientificResearch("Cherche des études scientifiques sur le sommeil"),
                 "Crossref doit être réservé aux recherches scientifiques");
         check(!WebSearch.scientificResearch("Recherche des restaurants à Paris"),
