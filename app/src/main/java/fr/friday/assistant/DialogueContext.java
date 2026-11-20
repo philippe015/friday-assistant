@@ -91,8 +91,10 @@ public final class DialogueContext {
         if (chosen.isEmpty()) return "";
         StringBuilder result = new StringBuilder(chars + 250);
         result.append("[CONTEXTE PRIVÉ DES ÉCHANGES PRÉCÉDENTS — TÉLÉPHONE UNIQUEMENT]\n");
-        result.append(olderContext);
         for (String line : chosen) result.append(line).append('\n');
+        // Le prompt local tronque parfois le DÉBUT du contexte à 2200 caractères :
+        // laisser les rappels ciblés en dernier pour qu'ils restent accessibles.
+        result.append(olderContext);
         result.append("[FIN CONTEXTE PRIVÉ]\n");
         return result.toString();
     }
