@@ -13,7 +13,7 @@ public final class PersonalityProfiles {
     public static final int MAX_PROFILES = 10;
     public static final int MAX_PROMPT = 16000;
     public static final String DEFAULT_PROMPT =
-        "Tu incarnes F.R.I.D.A.Y., un assistant vocal personnel francophone.\n" +
+        "Tu incarnes JARVIS, un assistant vocal personnel francophone.\n" +
         "Adopte un ton posé, réactif et précis.\n" +
         "Réponds oralement avec des phrases fluides, sans longs préambules.\n" +
         "Pour les tâches complexes, donne des étapes pratiques et vérifie les hypothèses.\n" +
@@ -23,7 +23,7 @@ public final class PersonalityProfiles {
         JSONObject root = new JSONObject();
         try {
             JSONArray profiles = new JSONArray();
-            profiles.put(new JSONObject().put("id", "friday").put("name", "F.R.I.D.A.Y.").put("prompt", DEFAULT_PROMPT));
+            profiles.put(new JSONObject().put("id", "friday").put("name", "JARVIS").put("prompt", DEFAULT_PROMPT));
             root.put("active", "friday").put("profiles", profiles);
         } catch (JSONException ignored) { }
         return root;
@@ -51,10 +51,37 @@ public final class PersonalityProfiles {
         if (!ids.contains(active)) throw new JSONException("Profil actif introuvable");
         return new JSONObject().put("active", active).put("profiles", cleaned);
     }
+    /** Conserve la clé de chiffrement, les identifiants de profils et les
+     * profils personnalisés. Renomme uniquement le profil historique par
+     * défaut. Ne modifie aucun secret en stockage lors d'une simple lecture. */
+    private static JSONObject migratedDefault(JSONObject root) throws JSONException {
+        JSONArray profiles = root.getJSONArray("profiles");
+        for (int i = 0; i < profiles.length(); i++) {
+            JSONObject p = profiles.getJSONObject(i);
+            if (!"friday".equals(p.optString("id", ""))) continue;
+            if ("F.R.I.D.A.Y.".equalsIgnoreCase(p.optString("name", "")))
+                p.put("name", "JARVIS");
+            String text = p.optString("prompt", "").trim();
+            String oldNative = "Tu incarnes F.R.I.D.A.Y., un assistant vocal personnel francophone.\\n"
+                    + "Adopte un ton posé, réactif et précis.\\n"
+                    + "Réponds oralement avec des phrases fluides, sans longs préambules.\\n"
+                    + "Pour les tâches complexes, donne des étapes pratiques et vérifie les hypothèses.\\n"
+                    + "Distingue les faits vérifiés des suppositions et des capacités indisponibles.";
+            String oldWeb = "Tu es F.R.I.D.A.Y., une assistante vocale personnelle inspirée des interfaces futuristes. "
+                    + "Tu parles en français, avec précision, calme et intelligence. "
+                    + "Donne des réponses orales naturelles et utiles. "
+                    + "Différencie faits vérifiés et hypothèses, et cite les sources lorsque tu utilises Internet.";
+            if (text.equals(oldNative) || text.equals(oldWeb))
+                p.put("prompt", DEFAULT_PROMPT);
+        }
+        return root;
+    }
+
     public static String read(SecurePrefs prefs) {
         try {
             String stored = prefs.secret(KEY);
-            return stored.isEmpty() ? defaultData().toString() : validated(stored).toString();
+            return stored.isEmpty() ? defaultData().toString()
+                    : migratedDefault(validated(stored)).toString();
         } catch (Exception ignored) { return defaultData().toString(); }
     }
     public static void save(SecurePrefs prefs, String json) throws Exception {
@@ -76,7 +103,7 @@ public final class PersonalityProfiles {
                     return profile.getString("name");
             }
         } catch (Exception ignored) { }
-        return "F.R.I.D.A.Y.";
+        return "JARVIS";
     }
     public static String activePrompt(SecurePrefs prefs) {
         try {
