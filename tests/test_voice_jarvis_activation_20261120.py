@@ -57,6 +57,8 @@ class VoiceActivationReliability(unittest.TestCase):
             }
             if (BargeInPolicy.startsWithWake("Nous parlons de Jarvis"))
                 throw new AssertionError("Activation au milieu d'une phrase");
+            if (!VoiceText.withoutWakeWord("Qui est Jarvis ?").equals("Qui est Jarvis ?"))
+                throw new AssertionError("Question ordinaire tronquée");
           }
         }
         """
