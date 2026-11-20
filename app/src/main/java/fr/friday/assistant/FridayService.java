@@ -594,7 +594,10 @@ public class FridayService extends Service {
                             confidenceSum = 0; confidenceCount = 0;
                             earlyCancelled = false; sawSpeakerFeedback = false;
                             generalInputBlocked = false;
-                            voiceState("Micro prêt : dites Friday ou Jarvis pour votre question suivante");
+                            voiceState(TtsEchoGate.followupAccepts(
+                                    SystemClock.elapsedRealtime(), echoBlockUntil, wakeOnlyUntil)
+                                    ? "Micro prêt : dialogue continu, posez votre question sans mot-clé (20 secondes)"
+                                    : "Micro prêt : dites Friday ou Jarvis pour votre question suivante");
                             event("barge_diag", "Protection anti-écho terminée · questions autorisées");
                         }
                         boolean endpoint = recognizer.acceptWaveForm(buffer, count);
@@ -842,7 +845,7 @@ public class FridayService extends Service {
                 event("status", "Friday / Jarvis à l'écoute : posez votre question.");
                 return;
             }
-        } else if ((now < wakeOnlyUntil ||
+        } else if ((TtsEchoGate.followupAccepts(now, echoBlockUntil, wakeOnlyUntil) ||
                 ("1".equals(settings.get("followup_handsfree", "0")) && wakeArmed &&
                 (now - lastReplyAt <= followupMs || now < clarificationUntil))) &&
                 now >= echoBlockUntil) {
@@ -1019,7 +1022,9 @@ public class FridayService extends Service {
             if (!live(turn)) return;
             lastReplyAt = SystemClock.elapsedRealtime();
             if (spoken) {
-                event("status", "Réponse terminée. Après 2,5 secondes, dites Friday ou Jarvis pour une nouvelle question.");
+                event("status", "Réponse terminée. Après 2,5 secondes d'anti-écho, "
+                        + "posez directement votre prochaine question pendant 20 secondes "
+                        + "ou dites Friday / Jarvis à tout moment.");
             } else if ("1".equals(settings.get("voice_enabled", "1"))) {
                 event("error", "Réponse disponible en texte, mais lecture vocale incomplète. "
                         + "Le moteur TTS va être réinitialisé ; microphone toujours actif.");
@@ -1051,13 +1056,25 @@ public class FridayService extends Service {
                 if (hadSpoken) {
                     lastSpeechEndedAt = finishedAt;
                     echoBlockUntil = TtsEchoGate.afterVoice(finishedAt);
+                    // Le mode continu doit réellement accepter une nouvelle
+                    // question après la première réponse, sans second bouton
+                    // ni mot-clé pendant une fenêtre limitée. Le TTS et sa
+                    // queue d'écho restent exclus de cette fenêtre.
+                    if (!"1".equals(settings.get("listen_once", "0")))
+                        wakeOnlyUntil = Math.max(wakeOnlyUntil,
+                                TtsEchoGate.followupUntil(finishedAt, false));
                 }
                 currentTurn = null;
                 speakingNow = false;
                 spokenText = "";
                 lastReplyAt = finishedAt;
-                voiceState(hadSpoken ? "Fin de la voix · anti-écho 2,5 secondes"
+                voiceState(hadSpoken && !"1".equals(settings.get("listen_once", "0"))
+                        ? "Fin de la voix · 2,5 s anti-écho puis dialogue continu 20 s"
+                        : hadSpoken ? "Fin de la voix · anti-écho 2,5 secondes"
                         : "Réponse terminée · micro disponible, dites Friday ou Jarvis");
+                if (hadSpoken && !"1".equals(settings.get("listen_once", "0")))
+                    asrDiagnostic("Réponse terminée ; après 2,5 s, question directe acceptée "
+                            + "pendant 20 s sans mot-clé");
                 if (running && !"1".equals(settings.get("listen_once", "0"))) {
                     event("barge_diag", "Réponse clôturée · anti-écho temporaire · dictée bientôt active");
                 }
