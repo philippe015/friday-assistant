@@ -15,9 +15,9 @@ WEB = (ROOT/"app/src/main/assets/index.html").read_text(encoding="utf-8")
 
 class VoiceActivationReliability(unittest.TestCase):
     def test_local_jarvis_responds_to_two_wake_words(self):
-        for name in ("jarvis", "jarvise", "jervis", "jervi"):
+        for name in ("jarvis", "jarvise", "jervis", "jervi", "friday", "jar vis"):
             self.assertIn(name, VOICE)
-            self.assertIn(name, BARGE)
+        self.assertIn("VoiceText.startsWithWakeWord(phrase)", BARGE)
         self.assertIn("BargeInPolicy.startsWithWake(heard) && RustWake.detect(heard)", SERVICE)
 
     def test_first_question_after_manual_activation_needs_no_wake(self):
@@ -49,7 +49,7 @@ class VoiceActivationReliability(unittest.TestCase):
         import fr.friday.assistant.*;
         public class SpeechSmoke {
           public static void main(String[] args) {
-            for (String prefix : new String[]{"Jarvis", "Jarvise", "Jervis"}) {
+            for (String prefix : new String[]{"Jarvis", "Jarvise", "Jervis", "Friday", "Jar vis"}) {
               String phrase = prefix + ", quelle heure est-il ?";
               if (!BargeInPolicy.startsWithWake(phrase)) throw new AssertionError(prefix);
               if (!RustWake.detect(phrase)) throw new AssertionError(prefix);
