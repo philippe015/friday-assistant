@@ -31,6 +31,8 @@ public final class JarvisInternet {
 
     private static final int MAX_RESULTS = 5;
     private static final int MAX_SEARCH_BYTES = 200_000;
+    /** RSS des titres : certaines éditions renvoient 100 items > 200 Ko. */
+    private static final int MAX_NEWS_BYTES = 600_000;
     private static final int MAX_WEB_PROMPT = 3_500;
     private static final int MAX_RSS_ITEMS = 40;
     private static final Pattern RSS_ITEM =
@@ -427,16 +429,27 @@ public final class JarvisInternet {
         return found;
     }
 
+    private static boolean legalNewsTopic(String topic) {
+        String normalized = VoiceText.normalize(topic);
+        return normalized.matches(".*\\b(?:droit|droits|loi|lois|legislation|"
+                + "reglementation|administration|administratif|"
+                + "service public|demarches|retraite|fiscalite|impots|"
+                + "securite sociale|emploi|travail|ssi ap|ssiap)\\b.*");
+    }
+
     /** Retire les expressions temporelles d'une demande générale d'actualités. */
     private static String recentNewsTopic(String question) {
         String words = VoiceText.normalize(question).replaceAll("[^a-z0-9 ]+", " ")
                 .replaceAll("\\s+", " ").trim();
         words = words.replaceAll("\\b(?:friday|frida|freiday|freday|fride|"
                 + "actualites?|actus?|nouvelles?|infos?|informations?|news|"
+                + "titres?|journal|flash|evenements?|"
                 + "dernieres?|dernier|precedentes?|precedents?|recentes?|"
+                + "aujourd|hui|jour|matin|soir|actuelles?|nouveautes?|"
                 + "des?|de|du|la|le|les|sur|au|aux|en|dans|pendant|cours|"
                 + "heures?|\\d{1,2}|sept|six|douze|trois|quatre|vingt|"
-                + "quelles?|quels?|sont|donne|moi|cherche|recherche)\\b", " ");
+                + "quelles?|quels?|sont|donne|moi|cherche|recherche|"
+                + "parle|fais|resume|friday|jarvis)\\b", " ");
         return words.replaceAll("\\s+", " ").trim();
     }
 
@@ -452,7 +465,9 @@ public final class JarvisInternet {
             String host = uri.getHost().toLowerCase(Locale.ROOT);
             if (!(host.equals("www.bing.com") || host.equals("html.duckduckgo.com")
                     || host.equals("news.google.com") || host.equals("fr.wikipedia.org")
-                    || host.equals("www.wikidata.org") || host.equals("api.crossref.org")))
+                    || host.equals("www.wikidata.org") || host.equals("api.crossref.org")
+                    || host.equals("www.francetvinfo.fr")
+                    || host.equals("www.service-public.gouv.fr")))
                 throw new IOException("Hôte de recherche non autorisé.");
             HttpURLConnection conn = (HttpURLConnection) uri.toURL().openConnection();
             conn.setInstanceFollowRedirects(false);
@@ -489,14 +504,18 @@ public final class JarvisInternet {
                 String type = conn.getContentType();
                 if (type != null && !type.toLowerCase(Locale.ROOT).matches(".*(xml|html|text|json).*"))
                     throw new IOException("Réponse de recherche non textuelle.");
-                if (conn.getContentLength() > MAX_SEARCH_BYTES)
+                int maxBytes = (host.equals("news.google.com")
+                        || host.equals("www.francetvinfo.fr")
+                        || host.equals("www.service-public.gouv.fr"))
+                        ? MAX_NEWS_BYTES : MAX_SEARCH_BYTES;
+                if (conn.getContentLength() > maxBytes)
                     throw new IOException("Résultat de recherche trop volumineux.");
                 ByteArrayOutputStream buffer = new ByteArrayOutputStream(16_384);
                 try (InputStream in = conn.getInputStream()) {
                     byte[] chunk = new byte[4096];
                     int n;
                     while ((n = in.read(chunk)) != -1) {
-                        if (buffer.size() + n > MAX_SEARCH_BYTES)
+                        if (buffer.size() + n > maxBytes)
                             throw new IOException("Réponse du moteur de recherche trop longue.");
                         buffer.write(chunk, 0, n);
                     }
@@ -615,7 +634,9 @@ public final class JarvisInternet {
         ArrayList<Source> sources = new ArrayList<>();
         Matcher items = RSS_ITEM.matcher(xml);
         int inspected = 0;
-        while (items.find() && sources.size() < MAX_RESULTS
+        // Lire jusqu'à 40 entrées : les cinq premières peuvent être
+        // anciennes, sans date ou étrangères au sujet demandé.
+        while (items.find() && sources.size() < MAX_RSS_ITEMS
                 && inspected++ < MAX_RSS_ITEMS) {
             String item = items.group(1);
             long published = RssFreshness.publishedMillis(xmlField(item, "pubDate"));
