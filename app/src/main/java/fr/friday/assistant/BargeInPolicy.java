@@ -5,13 +5,13 @@ public final class BargeInPolicy {
     private BargeInPolicy() {}
     public static boolean startsWithWake(String phrase) {
         String s = VoiceText.normalize(phrase).trim();
-        return s.matches("^(friday|fraday|frida|freiday|freday|freddy|fredi|fride|vendredi|jarvis|jarvise|jervis|jervi)\\b.*");
+        return s.matches("^(jarvis|jarvise|jarvice|jervis|jervi)\\b.*");
     }
     public static boolean isStopListening(String phrase) {
         if (!startsWithWake(phrase)) return false;
         String s = VoiceText.normalize(VoiceText.withoutWakeWord(phrase));
         return s.matches(".*(arrete|stoppe|coupe|desactive|ferme) (l.ecoute|le micro|le microphone|le service|completement).*" )
-            || s.equals("eteins toi") || s.equals("arrete friday");
+            || s.equals("eteins toi") || s.equals("arrete jarvis");
     }
     public static boolean isStopAnswer(String phrase) {
         if (!startsWithWake(phrase) || wantsToAddDetails(phrase)) return false;
@@ -19,7 +19,7 @@ public final class BargeInPolicy {
         return s.matches("(stop|stoppe|arrete|tais toi|silence|pause|attends|arrete de parler|coupe la voix|interromps|interromps toi|stop la reponse|arrete la reponse)(\\s.*)?");
     }
     /**
-     * Commande courte utilisable SANS « Friday » uniquement pendant une réponse.
+     * Commande courte utilisable SANS « Jarvis » uniquement pendant une réponse.
      * Jamais interprétée comme une question générale ni comme un arrêt du micro.
      */
     public static boolean isBareStopAnswer(String phrase) {
@@ -34,7 +34,7 @@ public final class BargeInPolicy {
                     + "(?: s il te plait)?");
     }
 
-    /** Filtre d'écho : le mot prononcé par FRIDAY ne doit pas arrêter FRIDAY. */
+    /** Filtre d'écho : le mot prononcé par JARVIS ne doit pas arrêter JARVIS. */
     private static boolean repeatsCurrentSpeech(String phrase, String assistantSpeech) {
         String s = VoiceText.normalize(phrase)
                 .replaceAll("[^a-z0-9 ]+", " ").replaceAll("\\s+", " ").trim();
@@ -88,7 +88,7 @@ public final class BargeInPolicy {
         String s = VoiceText.normalize(phrase).replaceAll("[^a-z0-9 ]", " ").replaceAll("\\s+", " ").trim();
         String a = VoiceText.normalize(assistantSpeech).replaceAll("[^a-z0-9 ]", " ").replaceAll("\\s+", " ").trim();
         if (a.length() < 14) return false;
-        // Courtes commandes répétées à voix haute par Friday : évite l'auto-arrêt.
+        // Courtes commandes répétées à voix haute par Jarvis : évite l'auto-arrêt.
         if (s.length() >= 7 && startsWithWake(phrase) && a.contains(s)) return true;
         if (s.length() < 14) return false;
         return a.contains(s) || (startsWithWake(phrase) &&
