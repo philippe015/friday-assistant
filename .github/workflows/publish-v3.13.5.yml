@@ -66,6 +66,14 @@ jobs:
           mv dist/app-release.apk dist/JARVIS-v3.13.5-Android-release.apk
           sha256sum dist/JARVIS-v3.13.5-Android-release.apk
 
+      - name: Android verification tools
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"; fi
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "build-tools;35.0.0"
+
       - name: Verify Android package, version, certificate and compatibility
         env:
           GH_TOKEN: ${{ github.token }}
