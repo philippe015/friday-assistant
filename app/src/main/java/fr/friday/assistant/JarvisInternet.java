@@ -71,7 +71,8 @@ public final class JarvisInternet {
         // Ne jamais envoyer commandes de mémoire ni données de position
         // aux moteurs de recherche publics, même en mode « toujours ».
         if (MemoryIntent.kind(question) != MemoryIntent.NONE
-                || LocationIntent.nearby(question)) return false;
+                || LocationIntent.nearby(question)
+                || DialogueMemoryPolicy.keepLocal(question)) return false;
         return "1".equals(settings.get("jarvis_web_every_answer", "1"))
                 ? WebSearch.safeForGeneralSearch(question)
                 : WebSearch.needsWeb(question);
@@ -80,8 +81,16 @@ public final class JarvisInternet {
     /** Appelé sur un thread d'arrière-plan, jamais le thread Android UI. */
     public static Result answer(Context context, SecurePrefs settings, String question,
                                 NativeAI.CancelToken cancellation) throws Exception {
+        return answer(context, settings, question, "", cancellation);
+    }
+
+    /** Les échanges chiffrés sont transmis au LLM local uniquement, jamais à research(). */
+    public static Result answer(Context context, SecurePrefs settings, String question,
+                                String privateDialogue,
+                                NativeAI.CancelToken cancellation) throws Exception {
         if (!shouldResearch(settings, question)) {
-            String answer = LocalJarvisEngine.answer(context, settings, question, cancellation);
+            String answer = LocalJarvisEngine.answer(
+                    context, settings, question, privateDialogue, cancellation);
             return new Result(answer, answer, false, "");
         }
         if (cancellation != null) cancellation.check();
@@ -105,7 +114,7 @@ public final class JarvisInternet {
                     + "consulté une page ou vérifié une date. N'invente aucune URL ni "
                     + "référence. Question : " + clip(question, 500);
             String offline = LocalJarvisEngine.answer(
-                    context, settings, localQuestion, cancellation);
+                    context, settings, localQuestion, privateDialogue, cancellation);
             String answer = warning + "\n\nRéponse générale locale, non vérifiée sur Internet : "
                     + offline;
             return new Result(answer, answer, false, "");
@@ -159,7 +168,8 @@ public final class JarvisInternet {
                 : contextPrompt.substring(0, available) + "\n[CONTEXTE TRONQUE]")
                 + closing;
         if (cancellation != null) cancellation.check();
-        String spoken = LocalJarvisEngine.answer(context, settings, prompt, cancellation);
+        String spoken = LocalJarvisEngine.answer(
+                context, settings, prompt, privateDialogue, cancellation);
         // Les liens demeurent visibles dans la conversation sans que le TTS
         // épelle de longues URLs à haute voix.
         return new Result(spoken + "\n\n" + references, spoken, true, references.toString());
