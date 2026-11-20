@@ -37,6 +37,20 @@ public final class TtsEchoGate {
         return nowMs + TAIL_MS;
     }
 
+    /** Fenêtre de dialogue vocal après une réponse.
+     * Le délai commence APRÈS le blocage anti-écho : le microphone continue
+     * à écouter, sans redire Friday, pendant 20 secondes en mode continu.
+     * Le mode une question choisi explicitement conserve son arrêt.
+     * Le calcul est hors Android, pour les tests de non-régression. */
+    public static long followupUntil(long finishedAtMs, boolean oneShot) {
+        return oneShot ? 0L : afterVoice(finishedAtMs) + 20_000L;
+    }
+
+    public static boolean followupAccepts(long nowMs, long echoBlockUntilMs,
+                                          long followupUntilMs) {
+        return nowMs >= echoBlockUntilMs && nowMs < followupUntilMs;
+    }
+
     /** Après un STOP volontaire, libère rapidement la parole après l'écho du TTS. */
     public static long afterStop(long nowMs) {
         return nowMs + STOP_TAIL_MS;
