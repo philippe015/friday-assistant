@@ -1081,6 +1081,10 @@ public class MainActivity extends Activity {
             try {
                 if (MemoryIntent.kind(request) != MemoryIntent.NONE)
                     answer = PersonalMemory.command(prefs, request);
+                // Ne pas chercher « quels sont tes capacités » sur Bing :
+                // le statut Internet et les fonctions de Jarvis sont locaux.
+                if (answer == null)
+                    answer = WebSearch.assistantAnswer(request, JarvisInternet.enabled(prefs));
                 if (answer == null) {
                     if (JarvisInternet.shouldResearch(prefs, request)) {
                         JarvisInternet.Result researched = JarvisInternet.answer(
