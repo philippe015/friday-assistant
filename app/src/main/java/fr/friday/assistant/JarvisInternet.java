@@ -347,7 +347,7 @@ public final class JarvisInternet {
                 if (cancellation != null) cancellation.check();
                 try {
                     mergeDated(found, parseRss(fetch(
-                            "https://www.francetvinfo.fr/titres.rss"), hours, now),
+                            "https://www.francetvinfo.fr/titres.rss", true), hours, now),
                             2, topic);
                 } catch (Exception failure) { trouble = noteFailure(trouble, failure); }
             }
@@ -358,7 +358,7 @@ public final class JarvisInternet {
                             + URLEncoder.encode(topic.isEmpty()
                                 ? "actualités France" : topic, "UTF-8")
                             + "&format=rss";
-                    mergeDated(found, parseRss(fetch(bing), hours, now), 2, "");
+                    mergeDated(found, parseRss(fetch(bing, true), hours, now), 2, "");
                 } catch (Exception failure) { trouble = noteFailure(trouble, failure); }
             }
 
@@ -370,7 +370,7 @@ public final class JarvisInternet {
                 try {
                     mergeDated(found, parseRss(fetch(
                             "https://www.service-public.gouv.fr/abonnements/rss/"
-                            + "actu-actualites-particuliers.rss"), hours, now), 2, topic);
+                            + "actu-actualites-particuliers.rss", true), hours, now), 2, topic);
                 } catch (Exception failure) { trouble = noteFailure(trouble, failure); }
             }
             // Les titres les plus récents d'abord, sans date future éloignée.
