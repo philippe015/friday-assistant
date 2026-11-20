@@ -36,7 +36,7 @@ class MicAndFreshNews(unittest.TestCase):
         self.assertIn("recognizer.acceptWaveForm(buffer, count)",VOICE)
 
     def test_recent_news_requires_dated_rss_not_html_guesses(self):
-        self.assertIn('RecentNewsPolicy.requestedHours(q)',WEB)
+        self.assertIn('RecentNewsPolicy.newsWindowHours(q)',WEB)
         self.assertIn("RssFreshness.withinHours(published, now, recentHours)",WEB)
         self.assertIn("RssFreshness.publishedMillis(xmlField(item, \"pubDate\"))",WEB)
         self.assertIn("https://news.google.com/rss?hl=fr&gl=FR&ceid=FR:fr",WEB)
