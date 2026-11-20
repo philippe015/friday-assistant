@@ -154,9 +154,19 @@ public final class JarvisInternet {
     public static String probe() throws Exception {
         List<Source> sources = search("France science actualités", null);
         if (sources.isEmpty()) throw new IOException("Aucun résultat fourni par le service Web.");
+        java.util.LinkedHashSet<String> hosts = new java.util.LinkedHashSet<>();
+        for (Source source : sources) {
+            try { hosts.add(URI.create(source.url).getHost()); }
+            catch (Exception ignored) { }
+        }
         return "Recherche Internet active : " + sources.size()
-                + " résultat(s) HTTPS. Premier titre : " + clip(sources.get(0).title, 110)
-                + "\n" + sources.get(0).url;
+                + " résultat(s) HTTPS pertinents. Domaines trouvés : "
+                + String.join(", ", hosts)
+                + ". Premier titre : " + clip(sources.get(0).title, 110)
+                + "\n" + sources.get(0).url
+                + "\nFournisseurs configurés : Bing, DuckDuckGo, Wikipédia, "
+                + "Wikidata, Crossref (science), Google Actualités (actualités). "
+                + "Un fournisseur configuré peut être indisponible ou limiter les requêtes.";
     }
 
     /** Test indépendant du modèle : actualités avec horodatage RSS récent. */
@@ -414,12 +424,57 @@ public final class JarvisInternet {
         return out;
     }
 
-    /** Les sources générales doivent réellement concerner la demande. */
+    /** Recherche officielle des entités nommées sur Wikidata. */
+    private static List<Source> parseWikidataSearch(String json) throws Exception {
+        ArrayList<Source> results = new ArrayList<>();
+        JSONArray matches = new JSONObject(json).optJSONArray("search");
+        if (matches == null) return results;
+        for (int i = 0; i < matches.length() && results.size() < 6; i++) {
+            JSONObject item = matches.optJSONObject(i);
+            if (item == null) continue;
+            String id = item.optString("id", "");
+            if (!id.matches("Q[1-9][0-9]{0,11}")) continue;
+            String label = item.optString("label", "").trim();
+            String description = item.optString("description", "");
+            if (label.isEmpty()) continue;
+            addSafe(results, "https://www.wikidata.org/wiki/" + id,
+                    clip(label, 150), clip(description, 450));
+        }
+        return results;
+    }
+
+    /** Métadonnées de publications scientifiques : API Crossref sans clé. */
+    private static List<Source> parseCrossrefSearch(String json) throws Exception {
+        ArrayList<Source> results = new ArrayList<>();
+        JSONObject message = new JSONObject(json).optJSONObject("message");
+        JSONArray papers = message == null ? null : message.optJSONArray("items");
+        if (papers == null) return results;
+        for (int i = 0; i < papers.length() && results.size() < 6; i++) {
+            JSONObject paper = papers.optJSONObject(i);
+            if (paper == null) continue;
+            String doi = paper.optString("DOI", "").trim();
+            if (!doi.matches("(?i)^10\\.[0-9]{4,9}/[^\\s]{1,140}$")) continue;
+            JSONArray titles = paper.optJSONArray("title");
+            String title = titles == null ? "" : titles.optString(0, "");
+            JSONArray journals = paper.optJSONArray("container-title");
+            String journal = journals == null ? "" : journals.optString(0, "");
+            if (title.trim().isEmpty()) continue;
+            String url = "https://doi.org/"
+                    + URLEncoder.encode(doi, "UTF-8").replace("+", "%20");
+            addSafe(results, url, clip(title, 150),
+                    clip("Publication scientifique " + journal + " DOI " + doi, 400));
+        }
+        return results;
+    }
+
+    /** Les sources générales doivent réellement concerner la demande.
+     * Au plus deux liens par moteur afin de diversifier les références. */
     private static void mergeRelevant(List<Source> into, List<Source> candidates, String query) {
         ArrayList<Source> selected = new ArrayList<>();
         for (Source candidate : candidates) {
             if (WebSearch.relevantResult(query, candidate.title, candidate.summary))
                 selected.add(candidate);
+            if (selected.size() >= 2) break;
         }
         mergeUnique(into, selected);
     }
