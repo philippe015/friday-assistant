@@ -34,9 +34,9 @@ public final class VoiceVocabulary {
     public static String grammar(String raw) {
         List<String> phrases = phrases(raw);
         if (phrases.isEmpty()) return null;
-        StringBuilder out = new StringBuilder("[\"[unk]\",\"friday\",\"stop\",\"arrete\",\"silence\",\"attends\",\"pause\",\"j ai une precision\",\"friday stop\",\"friday attends\",\"friday arrete\",\"friday j ai une precision\"");
+        StringBuilder out = new StringBuilder("[\"[unk]\",\"jarvis\",\"stop\",\"arrete\",\"silence\",\"attends\",\"pause\",\"j ai une precision\",\"jarvis stop\",\"jarvis attends\",\"jarvis arrete\",\"jarvis j ai une precision\"");
         for (String phrase : phrases) {
-            if ("friday".equals(phrase)) continue;
+            if ("jarvis".equals(phrase)) continue;
             out.append(",\"").append(phrase.replace("\\", "\\\\").replace("\"", "\\\"")).append("\"");
         }
         return out.append(']').toString();

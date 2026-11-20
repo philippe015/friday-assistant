@@ -45,7 +45,7 @@ public final class WebSearch {
             "internet", "web", "regarde", "trouve", "verifie", "consulte",
             "explique", "expliquer", "fonctionnement", "definition", "information",
             "informations", "savoir", "question", "aide",
-            "friday", "fraday", "freddy", "fredi", "jarvis", "jervis"
+            "jarvis", "jarvise", "jarvice", "jervis", "jervi"
     };
     private static final Pattern NEEDS_LIVE_SOURCES = Pattern.compile(
             "\\b(?:actualites?|actus?|news|aujourd hui|hier|demain|maintenant|"
@@ -84,7 +84,7 @@ public final class WebSearch {
     }
 
     private static String withoutWake(String value) {
-        return fold(value).replaceFirst("^(?:friday|fraday|frida|freiday|freday|freddy|fredi|fride|vendredi|jarvis|jarvise|jervis|jervi)\\s+", "");
+        return fold(value).replaceFirst("^(?:jarvis|jarvise|jarvice|jervis|jervi)\\s+", "");
     }
 
     /** Recherche Web par défaut pour les questions générales, jamais pour
@@ -119,7 +119,7 @@ public final class WebSearch {
                 + "bibliographie|recherche academique)\\b.*");
     }
 
-    /** Reconnaît une demande de vérification de connexion de FRIDAY.
+    /** Reconnaît une demande de vérification de connexion de JARVIS.
      * Les questions sur un article, une loi ou les actualités continuent de
      * suivre la recherche Web habituelle et ne reçoivent pas ce diagnostic. */
     public static boolean requestsLiveConnectivityCheck(String question) {
@@ -135,7 +135,7 @@ public final class WebSearch {
                 + "bloque|bloquee|panne|inaccessible)\\b.*")
                 || q.contains("toujours pas") || q.contains("pas acces");
         boolean assistant = q.matches(".*\\b(?:tu|toi|ton|ta|tes|vous|votre|vos|"
-                + "friday|jarvis|assistant|application|module)\\b.*");
+                + "jarvis|assistant|application|module)\\b.*");
         return status && (assistant || q.contains("toujours pas")
                 || q.startsWith("acces internet") || q.startsWith("internet ")
                 || q.startsWith("connexion internet")
@@ -149,7 +149,7 @@ public final class WebSearch {
         if (q.isEmpty() || firstUrl(question).length() > 0
                 || q.matches("^(?:cherche|recherche|verifie|consulte|trouve)\\b.*"))
             return null;
-        boolean refersToAssistant = q.matches(".*\\b(?:tu|toi|ton|ta|tes|vous|votre|vos|jarvis|friday|fraday)\\b.*");
+        boolean refersToAssistant = q.matches(".*\\b(?:tu|toi|ton|ta|tes|vous|votre|vos|jarvis)\\b.*");
         boolean ability = q.matches(".*\\b(?:capacites?|fonctionnalites?|possibilites?|competences?|capable)\\b.*")
                 || q.matches("^(?:que|qu est ce que) (?:peux tu|sais tu|pouvez vous) faire.*")
                 || q.matches("^(?:a quoi sers tu|que sais tu faire|presente toi).*");
@@ -160,7 +160,7 @@ public final class WebSearch {
                     || q.startsWith("acces internet") || q.startsWith("a de "));
         if (accessComplaint) {
             return internetEnabled
-                    ? "Le module Internet de FRIDAY est activé. L'application peut chercher "
+                    ? "Le module Internet de JARVIS est activé. L'application peut chercher "
                       + "des pages HTTPS publiques avec Bing et DuckDuckGo, des références "
                       + "Wikipédia et Wikidata, des publications Crossref et des actualités "
                       + "horodatées avec Google Actualités. Ces recherches sont faites par "
@@ -169,13 +169,13 @@ public final class WebSearch {
                       + "ou dépendantes de JavaScript peuvent rester inaccessibles. "
                       + "Une option activée ne garantit pas que chaque recherche aboutit. "
                       + "Pour vérifier la connexion actuelle, utilisez « Tester l'accès Internet Jarvis »."
-                    : "L'accès Internet de FRIDAY est désactivé dans les réglages. "
+                    : "L'accès Internet de JARVIS est désactivé dans les réglages. "
                       + "Jarvis local peut encore répondre hors ligne. Activez "
                       + "« Autoriser Jarvis à rechercher des informations sur Internet » "
                       + "pour consulter des sources HTTPS publiques.";
         }
         if (refersToAssistant && ability) {
-            return "Je suis FRIDAY, assistant Jarvis local sur ce téléphone. "
+            return "Je suis JARVIS, assistant Jarvis local sur ce téléphone. "
                     + "Je peux répondre aux questions et parler en français avec le modèle "
                     + "installé, utiliser l'écoute Vosk, aider à expliquer des sujets, "
                     + "et utiliser la mémoire locale chiffrée si elle est activée. "
@@ -263,7 +263,7 @@ public final class WebSearch {
      */
     public static String searchQuery(String question, String previousUserQuestion) {
         String current = question == null ? "" : question.trim();
-        current = current.replaceFirst("(?i)^(?:friday|fraday|frida|freiday|freday|freddy|fredi|fride|vendredi|jarvis|jarvise|jervis|jervi)[\\s,.:;!?-]+", "");
+        current = current.replaceFirst("(?i)^(?:jarvis|jarvise|jarvice|jervis|jervi)[\\s,.:;!?-]+", "");
         current = current.replaceFirst("(?i)^(?:cherche|recherche|verifie|trouve|regarde|consulte)\\s+"
                 + "(?:(?:sur\\s+)?(?:internet|le\\s+web)\\s+)?", "").trim();
         if (isFollowUp(current) && previousUserQuestion != null && !previousUserQuestion.trim().isEmpty()) {

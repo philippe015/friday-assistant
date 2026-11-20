@@ -103,7 +103,7 @@ public class MainActivity extends Activity {
             prefs.put("provider", "mistral");
             prefs.put("mistral_only_v330", "1");
         }
-        // Réserver FRIDAY à Jarvis Android et Mistral, y compris après mise à jour.
+        // Réserver JARVIS à Jarvis Android et Mistral, y compris après mise à jour.
         prefs.put("openjarvis_enabled", "0");
         prefs.put("openjarvis_route_all", "0");
         // L'utilisateur a demandé l'accès Web systématique : migration unique
@@ -167,7 +167,7 @@ public class MainActivity extends Activity {
         LinearLayout bar = new LinearLayout(this);
         bar.setPadding(dp(7),dp(3),dp(7),dp(3));
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = label("F.R.I.D.A.Y. · " + FridayVersionGuard.thisVersion(this));
+        TextView title = label("JARVIS · " + FridayVersionGuard.thisVersion(this));
         title.setTextSize(15); title.setTextColor(Color.rgb(71,228,249));
         bar.addView(title, new LinearLayout.LayoutParams(0,dp(48),1));
         Button configure = button("⚙ Réglages", () -> configScroll.setVisibility(configScroll.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
@@ -273,7 +273,7 @@ public class MainActivity extends Activity {
                 + "un pilote GPU/OpenCL compatible ; préférez le petit Gemma 3 .task "
                 + "sur un téléphone moins puissant. L'IA locale ne connaît pas les "
                 + "actualités Internet hors connexion."));
-        config.addView(label("FRIDAY MEMORY+ v3.8.0 · privé, chiffré et sans synchronisation GitHub"));
+        config.addView(label("JARVIS MEMORY+ v3.8.0 · privé, chiffré et sans synchronisation GitHub"));
         memoryEnabled = new CheckBox(this);
         memoryEnabled.setText("Activer ma mémoire locale (notes chiffrées AES-GCM via Android Keystore)");
         memoryEnabled.setTextColor(Color.WHITE);
@@ -292,7 +292,7 @@ public class MainActivity extends Activity {
         memoryEditor.setTextColor(Color.WHITE);
         memoryEditor.setTextSize(14);
         memoryEditor.setText(PersonalMemory.editorText(prefs));
-        memoryEditor.setHint("[projet] FRIDAY utilise Jarvis local et conserve mes notes privées");
+        memoryEditor.setHint("[projet] JARVIS utilise Jarvis local et conserve mes notes privées");
         config.addView(memoryEditor);
         config.addView(button("Enregistrer les notes chiffrées", this::saveMemory));
         memorySearchInput = field("Rechercher localement (mot, projet ou thème)", false);
@@ -309,9 +309,9 @@ public class MainActivity extends Activity {
                     catch (Exception e) { status.setText("Erreur mémoire : " + e.getMessage()); }
                 }).show();
         }));
-        config.addView(label("Commandes vocales locales : « Friday, retiens que... », « Friday, cherche dans ma mémoire projet », « Friday, qu'as-tu mémorisé ? ». Effacement total uniquement après confirmation dans les réglages."));
+        config.addView(label("Commandes vocales locales : « Jarvis, retiens que... », « Jarvis, cherche dans ma mémoire projet », « Jarvis, qu'as-tu mémorisé ? ». Effacement total uniquement après confirmation dans les réglages."));
         config.addView(label("DÉTECTION DES PHRASES · silence de base (900 à 6000 ms)"));
-        config.addView(label("FRIDAY laisse jusqu'à une seconde supplémentaire si la phrase "
+        config.addView(label("JARVIS laisse jusqu'à une seconde supplémentaire si la phrase "
                 + "se termine sur une liaison comme « et », « de » ou « pour », "
                 + "afin de ne pas couper une question pendant une courte pause."));
         silenceInput = field("2100", false);
@@ -323,25 +323,25 @@ public class MainActivity extends Activity {
         followupInput.setInputType(InputType.TYPE_CLASS_NUMBER);
         followupInput.setText(prefs.get("followup_sec", "75")); config.addView(followupInput);
         followupHandsfreeEnabled = new CheckBox(this);
-        followupHandsfreeEnabled.setText("Prolonger les relances sans dire Friday "
+        followupHandsfreeEnabled.setText("Prolonger les relances sans dire Jarvis "
                 + "(75 secondes par défaut, risque de fausses questions)");
         followupHandsfreeEnabled.setTextColor(Color.WHITE);
         followupHandsfreeEnabled.setChecked("1".equals(prefs.get("followup_handsfree", "0")));
         config.addView(followupHandsfreeEnabled);
-        config.addView(label("Mode continu : après chaque réponse, FRIDAY ignore 2,5 secondes "
+        config.addView(label("Mode continu : après chaque réponse, JARVIS ignore 2,5 secondes "
                 + "d'écho du haut-parleur puis accepte une question directe pendant "
-                + "20 secondes. Passé ce délai, dites Friday ou Jarvis. "
+                + "20 secondes. Passé ce délai, dites Jarvis. "
                 + "La case ci-dessus permet de prolonger cette période, avec "
                 + "davantage de risque de déclenchements involontaires."));
         bargeEnabled = new CheckBox(this);
-        bargeEnabled.setText("Activer STOP vocal pendant la réponse (« stop », « Friday stop », « j’ai une précision »)");
+        bargeEnabled.setText("Activer STOP vocal pendant la réponse (« stop », « Jarvis stop », « j’ai une précision »)");
         bargeEnabled.setTextColor(Color.WHITE);
         bargeEnabled.setChecked("1".equals(prefs.get("barge_in_enabled", "0")));
         config.addView(bargeEnabled);
         config.addView(label("Stabilite v3.11.2 : STOP vocal desactive par defaut pour eviter les interruptions dues a l'echo du haut-parleur. Le bouton Interrompre reste disponible. Re-activez cette case uniquement apres avoir verifie le comportement avec un casque."));
-        config.addView(label("Anti-écho v3.8.9 : Vosk reste actif pendant les recherches Web en attente. Il se suspend uniquement quand FRIDAY parle et pendant 2,5 secondes après. Le micro reste disponible pour les commandes STOP et précision grâce au décodeur séparé. Posez une nouvelle question après cette courte pause. Si Android bloque le micro, utilisez le bouton Interrompre."));
+        config.addView(label("Anti-écho v3.8.9 : Vosk reste actif pendant les recherches Web en attente. Il se suspend uniquement quand JARVIS parle et pendant 2,5 secondes après. Le micro reste disponible pour les commandes STOP et précision grâce au décodeur séparé. Posez une nouvelle question après cette courte pause. Si Android bloque le micro, utilisez le bouton Interrompre."));
         config.addView(label("AUDIO · microphone et haut-parleur intégrés du téléphone"));
-        config.addView(label("FRIDAY n'utilise plus le micro ni le mode mains libres Bluetooth. "
+        config.addView(label("JARVIS n'utilise plus le micro ni le mode mains libres Bluetooth. "
                 + "Les réponses Jarvis sortent par le haut-parleur du téléphone. "
                 + "Vérifiez le volume de communication Android."));
         config.addView(label("VITESSE VOCALE · 100 = normale (70 à 150)"));
@@ -365,7 +365,7 @@ public class MainActivity extends Activity {
         config.addView(label("Mode continu (case décochée) : le microphone reste actif "
                 + "après chaque réponse. La nouvelle question peut être dite directement "
                 + "pendant 20 secondes après l'anti-écho, sans appuyer sur un bouton. "
-                + "Ensuite, dites « Friday » ou « Jarvis » pour une autre question. "
+                + "Ensuite, dites « Jarvis » pour une autre question. "
                 + "Mode une question (case cochée) : l'écoute s'arrête après la réponse. "
                 + "Pendant la voix, l'anti-écho protège contre les fausses questions."));
         voskHintsEnabled = new CheckBox(this);
@@ -414,7 +414,7 @@ public class MainActivity extends Activity {
         config.addView(button("Diagnostic complet · micro / Vosk / Jarvis / voix", this::showVoiceDiagnostics));
         config.addView(button("Enregistrer les réglages", this::save));
         config.addView(label("PERSONNALITÉ · prompt sur plusieurs lignes · profils chiffrés"));
-        config.addView(button("✧ Modifier la personnalité de F.R.I.D.A.Y.", () -> {
+        config.addView(button("✧ Modifier la personnalité de JARVIS", () -> {
             configScroll.setVisibility(View.GONE);
             if (pageReady) hud.evaluateJavascript("window.fridayOpenPersonality&&window.fridayOpenPersonality();", null);
         }));
@@ -837,7 +837,7 @@ public class MainActivity extends Activity {
         status.setText(pending);
         prefs.put("web_last_test_status", pending);
         AlertDialog progress = new AlertDialog.Builder(this)
-                .setTitle("FRIDAY · diagnostic Internet")
+                .setTitle("JARVIS · diagnostic Internet")
                 .setMessage(pending)
                 .setPositiveButton("Masquer", (dialog, which) -> { })
                 .show();
@@ -858,11 +858,11 @@ public class MainActivity extends Activity {
                 webDiagnosticLabel.setText(detail);
                 status.setText(detail);
                 if (progress.isShowing()) {
-                    progress.setTitle(verified ? "Recherche Internet opérationnelle" : "Diagnostic Internet FRIDAY");
+                    progress.setTitle(verified ? "Recherche Internet opérationnelle" : "Diagnostic Internet JARVIS");
                     progress.setMessage(detail);
                 } else {
                     new AlertDialog.Builder(this)
-                            .setTitle(verified ? "Recherche Internet opérationnelle" : "Diagnostic Internet FRIDAY")
+                            .setTitle(verified ? "Recherche Internet opérationnelle" : "Diagnostic Internet JARVIS")
                             .setMessage(detail)
                             .setPositiveButton("Fermer", (dialog, which) -> { })
                             .show();
@@ -926,7 +926,7 @@ public class MainActivity extends Activity {
                         ? "Accès à cette page refusé ou indisponible : voir le diagnostic."
                         : "Analyse de page terminée · consultez la réponse.");
                 new AlertDialog.Builder(this)
-                        .setTitle("FRIDAY · Page Web")
+                        .setTitle("JARVIS · Page Web")
                         .setMessage(answer)
                         .setPositiveButton("Fermer", null)
                         .show();
@@ -1018,7 +1018,7 @@ public class MainActivity extends Activity {
      * et sans valeurs de clés API. L'état du microphone se lit sur le service.
      */
     private void showVoiceDiagnostics() {
-        String report = "FRIDAY " + FridayVersionGuard.thisVersion(this)
+        String report = "JARVIS " + FridayVersionGuard.thisVersion(this)
                 + "\nService actif : " + (FridayService.isActive() ? "oui" : "non")
                 + "\nAutorisation micro : "
                 + (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
@@ -1046,7 +1046,7 @@ public class MainActivity extends Activity {
                 + "\n\nLe niveau micro est un niveau PCM et ne garantit pas qu'une parole a été comprise."
                 + "\nAucune clé, aucun GPS, aucun contenu de conversation dans ce diagnostic.";
         new AlertDialog.Builder(this)
-                .setTitle("FRIDAY · état des composants")
+                .setTitle("JARVIS · état des composants")
                 .setMessage(report)
                 .setPositiveButton("Fermer", null)
                 .setNeutralButton("Copier le diagnostic", (dialog, which) -> {
@@ -1129,7 +1129,7 @@ public class MainActivity extends Activity {
                     PrivateConversationHistory.append(getApplicationContext(), prefs, "assistant", answer);
                     persisted = true;
                 } catch (Exception privateStorage) {
-                    android.util.Log.w("FRIDAY_PRIVACY",
+                    android.util.Log.w("JARVIS_PRIVACY",
                             "Historique chiffré indisponible pour la question écrite",
                             privateStorage);
                 }
@@ -1195,7 +1195,7 @@ public class MainActivity extends Activity {
                     runOnUiThread(() -> status.setText("La lecture audio a démarré. Vérifiez le volume du haut-parleur."));
                 }
                 @Override public void onDone(String uid) {
-                    runOnUiThread(() -> status.setText("Test de synthèse terminé. Avez-vous entendu : Bonjour, je suis Friday ?"));
+                    runOnUiThread(() -> status.setText("Test de synthèse terminé. Avez-vous entendu : Bonjour, je suis Jarvis ?"));
                 }
                 @Override public void onError(String uid) {
                     runOnUiThread(() -> status.setText("Échec du moteur TTS Android pendant le test."));
@@ -1204,7 +1204,7 @@ public class MainActivity extends Activity {
                     runOnUiThread(() -> status.setText("Erreur du moteur TTS Android : " + e));
                 }
             });
-            int result = testTts.speak("Bonjour, je suis Friday. Le test vocal est opérationnel.",
+            int result = testTts.speak("Bonjour, je suis Jarvis. Le test vocal est opérationnel.",
                     TextToSpeech.QUEUE_FLUSH, new Bundle(), id);
             if (result != TextToSpeech.SUCCESS) status.setText("Erreur de démarrage du test TTS : " + result);
         }));
@@ -1265,7 +1265,7 @@ public class MainActivity extends Activity {
     /** Le partage de coordonnées avec Mistral requiert un consentement distinct. */
     private void configureGpsForAssistant() {
         new AlertDialog.Builder(this)
-                .setTitle("Localisation de F.R.I.D.A.Y.")
+                .setTitle("Localisation de JARVIS")
                 .setMessage("Le GPS peut répondre localement à « Où suis-je ? ». "
                         + "Voulez-vous aussi transmettre ponctuellement les coordonnées à Mistral "
                         + "uniquement lorsque vous posez une question sur les alentours ?")
@@ -1347,9 +1347,9 @@ public class MainActivity extends Activity {
     }
     private void startListening() {
         if (!ModelInstaller.installed(this)) {
-            status.setText("Micro arrêté : modèle Vosk français absent dans cette édition de FRIDAY.");
+            status.setText("Micro arrêté : modèle Vosk français absent dans cette édition de JARVIS.");
             new AlertDialog.Builder(this)
-                    .setTitle("Activer le microphone de FRIDAY")
+                    .setTitle("Activer le microphone de JARVIS")
                     .setMessage("Cette installation ne contient pas encore le modèle vocal français "
                             + "Vosk (~41 Mo). Il est distinct du modèle IA de Jarvis. "
                             + "Télécharger Vosk depuis Alphacephei, puis démarrer automatiquement "
@@ -1381,7 +1381,7 @@ public class MainActivity extends Activity {
         java.util.List<FridayVersionGuard.Installed> others = FridayVersionGuard.installed(this);
         if (!others.isEmpty()) {
             new AlertDialog.Builder(this)
-                .setTitle("Autre édition F.R.I.D.A.Y. installée")
+                .setTitle("Autre édition JARVIS installée")
                 .setMessage(FridayVersionPolicy.warning(others.size()) +
                     "\n\nL'activité réelle de l'autre édition ne peut pas être déterminée ici. " +
                     "Pour éviter deux écoutes simultanées, arrêtez-la avant de continuer.")
@@ -1634,7 +1634,7 @@ public class MainActivity extends Activity {
                     Intent send = new Intent(Intent.ACTION_SEND);
                     send.setType("application/json");
                     send.putExtra(Intent.EXTRA_TEXT, safe);
-                    startActivity(Intent.createChooser(send, "Exporter les profils F.R.I.D.A.Y."));
+                    startActivity(Intent.createChooser(send, "Exporter les profils JARVIS"));
                 });
             } catch (Exception ignored) { }
         }

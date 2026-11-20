@@ -62,7 +62,7 @@ final class FridayVersionGuard {
         List<Installed> others = installed(activity);
         if (others.isEmpty()) {
             new AlertDialog.Builder(activity)
-                .setTitle("Versions F.R.I.D.A.Y.")
+                .setTitle("Versions JARVIS")
                 .setMessage("Édition actuelle : " + thisVersion(activity) + "\n\n" +
                     "Aucune autre édition connue n'est visible. Cela ne prouve pas qu'aucune autre application utilise le micro.")
                 .setPositiveButton("Fermer", null).show();

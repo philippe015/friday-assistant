@@ -1,4 +1,4 @@
-"""Non-regression tests for FRIDAY's on-device wake word and public Web search."""
+"""Non-regression tests for JARVIS on-device wake word and public Web search."""
 from pathlib import Path
 import shutil
 import subprocess
@@ -16,8 +16,8 @@ BARGE = (JAVA / "BargeInPolicy.java").read_text(encoding="utf-8")
 
 class VoiceAndWebRegression(unittest.TestCase):
     def test_wake_fallback_even_when_native_library_loaded(self):
-        self.assertIn("hasWakeWord(normalized) || VoiceText.hasWakeWord(text)", RUST)
-        for spelling in ("friday", "fraday", "freddy", "fredi", "vendredi"):
+        self.assertIn("if (!VoiceText.hasWakeWord(text)) return false;", RUST)
+        for spelling in ("jarvis", "jarvise", "jarvice", "jervis"):
             self.assertIn(spelling, VOICE)
             self.assertIn(spelling, BARGE)
 
@@ -28,7 +28,7 @@ class VoiceAndWebRegression(unittest.TestCase):
             import fr.friday.assistant.*;
             public class WakeSmoke {
                 public static void main(String[] args) {
-                    for (String name : new String[]{"Friday", "Fraday", "Freddy", "Fredi", "Vendredi"}) {
+                    for (String name : new String[]{"Jarvis", "Jarvise", "Jarvice", "Jervis"}) {
                         String sentence = name + ", quelle heure est-il ?";
                         if (!BargeInPolicy.startsWithWake(sentence)) throw new AssertionError(name);
                         if (!VoiceText.hasWakeWord(sentence)) throw new AssertionError(name);
@@ -36,7 +36,7 @@ class VoiceAndWebRegression(unittest.TestCase):
                         if (!VoiceText.withoutWakeWord(sentence).equals("quelle heure est-il ?"))
                             throw new AssertionError("wake strip: " + name);
                     }
-                    if (BargeInPolicy.startsWithWake("Nous sommes vendredi"))
+                    if (BargeInPolicy.startsWithWake("Friday, bonjour"))\n                        throw new AssertionError("Old wake must be disabled");\n                    if (BargeInPolicy.startsWithWake("Nous sommes vendredi"))
                         throw new AssertionError("woke in the middle of sentence");
                 }
             }

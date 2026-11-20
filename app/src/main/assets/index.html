@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#071622"><title>F.R.I.D.A.Y. · Jarvis Internet</title>
+<meta name="theme-color" content="#071622"><title>JARVIS · Jarvis Internet</title>
 <style>
 :root{color-scheme:dark;--bg:#040e1a;--panel:#071a28;--line:#24516a;--muted:#8daebf;--cyan:#4de3ff;--orange:#ffb86d;--green:#72efce;--red:#ff8b99;font-family:system-ui,-apple-system,Roboto,Arial,sans-serif}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:#eef9ff}body{background:radial-gradient(ellipse at 50% 16%,#0b3e54 0%,#071a2b 31%,#020810 76%)}button,input,textarea,select{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
@@ -22,11 +22,11 @@ footer{font-size:11px;color:#659ab1;padding:15px 0;text-align:center;letter-spac
 </head>
 <body>
 <div class="app" id="app">
- <header class="top"><div><div class="name">F.R.I.D.A.Y.</div><div class="sub">JARVIS LOCAL · MEMORY+ CHIFFRÉE · INTERNET · v3.13.4</div></div><div class="statuspill" id="livePill"><i class="dot"></i><span id="liveText">INITIALISATION</span></div></header>
+ <header class="top"><div><div class="name">JARVIS</div><div class="sub">JARVIS LOCAL · MEMORY+ CHIFFRÉE · INTERNET · v3.13.4</div></div><div class="statuspill" id="livePill"><i class="dot"></i><span id="liveText">INITIALISATION</span></div></header>
  <nav class="nav" aria-label="Navigation"><button class="active" id="tabCockpit">◈ Cockpit</button><button id="tabHistory">☰ Dialogue</button><button id="tabPersona">✧ Personnalité</button></nav>
  <section id="cockpitPage">
   <div class="hero"><div class="corewrap"><div class="core" id="core"><div class="rings"></div><div class="center">MOTEUR<b>JARVIS</b><span id="coreStatus">PRÊT</span></div></div></div>
-   <div class="panel"><p class="eyebrow">Télémétrie · F.R.I.D.A.Y.</p><div class="summary">
+   <div class="panel"><p class="eyebrow">Télémétrie · JARVIS</p><div class="summary">
     <div class="mini"><small>Heure locale</small><strong class="mono" id="clock">--:--</strong></div>
     <div class="mini"><small>Moteur d’IA</small><strong>Jarvis local</strong></div>
     <div class="mini"><small>Microphone</small><strong id="microState">Arrêté</strong></div>
@@ -40,10 +40,10 @@ footer{font-size:11px;color:#659ab1;padding:15px 0;text-align:center;letter-spac
     <div class="mini"><small>Voix de réponse</small><strong id="voiceMode">Android standard</strong></div>
     <div class="mini"><small>Version installée</small><strong id="versionState">v3.13.4</strong></div>
     <div class="mini"><small>Autres versions</small><strong id="versionsState">Vérification…</strong></div>
-   </div><div class="divider"></div><div class="statusline" id="statusMessage">Activez l’écoute pour parler à F.R.I.D.A.Y.</div>
+   </div><div class="divider"></div><div class="statusline" id="statusMessage">Activez l’écoute pour parler à JARVIS</div>
    <div class="controls"><button class="action primary" id="startBtn">◉ Activer écoute</button><button class="action warning" id="stopBtn">■ Arrêter micro</button><button class="action full" id="interruptBtn">⏸ Interrompre la réponse · rester à l’écoute</button><button class="action" id="gpsBtn">⌖ Vérifier le GPS</button><button class="action" id="gpsConsentBtn">⌖ GPS local seulement</button><button class="action" id="nativeSettingsBtn">⚙ Réglages</button><button class="action full" id="fullscreenBtn">⛶ Mode immersif</button></div>
    </div></div>
-  <div class="panel"><p class="eyebrow">Communiquer avec F.R.I.D.A.Y. · Jarvis local uniquement</p><p class="note">Jarvis répond entièrement sur le téléphone sans Mistral. Écris une question et appuie sur Envoyer : la réponse sera affichée et prononcée en français, même si le micro est arrêté. Pour parler, active l’écoute Vosk et dis « Friday… » ou « Jarvis… ». Le premier démarrage et le bouton « Interrompre la réponse et écouter » ouvrent aussi 15 secondes de dictée sans mot-clé. Un modèle IA local compatible doit être importé dans Réglages. En activant Internet Jarvis, les recherches consultent des sources publiques HTTPS et affichent leurs liens ; seul le modèle sur le téléphone génère la réponse. Les mots-clés de recherche sont transmis aux services Web consultés, jamais l'historique privé.</p><div class="editor"><textarea id="questionInput" placeholder="Écris une question ou dis « Friday… »" aria-label="Question à poser à Jarvis local" maxlength="5000"></textarea><button class="action primary" id="sendBtn">Envoyer</button></div>
+  <div class="panel"><p class="eyebrow">Communiquer avec JARVIS · Jarvis local uniquement</p><p class="note">Jarvis répond entièrement sur le téléphone sans Mistral. Écris une question et appuie sur Envoyer : la réponse sera affichée et prononcée en français, même si le micro est arrêté. Pour parler, active l’écoute Vosk et dis « Jarvis… ». Le premier démarrage et le bouton « Interrompre la réponse et écouter » ouvrent aussi 15 secondes de dictée sans mot-clé. Un modèle IA local compatible doit être importé dans Réglages. En activant Internet Jarvis, les recherches consultent des sources publiques HTTPS et affichent leurs liens ; seul le modèle sur le téléphone génère la réponse. Les mots-clés de recherche sont transmis aux services Web consultés, jamais l'historique privé.</p><div class="editor"><textarea id="questionInput" placeholder="Écris une question ou dis « Jarvis… »" aria-label="Question à poser à Jarvis local" maxlength="5000"></textarea><button class="action primary" id="sendBtn">Envoyer</button></div>
    <div class="chiprow"><button class="chip" data-question="Comment tu t'appelles ?">Mon identité</button><button class="chip" data-question="Quelle heure est-il ?">Heure</button><button class="chip" data-question="Quelle est ma position GPS actuelle ?">Où suis-je ?</button><button class="chip" data-question="Quels services sont disponibles autour de moi ?">Alentours</button><button class="chip" data-question="Cherche les actualités scientifiques publiées aujourd'hui et cite les sources.">Actualités Web</button></div>
   </div>
   <div class="panel" style="margin-top:12px"><p class="eyebrow">Dernière conversation</p><div id="recentMessages" class="messages"><p class="empty">Les réponses vocales et les questions apparaîtront ici.</p></div></div>
@@ -55,26 +55,26 @@ footer{font-size:11px;color:#659ab1;padding:15px 0;text-align:center;letter-spac
  </section>
  <section id="historyPage" class="hidden"><div class="panel"><p class="eyebrow">Historique des échanges vocaux · stockage local</p><div id="allMessages" class="messages" style="max-height:66vh"></div><p class="note">L'historique vocal local est limité par l’application. Son effacement est disponible dans les réglages natifs.</p></div></section>
  <section id="personaPage" class="hidden"><div class="panel personaform">
-  <p class="eyebrow">Personnalité de FRIDAY · Jarvis local</p><p class="note">La personnalité enregistrée s'applique aux prochaines réponses vocales, y compris lorsque l'écran est verrouillé. Elle est conservée de façon chiffrée dans Android.</p>
+  <p class="eyebrow">Personnalité de JARVIS · Jarvis local</p><p class="note">La personnalité enregistrée s'applique aux prochaines réponses vocales, y compris lorsque l'écran est verrouillé. Elle est conservée de façon chiffrée dans Android.</p>
   <div><label class="fieldlabel" for="personaProfiles">Profil actif</label><select id="personaProfiles" class="textbox"></select></div>
-  <div><label class="fieldlabel" for="personaName">Nom du profil</label><input class="textbox" id="personaName" maxlength="70" placeholder="F.R.I.D.A.Y."></div>
-  <div><label class="fieldlabel" for="personaTemplate">Exemple de personnalité</label><select class="textbox" id="personaTemplate"><option value="">— Choisir un modèle —</option><option value="friday">F.R.I.D.A.Y. professionnel</option><option value="tech">Expert technique</option><option value="coach">Assistant pragmatique</option><option value="detail">Réponses détaillées</option></select></div>
+  <div><label class="fieldlabel" for="personaName">Nom du profil</label><input class="textbox" id="personaName" maxlength="70" placeholder="JARVIS"></div>
+  <div><label class="fieldlabel" for="personaTemplate">Exemple de personnalité</label><select class="textbox" id="personaTemplate"><option value="">— Choisir un modèle —</option><option value="friday">JARVIS professionnel</option><option value="tech">Expert technique</option><option value="coach">Assistant pragmatique</option><option value="detail">Réponses détaillées</option></select></div>
   <div><label class="fieldlabel" for="personaPrompt">Prompt de personnalité (plusieurs lignes)</label><textarea class="textbox" id="personaPrompt" maxlength="16000" spellcheck="true"></textarea><div class="hint" id="personaCount">0 / 16 000</div></div>
   <div class="buttonrow"><button class="action primary" id="personaSave">Enregistrer</button><button class="action" id="personaNew">Nouveau</button><button class="action" id="personaDuplicate">Dupliquer</button><button class="action warning" id="personaDelete">Supprimer</button></div>
   <div class="buttonrow"><button class="action" id="personaExport">Exporter</button><button class="action" id="personaImport">Importer JSON</button></div>
   <textarea class="textbox hidden" id="personaBackup" placeholder="Colle ici les profils JSON à importer, puis appuie à nouveau sur Importer."></textarea>
   <div id="personaNotice" class="notice" aria-live="polite"></div><button class="action" id="personaClose">Retour au cockpit</button>
  </div></section>
- <footer>F.R.I.D.A.Y. · JARVIS LOCAL · RÉPONSES TEXTE ET VOIX · GPS PRIVÉ</footer>
+ <footer>JARVIS · JARVIS LOCAL · RÉPONSES TEXTE ET VOIX · GPS PRIVÉ</footer>
 </div>
 <script>
 (()=>{'use strict';
 const $=id=>document.getElementById(id), bridge=()=>window.FridayAndroid;
 const templates={
- friday:'Tu es F.R.I.D.A.Y., une assistante vocale personnelle inspirée des interfaces futuristes. Tu parles en français, avec précision, calme et intelligence. Donne des réponses orales naturelles et utiles. Différencie faits vérifiés et hypothèses, et cite les sources lorsque tu utilises Internet.',
- tech:'Tu es F.R.I.D.A.Y., experte en programmation, systèmes Linux, Android, Python, Rust et cybersécurité défensive. Tu présentes les causes des erreurs, des diagnostics reproductibles, des commandes exactes et des précautions techniques. Tu ne prétends jamais avoir exécuté une commande si ce n’est pas vrai.',
- coach:'Tu es F.R.I.D.A.Y., assistante claire et pragmatique. Tu écoutes la question en entier, réponds directement et proposes des étapes d’action concrètes. Tu restes polie, neutre et concise à l’oral.',
- detail:'Tu es F.R.I.D.A.Y., assistante analytique francophone. Tu développes les réponses avec des faits, méthodes, hypothèses et limites. Quand des informations sont récentes, utilise la recherche Internet autorisée et cite les sources.'
+ friday:'Tu es JARVIS, une assistante vocale personnelle inspirée des interfaces futuristes. Tu parles en français, avec précision, calme et intelligence. Donne des réponses orales naturelles et utiles. Différencie faits vérifiés et hypothèses, et cite les sources lorsque tu utilises Internet.',
+ tech:'Tu es JARVIS, experte en programmation, systèmes Linux, Android, Python, Rust et cybersécurité défensive. Tu présentes les causes des erreurs, des diagnostics reproductibles, des commandes exactes et des précautions techniques. Tu ne prétends jamais avoir exécuté une commande si ce n’est pas vrai.',
+ coach:'Tu es JARVIS, assistante claire et pragmatique. Tu écoutes la question en entier, réponds directement et proposes des étapes d’action concrètes. Tu restes polie, neutre et concise à l’oral.',
+ detail:'Tu es JARVIS, assistante analytique francophone. Tu développes les réponses avec des faits, méthodes, hypothèses et limites. Quand des informations sont récentes, utilise la recherche Internet autorisée et cite les sources.'
 };
 const state={tab:'cockpit',messages:[],profile:null,active:'',immersive:false,visionBusy:false,lastStatus:'',voiceActive:false};
 function call(method,...args){try{const api=bridge();if(api&&typeof api[method]==='function')return api[method](...args);}catch(e){log('Commande Android : '+e.message,true);}return null;}
@@ -84,7 +84,7 @@ function refreshNative(){const on=call('isListening');const muted=!!call('isMicS
 window.fridayRefreshNative = refreshNative;
 function clock(){const d=new Date();$('clock').textContent=d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
 function showTab(tab){state.tab=tab;for(const name of ['cockpit','history','persona']){$(name+'Page').classList.toggle('hidden',name!==tab);$('tab'+name[0].toUpperCase()+name.slice(1)).classList.toggle('active',name===tab);}if(tab==='persona')loadProfiles();}
-function drawMessages(){for(const [target,n] of [['recentMessages',4],['allMessages',40]]){const host=$(target);host.replaceChildren();const items=state.messages.slice(-n);if(items.length===0){const p=document.createElement('p');p.className='empty';p.textContent='Aucune conversation enregistrée pour le moment.';host.append(p);continue;}for(const item of items){const box=document.createElement('div');box.className='message '+(item.kind==='user'?'user':'assistant');const meta=document.createElement('div');meta.className='meta';meta.textContent=item.kind==='user'?'Vous':(call('activeProfileName')||'F.R.I.D.A.Y.');const content=document.createElement('div');content.textContent=String(item.text||'');box.append(meta,content);host.append(box);}host.scrollTop=host.scrollHeight;}}
+function drawMessages(){for(const [target,n] of [['recentMessages',4],['allMessages',40]]){const host=$(target);host.replaceChildren();const items=state.messages.slice(-n);if(items.length===0){const p=document.createElement('p');p.className='empty';p.textContent='Aucune conversation enregistrée pour le moment.';host.append(p);continue;}for(const item of items){const box=document.createElement('div');box.className='message '+(item.kind==='user'?'user':'assistant');const meta=document.createElement('div');meta.className='meta';meta.textContent=item.kind==='user'?'Vous':(call('activeProfileName')||'JARVIS');const content=document.createElement('div');content.textContent=String(item.text||'');box.append(meta,content);host.append(box);}host.scrollTop=host.scrollHeight;}}
 window.fridayTypedReply=function(question,answer){
   try{
     state.messages.push({kind:'user',text:String(question||'')});
@@ -98,12 +98,12 @@ window.fridayNativeInbox=function(events){try{if(!Array.isArray(events))return;s
 window.fridayNativeReceive=function(kind,text){const s=String(text||'');if(kind==='error'){status(s,'error');log(s,true);}else if(kind==='status'){status(s,/traitement|réponse|réfléchi/i.test(s)?'wait':/écoute|prête|micro/i.test(s)?'listen':'ready');}else if(kind==='interrupted'){status(s,'listen');log(s);}else if(kind==='tts'){log(s);}else if(kind==='latency'){log(s);}else if(kind==='location'){$('locationText').textContent=s;log(s);}else if(kind==='gps_api'){status(s,'ready');log(s);refreshNative();}else if(kind==='mic_conflict'){status(s,'error');log(s,true);refreshNative();}else if(kind==='barge_diag'){log(s);refreshNative();}else if(kind==='asr_diag'){status(s,'listen');log(s);}else{log(kind+' : '+s);}};
 window.fridayLocationSync=function(){const value=call('locationText');if(value!==null)$('locationText').textContent=value||'Position indisponible';};
 window.fridayNativeReady=function(){refreshNative();log('Connexion au moteur Android natif établie.');};
-function ask(text){const q=String(text||'').trim();if(!q)return;if(q.length>5000){status('Question limitée à 5 000 caractères.','error');return;}if(!bridge()){status('Ouvrez F.R.I.D.A.Y. dans son APK Android.','error');return;}call('ask',q);$('questionInput').value='';status('Question envoyée à Jarvis local, sans utiliser le micro…','wait');}
+function ask(text){const q=String(text||'').trim();if(!q)return;if(q.length>5000){status('Question limitée à 5 000 caractères.','error');return;}if(!bridge()){status('Ouvrez JARVIS dans son APK Android.','error');return;}call('ask',q);$('questionInput').value='';status('Question envoyée à Jarvis local, sans utiliser le micro…','wait');}
 function start(){if(!bridge()){status('Application Android nécessaire pour le microphone.','error');return;}call('start');setTimeout(refreshNative,850);status('Démarrage de la reconnaissance vocale…','wait');}
 function stop(){call('stop');setTimeout(refreshNative,450);status('Écoute désactivée.');}
 function interrupt(){call('interrupt');status('Réponse interrompue. Micro toujours actif : pose ta question.','listen');}
 function toggleImmersive(){state.immersive=!state.immersive;$('app').classList.toggle('immersive',state.immersive);$('fullscreenBtn').textContent=state.immersive?'⇤ Revenir à l’interface':'⛶ Mode immersif';if(state.immersive){document.documentElement.requestFullscreen?.().catch(()=>{});}else if(document.fullscreenElement){document.exitFullscreen?.().catch(()=>{});}}
-function defaultProfiles(){return {active:'friday',profiles:[{id:'friday',name:'F.R.I.D.A.Y.',prompt:templates.friday}]};}
+function defaultProfiles(){return {active:'friday',profiles:[{id:'friday',name:'JARVIS',prompt:templates.friday}]};}
 function readProfiles(){try{const json=call('getPersonalityProfiles');if(typeof json==='string'&&json.trim())return JSON.parse(json);}catch(e){log('Personnalité : '+e.message,true);}return defaultProfiles();}
 function activeProfile(){return state.profile?.profiles.find(p=>p.id===state.active)||state.profile?.profiles[0];}
 function validateProfiles(v){if(!v||!Array.isArray(v.profiles)||v.profiles.length<1||v.profiles.length>10)throw Error('Nombre de profils : 1 à 10.');const ids=new Set();for(const p of v.profiles){if(!/^[a-zA-Z0-9_-]{1,64}$/.test(p.id)||ids.has(p.id))throw Error('Identifiant de profil invalide.');ids.add(p.id);if(!p.name||p.name.trim().length>70||!p.prompt||p.prompt.trim().length>16000)throw Error('Nom ou prompt invalide.');}if(!ids.has(v.active))throw Error('Profil actif introuvable.');return v;}

@@ -227,12 +227,12 @@ public final class LocalJarvisEngine {
     private static String buildLocalPrompt(SecurePrefs cfg, String cleaned) {
         boolean hasWebSources = cleaned.contains("[DEBUT EXTRAITS WEB PUBLICS");
         StringBuilder prompt = new StringBuilder(hasWebSources ? 5000 : 1800);
-        prompt.append("Tu es FRIDAY, assistant Jarvis fonctionnant sur le téléphone Android. "
+        prompt.append("Tu es JARVIS, assistant personnel IA local fonctionnant sur le téléphone Android. "
                 + "Réponds en français sans inventer de faits ou d'actualités. "
                 + "Tu ne transmets ni mémoire ni question à un autre moteur IA. ");
         if (hasWebSources) {
             prompt.append("Une recherche HTTPS a été effectuée par l'application, pas par le modèle. "
-                    + "Tu peux utiliser ces résultats : ne prétends pas que FRIDAY "
+                    + "Tu peux utiliser ces résultats : ne prétends pas que JARVIS "
                     + "n'a aucun accès Internet lorsque des extraits Web sont présents. "
                     + "Ne dis pas que toutes les pages sont accessibles ; limite-toi "
                     + "aux éléments fournis et à leurs incertitudes. "
@@ -262,7 +262,7 @@ public final class LocalJarvisEngine {
         }
         int maxQuestion = hasWebSources ? 3900 : 1200;
         prompt.append("\nDemande : ").append(cleaned.length() > maxQuestion
-                ? cleaned.substring(0, maxQuestion) : cleaned).append("\nFRIDAY :");
+                ? cleaned.substring(0, maxQuestion) : cleaned).append("\nJARVIS :");
 
         return prompt.toString();
     }

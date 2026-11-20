@@ -1,4 +1,4 @@
-"""FRIDAY : régression activation vocale Jarvis/Friday (aucun réseau ni son enregistré)."""
+"""JARVIS : régression activation vocale uniquement Jarvis (aucun réseau ni son enregistré)."""
 from pathlib import Path
 import shutil
 import subprocess
@@ -14,8 +14,8 @@ UI = (JAVA/"MainActivity.java").read_text(encoding="utf-8")
 WEB = (ROOT/"app/src/main/assets/index.html").read_text(encoding="utf-8")
 
 class VoiceActivationReliability(unittest.TestCase):
-    def test_local_jarvis_responds_to_two_wake_words(self):
-        for name in ("friday", "fraday", "jarvis", "jarvise", "jervis"):
+    def test_local_jarvis_responds_to_one_wake_word(self):
+        for name in ("jarvis", "jarvise", "jarvice", "jervis"):
             self.assertIn(name, VOICE)
             self.assertIn(name, BARGE)
         self.assertIn("BargeInPolicy.startsWithWake(heard) && RustWake.detect(heard)", SERVICE)
@@ -49,14 +49,14 @@ class VoiceActivationReliability(unittest.TestCase):
         import fr.friday.assistant.*;
         public class SpeechSmoke {
           public static void main(String[] args) {
-            for (String prefix : new String[]{"Friday", "Fraday", "Jarvis", "Jarvise", "Jervis"}) {
+            for (String prefix : new String[]{"Jarvis", "Jarvise", "Jarvice", "Jervis"}) {
               String phrase = prefix + ", quelle heure est-il ?";
               if (!BargeInPolicy.startsWithWake(phrase)) throw new AssertionError(prefix);
               if (!RustWake.detect(phrase)) throw new AssertionError(prefix);
               if (!VoiceText.withoutWakeWord(phrase).equals("quelle heure est-il ?"))
                   throw new AssertionError(VoiceText.withoutWakeWord(phrase));
             }
-            if (BargeInPolicy.startsWithWake("Nous parlons de Jarvis"))
+            if (BargeInPolicy.startsWithWake("Friday, quelle heure est-il ?"))\n                throw new AssertionError("Ancien mot-clé interdit");\n            if (BargeInPolicy.startsWithWake("Nous parlons de Jarvis"))
                 throw new AssertionError("Activation au milieu d'une phrase");
             if (!VoiceText.withoutWakeWord("Qui est Jarvis ?").equals("Qui est Jarvis ?"))
                 throw new AssertionError("Question ordinaire tronquée");
