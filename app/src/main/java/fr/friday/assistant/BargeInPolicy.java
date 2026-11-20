@@ -4,8 +4,7 @@ package fr.friday.assistant;
 public final class BargeInPolicy {
     private BargeInPolicy() {}
     public static boolean startsWithWake(String phrase) {
-        String s = VoiceText.normalize(phrase).trim();
-        return s.matches("^(jarvis|jarvise|jervis|jervi)\\b.*");
+        return VoiceText.startsWithWakeWord(phrase);
     }
     public static boolean isStopListening(String phrase) {
         if (!startsWithWake(phrase)) return false;
