@@ -1,0 +1,160 @@
+name: Publish JARVIS Sherpa FR beta signed APK
+
+on:
+  push:
+    branches: [ feature/sherpa-french-voice-beta-20261120 ]
+    paths:
+      - '.github/workflows/release-sherpa-fr-beta.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: jarvis-sherpa-fr-beta-release
+  cancel-in-progress: false
+
+jobs:
+  publish-sherpa-fr-beta:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+    steps:
+      - name: Checkout exact beta source
+        uses: actions/checkout@v4
+
+      - name: Check release version, features, and signing
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = "feature/sherpa-french-voice-beta-20261120"
+          test -n "$KEYSTORE_BASE64" || { echo "::error::Signing keystore secret not configured"; exit 1; }
+          test -n "$KEYSTORE_PASSWORD" || { echo "::error::Signing password not configured"; exit 1; }
+          test -n "$KEY_PASSWORD" || { echo "::error::Key password not configured"; exit 1; }
+          grep -Fq "versionCode 93" app/build.gradle
+          grep -Fq "versionName '3.13.8'" app/build.gradle
+          grep -Fq "applicationId 'fr.friday.assistant'" app/build.gradle
+          grep -Fq "sherpa-onnx:v2.0.2" app/build.gradle
+          grep -Fq "SherpaVoiceModels.importOfficialArchive" app/src/main/java/fr/friday/assistant/MainActivity.java
+          grep -Fq 'SherpaVoiceDecoder.shutdown()' app/src/main/java/fr/friday/assistant/FridayService.java
+          test -f docs/SHERPA_FR_ANDROID_BETA_20261120.md
+          if gh release view v3.13.8-sherpa-fr-beta.1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::The prerelease already exists. Refusing to replace assets."
+            exit 1
+          fi
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Android SDK 35
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"; fi
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - name: Rust Android build tools
+        run: |
+          set -euo pipefail
+          rustup target add aarch64-linux-android
+          cargo install cargo-ndk --locked
+
+      - name: Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Tests Java Python Rust and JavaScript
+        run: bash scripts/tester_sources.sh
+
+      - name: Build Rust JNI libraries
+        run: |
+          set -euo pipefail
+          cd native
+          cargo ndk -t arm64-v8a -o ../app/src/main/jniLibs build --release
+
+      - name: Decode private signing keystore
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$RUNNER_TEMP/jarvis-signing"
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/jarvis-signing/release.jks"
+          chmod 600 "$RUNNER_TEMP/jarvis-signing/release.jks"
+          test -s "$RUNNER_TEMP/jarvis-signing/release.jks"
+          echo "KEYSTORE_PATH=$RUNNER_TEMP/jarvis-signing/release.jks" >> "$GITHUB_ENV"
+
+      - name: Build properly signed, non-debuggable Android APK
+        run: gradle --no-daemon :app:assembleRelease
+
+      - name: Verify signing and compare certificate to stable release
+        run: |
+          set -euo pipefail
+          mkdir -p dist previous
+          SRC="app/build/outputs/apk/release/app-release.apk"
+          APK="dist/JARVIS-v3.13.8-Sherpa-FR-beta1-release.apk"
+          test -s "$SRC"
+          cp "$SRC" "$APK"
+          unzip -tq "$APK"
+          SDK="$ANDROID_HOME/build-tools/35.0.0"
+          "$SDK/apksigner" verify --print-certs "$APK"
+          BADGING="$("$SDK/aapt2" dump badging "$APK")"
+          echo "$BADGING" | grep -F "name='fr.friday.assistant' versionCode='93' versionName='3.13.8'"
+          if echo "$BADGING" | grep -q 'application-debuggable'; then
+            echo "::error::Refusing to release an APK with android:debuggable."
+            exit 1
+          fi
+          gh release download v3.13.8 --repo "$GITHUB_REPOSITORY" --pattern 'JARVIS-v3.13.8-Outils-Locaux-Android-release.apk' --dir previous
+          OLD="previous/JARVIS-v3.13.8-Outils-Locaux-Android-release.apk"
+          test -s "$OLD"
+          PREV_CERT="$("$SDK/apksigner" verify --print-certs "$OLD" | grep 'Signer #1 certificate SHA-256 digest:' | head -1)"
+          NEXT_CERT="$("$SDK/apksigner" verify --print-certs "$APK" | grep 'Signer #1 certificate SHA-256 digest:' | head -1)"
+          test -n "$PREV_CERT"
+          test "$PREV_CERT" = "$NEXT_CERT" || { echo "::error::Release signing certificate changed; upgrade would fail"; exit 1; }
+          sha256sum "$APK" | tee dist/SHA256SUMS.txt
+
+      - name: Publish pre-release with direct APK asset
+        run: |
+          set -euo pipefail
+          APK="dist/JARVIS-v3.13.8-Sherpa-FR-beta1-release.apk"
+          cat > "$RUNNER_TEMP/sherpa-fr-beta-notes.md" <<'RELEASE_NOTES'
+          ## JARVIS Android — Sherpa Voice FR bêta
+
+          **APK Android signé, même certificat que JARVIS v3.13.8**, mise à jour sans effacer l'application ni ses réglages. Version interne Android 3.13.8 (versionCode 93) ; version GitHub bêta distincte. Cette publication est expérimentale et non une version stable.
+
+          - Reconnaissance française **sherpa-onnx v2.0.2** facultative dans les réglages.
+          - Importation sur le téléphone d'une archive française officielle **.tar.bz2**, sans PC.
+          - Moteur vocal Vosk toujours présent, y compris pour STOP et en cas de panne sherpa.
+          - Un seul microphone Android, pas de seconde capture et pas de dépendance au Bluetooth.
+          - IA et mémoire locale chiffrée préservées ; aucune donnée personnelle embarquée dans l'APK.
+
+          **Pour utiliser Sherpa FR :** ouvrez JARVIS > Réglages > Reconnaissance française avancée. Téléchargez le modèle français officiel, importez l'archive, activez le moteur d'essai et relancez l'écoute.
+
+          Modèle officiel : https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-fr-2023-04-14.tar.bz2
+
+          Les tests automatisés et la signature Android ont été vérifiés par GitHub Actions. **La qualité réelle de la voix française et la commande STOP doivent encore être testées sur votre téléphone.** En cas de difficulté, décochez Sherpa et relancez le microphone pour revenir à Vosk.
+
+          Sources : https://github.com/k2-fsa/sherpa-onnx et https://github.com/open-jarvis/OpenJarvis
+          RELEASE_NOTES
+          gh release create v3.13.8-sherpa-fr-beta.1 "$APK" "dist/SHA256SUMS.txt" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "JARVIS v3.13.8 — Sherpa Voice FR (bêta)" \
+            --notes-file "$RUNNER_TEMP/sherpa-fr-beta-notes.md"
+          gh release view v3.13.8-sherpa-fr-beta.1 --repo "$GITHUB_REPOSITORY" --json url,isPrerelease,assets
+
+      - name: Remove temporary signing key
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/jarvis-signing/release.jks"
