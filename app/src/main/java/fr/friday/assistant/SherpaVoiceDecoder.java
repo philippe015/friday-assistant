@@ -28,24 +28,24 @@ public final class SherpaVoiceDecoder implements JarvisVoiceDecoder {
         synchronized (SherpaVoiceDecoder.class) {
             if (shared == null || !folder.getAbsolutePath().equals(sharedPath)) {
                 shutdown();
-                OnlineTransducerModelConfig transducer = OnlineTransducerModelConfig.builder()
-                        .setEncoder(new File(folder, "encoder.onnx").getAbsolutePath())
-                        .setDecoder(new File(folder, "decoder.onnx").getAbsolutePath())
-                        .setJoiner(new File(folder, "joiner.onnx").getAbsolutePath()).build();
-                OnlineModelConfig model = OnlineModelConfig.builder()
-                        .setTransducer(transducer)
-                        .setTokens(new File(folder, "tokens.txt").getAbsolutePath())
-                        .setNumThreads(2)
-                        .setDebug(false)
-                        .setProvider("cpu")
-                        .setModelType("zipformer").build();
-                OnlineRecognizerConfig config = OnlineRecognizerConfig.builder()
-                        .setOnlineModelConfig(model)
-                        .setEnableEndpoint(true).build();
-                shared = new OnlineRecognizer(config);
+                // L'AAR Android 2.0.2 expose les classes à setters (API Android),
+                // différente de l'API Builder JVM disponible dans le dépôt source.
+                OnlineTransducerModelConfig transducer = new OnlineTransducerModelConfig();
+                transducer.setEncoder(new File(folder, "encoder.onnx").getAbsolutePath());
+                transducer.setDecoder(new File(folder, "decoder.onnx").getAbsolutePath());
+                transducer.setJoiner(new File(folder, "joiner.onnx").getAbsolutePath());
+                OnlineModelConfig model = new OnlineModelConfig();
+                model.setTransducer(transducer);
+                model.setTokens(new File(folder, "tokens.txt").getAbsolutePath());
+                model.setNumThreads(2);
+                model.setDebug(false);
+                model.setModelType("zipformer");
+                OnlineRecognizerConfig config = new OnlineRecognizerConfig();
+                config.setModelConfig(model);
+                shared = new OnlineRecognizer(ctx.getAssets(), config);
                 sharedPath = folder.getAbsolutePath();
             }
-            stream = shared.createStream();
+            stream = shared.createStream("");
         }
     }
 
