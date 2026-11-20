@@ -876,8 +876,11 @@ public class FridayService extends Service {
         boolean activated = BargeInPolicy.startsWithWake(heard) && RustWake.detect(heard);
         boolean activeResponse = currentTurn != null;
         if (activeResponse) {
-            if (!"1".equals(settings.get("barge_in_enabled", "1")) ||
-                !BargeInPolicy.canBarge(heard, spokenText)) return;
+            // L'interruption pendant la VOIX reste soumise au réglage anti-écho.
+            // Mais si le moteur IA réfléchit encore sans rien prononcer, un
+            // nouveau « Jarvis / Friday » doit pouvoir relancer la demande.
+            if (!BargeInPolicy.canBarge(heard, spokenText)) return;
+            if (speakingNow && !"1".equals(settings.get("barge_in_enabled", "0"))) return;
             interruptResponse("Nouvelle question détectée, ancienne réponse arrêtée.");
         }
         String question;
