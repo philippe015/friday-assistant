@@ -24,7 +24,7 @@ class VoiceActivationReliability(unittest.TestCase):
         self.assertIn("wakeOnlyUntil = SystemClock.elapsedRealtime() + 15_000L;", SERVICE)
         self.assertIn("firstQuestionOnMicStart = true;", SERVICE)
         self.assertIn("wakeOnlyUntil = bargePendingUntil;", SERVICE)
-        self.assertIn("now < wakeOnlyUntil", SERVICE)
+        self.assertIn("TtsEchoGate.followupAccepts(now, echoBlockUntil, wakeOnlyUntil)", SERVICE)
         self.assertIn('settings.get("followup_handsfree", "0")', SERVICE)
         self.assertIn("if (heard.trim().split", SERVICE)
 
