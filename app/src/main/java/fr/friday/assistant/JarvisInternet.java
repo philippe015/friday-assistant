@@ -501,7 +501,7 @@ public final class JarvisInternet {
             }
             conn.setRequestMethod("GET");
             conn.setRequestProperty("User-Agent",
-                    "FRIDAY-Jarvis/3.13.4 (https://github.com/philippe015/friday-assistant; Android public HTTPS client)");
+                    "JARVIS/3.13.5 (https://github.com/philippe015/friday-assistant; Android public HTTPS client)");
             conn.setRequestProperty("Accept", "application/rss+xml, application/xml, application/json, text/xml, text/html");
             conn.setRequestProperty("Accept-Language", "fr-FR,fr;q=0.9,en;q=0.5");
             conn.setRequestProperty("Accept-Encoding", "identity");
