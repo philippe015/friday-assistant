@@ -119,6 +119,28 @@ public final class WebSearch {
                 + "bibliographie|recherche academique)\\b.*");
     }
 
+    /** Reconnaît une demande de vérification de connexion de FRIDAY.
+     * Les questions sur un article, une loi ou les actualités continuent de
+     * suivre la recherche Web habituelle et ne reçoivent pas ce diagnostic. */
+    public static boolean requestsLiveConnectivityCheck(String question) {
+        String q = withoutWake(question);
+        if (q.isEmpty() || firstUrl(question).length() > 0
+                || q.matches("^(?:cherche|recherche|trouve|consulte)\\b.*"))
+            return false;
+        boolean internet = q.contains("internet") || q.matches(".*\\b(?:web|en ligne)\\b.*");
+        if (!internet) return false;
+        boolean status = q.matches(".*\\b(?:acces|connexion|connecte|connectee|"
+                + "actif|active|fonctionne|fonctionner|marche|disponible|"
+                + "limite|limitee|statut|etat|teste|tester|verifie|verifier|"
+                + "bloque|bloquee|panne|inaccessible)\\b.*")
+                || q.contains("toujours pas") || q.contains("pas acces");
+        boolean assistant = q.matches(".*\\b(?:tu|toi|ton|ta|tes|vous|votre|vos|"
+                + "friday|jarvis|assistant|application|module)\\b.*");
+        return status && (assistant || q.contains("toujours pas")
+                || q.startsWith("acces internet") || q.startsWith("internet ")
+                || q.startsWith("connexion internet"));
+    }
+
     /** Réponse vérifiable localement aux questions sur l'assistant lui-même.
      * Évite d'envoyer « quels sont tes capacités » à un moteur de recherche. */
     public static String assistantAnswer(String question, boolean internetEnabled) {
