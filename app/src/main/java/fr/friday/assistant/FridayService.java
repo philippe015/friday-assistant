@@ -131,7 +131,7 @@ public class FridayService extends Service {
     public void onCreate() {
         super.onCreate();
         settings = new SecurePrefs(this);
-        NotificationChannel ch = new NotificationChannel(CHANNEL, "F.R.I.D.A.Y. · écoute vocale", NotificationManager.IMPORTANCE_LOW);
+        NotificationChannel ch = new NotificationChannel(CHANNEL, "JARVIS · écoute vocale", NotificationManager.IMPORTANCE_LOW);
         ch.setDescription("Microphone actif tant que vous avez démarré le mode écran éteint");
         getSystemService(NotificationManager.class).createNotificationChannel(ch);
     }
@@ -240,7 +240,7 @@ public class FridayService extends Service {
         PendingIntent showPi = PendingIntent.getActivity(this, 1, show, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this, CHANNEL)
                 .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-                .setContentTitle("F.R.I.D.A.Y. · écoute activée")
+                .setContentTitle("JARVIS · écoute activée")
                 .setContentText(message)
                 .setContentIntent(showPi)
                 .setOngoing(true)
