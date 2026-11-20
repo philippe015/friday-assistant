@@ -824,7 +824,7 @@ public class FridayService extends Service {
             interruptResponse("Réponse stoppée immédiatement. Je reste à l'écoute.");
             return;
         }
-        // La bibliotheque native peut detecter « Friday » n'importe ou dans
+        // Le moteur natif peut détecter un mot-clé au milieu d'une
         // une phrase (ex. « nous sommes vendredi »). Le mot-cle doit etre
         // au DEBUT : sinon une radio ou une conversation devient une question.
         boolean activated = BargeInPolicy.startsWithWake(heard) && RustWake.detect(heard);
