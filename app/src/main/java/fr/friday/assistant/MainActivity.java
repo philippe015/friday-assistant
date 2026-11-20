@@ -1177,7 +1177,8 @@ public class MainActivity extends Activity {
                 + "\nMicro Android rendu muet : " + (FridayService.isMicSilenced() ? "oui" : "non")
                 + "\nÉtat de l'écoute : " + FridayService.voiceReadiness()
                 + "\nSignal du microphone : " + FridayService.microphoneSignal()
-                + "\nDernière reconnaissance Vosk : " + FridayService.recognitionDiagnostic()
+                + "\nMoteur de reconnaissance actif : " + FridayService.recognitionEngine()
+                + "\nDernière activité de reconnaissance : " + FridayService.recognitionDiagnostic()
                 + "\nSilence de base : " + prefs.get("silence_ms", "2100")
                         + " ms (adaptatif pour les phrases incomplètes)"
                 + "\nInterruption STOP : " + FridayService.interruptionDiagnostics()
