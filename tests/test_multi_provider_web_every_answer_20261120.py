@@ -40,7 +40,7 @@ class WebEveryAnswer(unittest.TestCase):
         self.assertIn("Je ne peux pas vérifier les informations", WEB)
         self.assertIn("Réponse générale locale, non vérifiée sur Internet", WEB)
         self.assertIn("HTTP 202", WEB)
-        self.assertIn("FRIDAY", SEARCH)
+        self.assertIn("JARVIS", SEARCH)
 
     def test_both_voice_and_text_share_same_routing(self):
         self.assertIn("JarvisInternet.shouldResearch(settings, question)", VOICE)
