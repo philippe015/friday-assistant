@@ -1,4 +1,4 @@
-"""FRIDAY v3.13.3: robust phone mic, adaptive pauses, dated public-Web research."""
+"""FRIDAY v3.13.4: robust phone mic, adaptive pauses, dated public-Web research."""
 from pathlib import Path
 import unittest
 
@@ -62,7 +62,7 @@ class MicAndFreshNews(unittest.TestCase):
         self.assertIn("Aucune mémoire privée n'a été envoyée",WEB)
 
     def test_version(self):
-        self.assertIn("versionCode 88",GRADLE)
-        self.assertIn("versionName '3.13.3'",GRADLE)
+        self.assertIn("versionCode 89",GRADLE)
+        self.assertIn("versionName '3.13.4'",GRADLE)
 
 if __name__=="__main__": unittest.main()
