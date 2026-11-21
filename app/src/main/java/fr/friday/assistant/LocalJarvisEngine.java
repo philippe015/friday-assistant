@@ -240,7 +240,8 @@ public final class LocalJarvisEngine {
         boolean hasWebSources = cleaned.contains("[DEBUT EXTRAITS WEB PUBLICS");
         // Une traduction de titres RSS publics ne doit pas recevoir de notes
         // privées : celles-ci ne sont pas utiles à une traduction fidèle.
-        boolean rssTranslationOnly = cleaned.startsWith("[TRADUCTION_RSS_PUBLIQUE]");
+        boolean rssTranslationOnly = cleaned.startsWith("[TRADUCTION_RSS_PUBLIQUE]")
+                || cleaned.startsWith("[TRADUCTION_ARTICLE_PUBLIC]");
         StringBuilder prompt = new StringBuilder(hasWebSources ? 5000 : 1800);
         prompt.append("Tu es JARVIS, assistant IA fonctionnant sur le téléphone Android. "
                 + "Réponds en français sans inventer de faits ou d'actualités. "
