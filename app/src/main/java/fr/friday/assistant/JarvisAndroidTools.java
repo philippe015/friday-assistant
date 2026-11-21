@@ -114,6 +114,7 @@ public final class JarvisAndroidTools {
                       + "permet de confirmer la compatibilité du modèle et du GPU."
                     : "Pour répondre librement, importez dans Réglages un modèle "
                       + ".task ou .litertlm compatible avec le téléphone.")
+                + " " + LocalModelAdvisor.advice(context)
                 + " Aucune requête d'inférence n'est envoyée à un modèle cloud.";
     }
 
