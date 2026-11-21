@@ -911,6 +911,10 @@ public class FridayService extends Service {
                 HandsFreeQuestionPolicy.acceptsDirectQuestion(heard,
                         "1".equals(settings.get("followup_handsfree", "0")),
                         !speakingNow && now >= echoBlockUntil) ||
+                // Après « Pour quelle ville ? », « Paris » est une réponse
+                // complète, même si elle n'a qu'un mot et arrive après 20 s.
+                (WeatherDialogue.cityFollowup(settings, heard)
+                        && !speakingNow && now >= echoBlockUntil) ||
                 ("1".equals(settings.get("followup_handsfree", "0")) && wakeArmed &&
                 (now - lastReplyAt <= followupMs || now < clarificationUntil))) &&
                 now >= echoBlockUntil) {
@@ -919,7 +923,10 @@ public class FridayService extends Service {
             // « Écoute ON », le bouton d'interruption ou un mot-clé isolé
             // autorisent UNE question directe pendant une fenêtre courte.
             if (!VoiceQuestionPolicy.plausibleDirectQuestion(
-                    heard, !latestQuestion.isEmpty())) {
+                    heard, !latestQuestion.isEmpty())
+                    && !WeatherDialogue.cityFollowup(settings, heard)
+                    && !(WeatherRequestPolicy.isWeatherRequest(heard)
+                            && heard.trim().split("\\s+").length >= 2)) {
                 // Une bribe Vosk n'est pas une question : ne pas lancer le Web
                 // ni injecter cette transcription dans le dialogue privé.
                 asrDiagnostic("Transcription incomplète ou sans demande claire ; "
@@ -1001,7 +1008,16 @@ public class FridayService extends Service {
             }
             if (live(turn)) event("status", memoryAction ? "Commande mémoire locale…"
                     : "Jarvis local réfléchit sur le téléphone…");
-            String local = PersonalMemory.command(settings, question);
+            // Prévisions météo directes : une question sans ville déclenche
+            // « Pour quelle ville ? ». La réponse courte sera acceptée par
+            // le même service vocal. Aucun LLM ni recherche Web générale.
+            WeatherDialogue.Answer weatherAnswer = WeatherDialogue.answer(
+                    settings, question, turn.api);
+            String local = weatherAnswer == null
+                    ? PersonalMemory.command(settings, question) : weatherAnswer.text;
+            if (weatherAnswer != null && weatherAnswer.usedInternet)
+                event("web_sources", "Source météorologique : Open-Meteo — "
+                        + WeatherForecast.SOURCE);
             // Ne jamais rechercher « mémoire de nos dialogues » sur Wikipédia :
             // répondre en fonction de l'historique réellement déchiffrable.
             if (local == null && DialogueMemoryPolicy.asksMemoryStatus(question))
@@ -1116,7 +1132,8 @@ public class FridayService extends Service {
                 answer = LocalJarvisEngine.answer(
                         this, settings, question, privateDialogue, turn.api);
             }
-            String speechAnswer = webResearch == null ? answer : webResearch.speech;
+            String speechAnswer = weatherAnswer != null ? weatherAnswer.speech
+                    : webResearch == null ? answer : webResearch.speech;
             if (!live(turn)) return;
             // Preuve d'une transmission API ponctuelle réussie, sans conserver les coordonnées.
             // Aucune coordonnée GPS n'est envoyée à une API distante.
