@@ -62,6 +62,15 @@ public final class NewsFollowUpPolicy {
         String current = fold(question);
         boolean drone = current.matches(".*\\bdrones?\\b.*");
         boolean attack = current.matches(".*\\b(?:attaques?|frappes?|bombardements?)\\b.*");
+        // Ne jamais choisir le premier titre au hasard lorsque l'utilisateur
+        // précise un sujet. Comparer au moins un terme de la question.
+        String subject = current.replaceFirst(
+                "^.*?\\b(?:sur|concernant|a propos de)\\b\\s*", "");
+        LinkedHashSet<String> requestedTerms = new LinkedHashSet<>();
+        for (String word : subject.split(" ")) {
+            if (word.length() < 4 || COMMON.contains(" " + word + " ")) continue;
+            requestedTerms.add(word.endsWith("s") ? word.substring(0, word.length() - 1) : word);
+        }
         String bestTitle = "";
         Matcher m = SOURCE.matcher(previousAssistant);
         while (m.find()) {
@@ -70,6 +79,13 @@ public final class NewsFollowUpPolicy {
             if (drone && !topic.matches(".*\\bdrones?\\b.*")) continue;
             if (attack && !topic.matches(".*\\b(?:attaques?|frappes?|bombardements?)\\b.*"))
                 continue;
+            if (!requestedTerms.isEmpty()) {
+                boolean match = false;
+                for (String term : requestedTerms) {
+                    if (topic.contains(term)) { match = true; break; }
+                }
+                if (!match) continue;
+            }
             bestTitle = title;
             break;
         }
