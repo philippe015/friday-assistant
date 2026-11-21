@@ -27,8 +27,8 @@ class ProfilePromptAppliedV3143(unittest.TestCase):
 
     def test_apk_preview_keeps_existing_installation(self):
         gradle=(ROOT/"app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionName '3.14.3'",gradle)
-        self.assertIn("applicationIdSuffix '.profilepreview'",gradle)
+        self.assertIn("versionName '3.14.4'",gradle)
+        self.assertIn("applicationIdSuffix '.readerpreview'",gradle)
         self.assertIn("com.google.ai.edge.litertlm:litertlm-android",gradle)
 
     def test_java_prompt_limits_and_user_personality(self):
