@@ -32,6 +32,7 @@ public final class WeatherRequestPolicyTest {
         eq(WeatherRequestPolicy.cityFromWeatherQuestion("Météo Paris, France"),
                 "Paris, France", "city with country");
         eq(WeatherRequestPolicy.cityReply("Paris"), "Paris", "one city word");
+        eq(WeatherRequestPolicy.cityReply("en France"), "France", "country only");
         eq(WeatherRequestPolicy.cityReply("Jarvis Lyon"), "Lyon", "wake city reply");
         eq(WeatherRequestPolicy.cityReply("pour Saint-Étienne"), "Saint-Étienne",
                 "compound city");
