@@ -307,6 +307,12 @@ public final class JarvisInternet {
             return sources;
         }
         sources.addAll(search(WebSearch.searchQuery(question, ""), cancellation));
+        // Les actualités récentes sont déjà vérifiées par l'horodatage et
+        // l'extrait RSS. Ouvrir ensuite deux pages éditeurs en série pouvait
+        // ajouter 10 à 20 secondes sans améliorer la preuve de fraîcheur.
+        // Ne jamais lire une URL d'agrégateur si elle n'est pas nécessaire.
+        if (RecentNewsPolicy.newsWindowHours(question) > 0)
+            return sources;
         for (int i = 0; i < sources.size() && i < 2; i++) {
             if (cancellation != null) cancellation.check();
             try {
@@ -370,7 +376,7 @@ public final class JarvisInternet {
             // Un autre éditeur de titres francophones permet de ne pas
             // dépendre uniquement de Google. Il peut refuser le robot ;
             // dans ce cas on poursuit sans contourner le refus.
-            if (found.size() < MAX_RESULTS) {
+            if (found.size() < 3) {
                 if (cancellation != null) cancellation.check();
                 try {
                     mergeDated(found, parseRss(fetch(
@@ -378,7 +384,7 @@ public final class JarvisInternet {
                             2, topic);
                 } catch (Exception failure) { trouble = noteFailure(trouble, failure); }
             }
-            if (found.size() < MAX_RESULTS) {
+            if (found.size() < 3) {
                 if (cancellation != null) cancellation.check();
                 try {
                     String bing = "https://www.bing.com/search?q="
