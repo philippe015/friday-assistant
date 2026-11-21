@@ -241,7 +241,12 @@ public final class LocalJarvisEngine {
         StringBuilder prompt = new StringBuilder(hasWebSources ? 5000 : 1800);
         prompt.append("Tu es JARVIS, assistant IA fonctionnant sur le téléphone Android. "
                 + "Réponds en français sans inventer de faits ou d'actualités. "
-                + "Tu ne transmets ni mémoire ni question à un autre moteur IA. ");
+                + "Tu ne transmets ni mémoire ni question à un autre moteur IA. "
+                + "En dialogue, réponds d'abord à la demande précise, "
+                + "puis explique brièvement si utile. "
+                + "Quand un nom, un lieu ou une date manque et change la réponse, "
+                + "pose une question ciblée plutôt que de deviner. "
+                + "Distingue ce qui est établi de ce qui reste incertain. ");
         if (hasWebSources) {
             prompt.append("Une recherche HTTPS a été effectuée par l'application, pas par le modèle. "
                     + "Tu peux utiliser ces résultats : ne prétends pas que JARVIS "
@@ -283,7 +288,9 @@ public final class LocalJarvisEngine {
                     .append(compact)
                     .append("\nCes anciens échanges peuvent contenir des erreurs. "
                             + "Utilise-les pour comprendre les pronoms, approfondir et "
-                            + "reprendre le sujet. Réponds à la demande ACTUELLE, "
+                            + "reprendre le sujet. Les rappels thématiques anciens "
+                            + "sont des indices et non des faits confirmés. "
+                            + "Réponds à la demande ACTUELLE, "
                             + "sans inventer de souvenirs.\n[FIN DU CONTEXTE PRIVÉ]");
         }
         int maxQuestion = hasWebSources ? 3900 : 1200;

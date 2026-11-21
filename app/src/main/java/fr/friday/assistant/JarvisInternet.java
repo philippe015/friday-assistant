@@ -110,9 +110,17 @@ public final class JarvisInternet {
                     .append(clip(source.title, 150)).append(". ")
                     .append("Date du flux RSS : ")
                     .append(RssFreshness.display(source.publishedAt)).append(". ");
+            // Résumé seulement lorsque le flux de l'éditeur fournit un
+            // véritable extrait distinct du titre : jamais de résumé inventé.
+            String excerpt = NewsEvidencePolicy.distinctRssExcerpt(
+                    source.title, source.summary, source.url);
+            if (!excerpt.isEmpty())
+                report.append("Extrait du flux, non vérifié indépendamment : ")
+                        .append(excerpt).append(". ");
         }
         report.append("Les liens figurent dans les sources écrites. "
-                + "Je ne dispose pas nécessairement du texte intégral des articles.");
+                + "Je ne dispose pas nécessairement du texte intégral des articles. "
+                + "Les résumés éventuels proviennent uniquement des descriptions RSS.");
         return report.toString();
     }
 
