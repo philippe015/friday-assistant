@@ -29,6 +29,11 @@ class AutoListeningStartup(unittest.TestCase):
                     expect(AutoListenPolicy.shouldStart("1", true, false, false), false);
                     expect(AutoListenPolicy.shouldStart("1", false, true, false), false);
                     expect(AutoListenPolicy.shouldStart("1", false, false, true), false);
+                    expect(AutoListenPolicy.retryOnResume("1", false, false, 1000, 10000), true);
+                    expect(AutoListenPolicy.retryOnResume("1", false, false, 1000, 5000), false);
+                    expect(AutoListenPolicy.retryOnResume("1", true, false, 1000, 10000), false);
+                    expect(AutoListenPolicy.retryOnResume("0", false, false, 1000, 10000), false);
+                    expect(AutoListenPolicy.retryOnResume("1", false, true, 1000, 10000), false);
                 }
             }
         """
@@ -47,6 +52,8 @@ class AutoListeningStartup(unittest.TestCase):
         self.assertIn("if (!startupListenAttempted)", ACTIVITY)
         self.assertIn("startupListenAttempted = true;", ACTIVITY)
         self.assertIn("AutoListenPolicy.shouldStart(", ACTIVITY)
+        self.assertIn("AutoListenPolicy.retryOnResume(", ACTIVITY)
+        self.assertIn("lastAutoListenAttemptAt", ACTIVITY)
         self.assertIn("status.post(() -> {", ACTIVITY)
         self.assertIn("startListening(true);", ACTIVITY)
         self.assertIn("!isFinishing() && !isDestroyed()", ACTIVITY)
