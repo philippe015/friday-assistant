@@ -598,8 +598,8 @@ public class FridayService extends Service {
                                 completed = interim = ""; lastVoice = 0;
                                 confidenceSum = 0; confidenceCount = 0;
                                 earlyCancelled = false; sawSpeakerFeedback = false;
-                                voiceState("Lecture TTS / anti-écho : dictée suspendue, STOP disponible");
-                                event("barge_diag", "Protection anti-écho : dictée suspendue · STOP actif pendant la voix");
+                                voiceState("Lecture TTS / anti-écho : dictée suspendue, interruption uniquement par bouton");
+                                event("barge_diag", "Protection anti-écho : dictée suspendue · STOP vocal désactivé · bouton disponible");
                             }
                             continue;
                         }
@@ -904,8 +904,11 @@ public class FridayService extends Service {
         currentTurn = turn;
         boolean localJarvis = true; // Mode exclusif Jarvis pour toute demande vocale.
         voiceState("Question reçue · "
-                + "Jarvis sur le téléphone, sans réseau"
-                + " · micro disponible pour une nouvelle question avec Jarvis");
+                + "Jarvis local sur le téléphone"
+                + (JarvisInternet.shouldResearch(settings, question)
+                    ? " · recherche Web publique possible si disponible"
+                    : " · sans recherche Web pour cette question")
+                + " · micro prêt pour une nouvelle question avec Jarvis");
         // Protège contre un fournisseur/API bloqué : aucun tour muet ne doit
         // garder l'écoute occupée indéfiniment. Un TTS en lecture n'est pas coupé.
         turn.watchdog = () -> {
@@ -1063,10 +1066,17 @@ public class FridayService extends Service {
             }
             if (memoryAction) event("status", "Commande mémoire effectuée localement.");
             else event("assistant", answer);
+            // Distingue le calcul/réseau du temps de synthèse vocale.
+            // Les commandes locales (dont l'accès à Maps) évitent la recherche Web.
+            long preparationMs = SystemClock.elapsedRealtime() - turn.startedAt;
+            event("latency", "Réponse préparée en " + preparationMs + " ms"
+                    + (webResearch == null ? " · pas de recherche Web dans ce tour"
+                       : webResearch.usedInternet ? " · sources Web consultées"
+                       : " · recherche Web non aboutie") + ".");
             if (!turn.streamedVoice) {
                 spokenText = speechAnswer;
                 speakingNow = true;
-                event("status", "Réponse vocale en cours. Dites « STOP » pour interrompre ; attendez la fin pour une nouvelle question.");
+                event("status", "Réponse vocale en cours. Utilisez le bouton Interrompre pour arrêter ; nouvelle question après la voix.");
             }
             boolean spoken = turn.streamedVoice ? turn.streamingVoiceSucceeded : speak(speechAnswer, turn);
             if (!live(turn)) return;
