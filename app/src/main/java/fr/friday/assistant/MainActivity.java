@@ -1293,6 +1293,14 @@ public class MainActivity extends Activity {
             String fault = null;
             boolean persisted = false;
             try {
+                // Même dialogue météo pour l'écrit et l'oral : après
+                // « Pour quelle ville ? », un simple « Lyon » suffit.
+                WeatherDialogue.Answer weatherAnswer = WeatherDialogue.answer(
+                        prefs, request, new NativeAI.CancelToken());
+                if (weatherAnswer != null) {
+                    answer = weatherAnswer.text;
+                    speechAnswer = weatherAnswer.speech;
+                }
                 // Le texte écrit doit accéder au même historique chiffré
                 // que la voix. Ce contenu n'est transmis qu'au modèle local,
                 // jamais aux moteurs de recherche HTTPS.
@@ -1307,7 +1315,7 @@ public class MainActivity extends Activity {
                                 "Contexte local chiffré indisponible ; poursuite sans historique");
                     }
                 }
-                if (MemoryIntent.kind(request) != MemoryIntent.NONE)
+                if (answer == null && MemoryIntent.kind(request) != MemoryIntent.NONE)
                     answer = PersonalMemory.command(prefs, request);
                 if (answer == null && DialogueMemoryPolicy.asksMemoryStatus(request))
                     answer = DialogueContext.memoryStatus(
