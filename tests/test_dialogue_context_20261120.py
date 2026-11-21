@@ -44,11 +44,14 @@ class EncryptedDialogueMemory(unittest.TestCase):
         self.assertIn("Ni mémoire personnelle, ni conversation complète, ni position GPS",WEB)
 
     def test_context_is_bounded_and_current_question_not_duplicated(self):
-        self.assertIn("MAX_DIALOGUE_MESSAGES = 10",DIALOG)
-        self.assertIn("MAX_DIALOGUE_CHARACTERS = 2800",DIALOG)
+        self.assertIn("MAX_DIALOGUE_MESSAGES = 14",DIALOG)
+        self.assertIn("MAX_DIALOGUE_CHARACTERS = 2600",DIALOG)
         self.assertIn("previousEnd(events, currentQuestion)",DIALOG)
         self.assertIn("chosen.addFirst(line)",DIALOG)
-        self.assertIn("hasWebSources ? 800 : 2200",LOCAL)
+        self.assertIn("NORMAL_DIALOGUE_MESSAGES = 6",DIALOG)
+        self.assertIn("NORMAL_DIALOGUE_CHARACTERS = 1250",DIALOG)
+        self.assertIn("DialogueMemoryPolicy.isContextualFollowUp(currentQuestion)",DIALOG)
+        self.assertIn("hasWebSources ? 800 : 2900",LOCAL)
 
     def test_no_breakage_for_typed_questions(self):
         self.assertIn('textQuestions.offer("Jarvis " + clean)',SERVICE)

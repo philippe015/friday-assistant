@@ -42,8 +42,10 @@ public class FridayService extends Service {
     private static volatile String interruptDiagnostics = "Micro non démarré";
     private static volatile String voiceReadiness = "Micro arrêté";
     private static volatile String microphoneSignal = "Mesure du microphone non démarrée";
-    /** État du dernier décodage Vosk, sans sauvegarder les paroles. */
-    private static volatile String recognitionDiagnostic = "Aucune phrase Vosk finalisée";
+    /** État non personnel de la reconnaissance (aucune parole sauvegardée). */
+    private static volatile String recognitionDiagnostic = "Aucune transcription détectée";
+    private static volatile String recognitionEngine = "Non initialisé";
+    private static volatile long lastAsrTextAt = 0;
     private static volatile String lastTtsStatus = "Voix non initialisée";
     private static volatile boolean foregroundLocationEnabled = false;
     private static final long MAX_PENDING_WEB_MS = 150000L;
@@ -91,7 +93,14 @@ public class FridayService extends Service {
     public static String interruptionDiagnostics() { return interruptDiagnostics; }
     public static String voiceReadiness() { return voiceReadiness; }
     public static String microphoneSignal() { return microphoneSignal; }
-    public static String recognitionDiagnostic() { return recognitionDiagnostic; }
+    public static String recognitionEngine() { return recognitionEngine; }
+    public static String recognitionDiagnostic() {
+        long at = lastAsrTextAt;
+        if (at == 0) return recognitionDiagnostic + " · aucun texte reconnu depuis le démarrage du service";
+        long elapsed = SystemClock.elapsedRealtime() - at;
+        if (elapsed < 0) return recognitionDiagnostic;
+        return recognitionDiagnostic + " · dernier texte il y a " + Math.max(0, elapsed / 1000) + " s";
+    }
     private void asrDiagnostic(String info) {
         recognitionDiagnostic = info;
         event("asr_diag", info);
@@ -271,26 +280,38 @@ public class FridayService extends Service {
         try { return new JSONObject(json).optString(key, "").trim(); }
         catch (Exception ignored) { return ""; }
     }
-    /** Active les scores de confiance Vosk sur chaque nouveau décodeur. */
-    private Recognizer createRecognizer(Model model) throws Exception {
-        Recognizer recognizer = new Recognizer(model, 16000.0f);
-        recognizer.setWords(true);
-        if ("1".equals(settings.get("vosk_hints_enabled", "0"))) {
-            String grammar = VoiceVocabulary.grammar(settings.secret("vosk_hints"));
-            if (grammar != null) {
-                try { recognizer.setGrammar(grammar); }
-                catch (RuntimeException | UnsatisfiedLinkError ex) {
-                    Log.w("FRIDAY_ASR", "Vocabulaire Vosk non compatible : mode normal conservé", ex);
-                    try { recognizer.setGrammar("[]"); }
-                    catch (Exception ignored) {}
-                }
+    /**
+     * Un moteur de dictée générale, sur le même PCM AudioRecord.
+     * Si sherpa ou le modèle français échoue au chargement, désactiver son
+     * opt-in pour éviter une boucle d'échec, puis revenir à Vosk.
+     * STOP reste pris en charge par un décodeur Vosk indépendant.
+     */
+    private JarvisVoiceDecoder createRecognizer(Model model) throws Exception {
+        if (SherpaVoicePolicy.useSherpa(settings.get("sherpa_voice_enabled", "0"),
+                SherpaVoiceModels.ready(this))) {
+            try {
+                JarvisVoiceDecoder decoder = new SherpaVoiceDecoder(this);
+                recognitionEngine = decoder.name();
+                return decoder;
+            } catch (Exception | LinkageError | OutOfMemoryError unavailable) {
+                settings.put("sherpa_voice_enabled", "0");
+                Log.w("JARVIS_SHERPA", "Sherpa FR indisponible : retour automatique à Vosk", unavailable);
+                event("error", "sherpa-onnx indisponible : Vosk réactivé. "
+                        + "Vérifiez les fichiers français et la mémoire du téléphone.");
+                SherpaVoiceDecoder.shutdown();
             }
         }
-        return recognizer;
+        String grammar = "1".equals(settings.get("vosk_hints_enabled", "0"))
+                ? VoiceVocabulary.grammar(settings.secret("vosk_hints")) : null;
+        JarvisVoiceDecoder decoder = new JarvisVoiceDecoder.Vosk(model, grammar);
+        recognitionEngine = decoder.name();
+        return decoder;
     }
 
     /** Capture Vosk continue pendant les appels Mistral et la lecture audio. */
     private void runLoop() {
+        lastAsrTextAt = 0;
+        recognitionDiagnostic = "Aucune transcription détectée";
         try (Model model = new Model(ModelInstaller.modelDir(this).getAbsolutePath())) {
             event("status", "Reconnaissance française prête. Pendant une réponse, STOP et les précisions restent disponibles ; les nouvelles questions reprennent après la voix.");
             // Ne pas bloquer 15 secondes le micro en attendant le moteur TTS Android.
@@ -301,11 +322,12 @@ public class FridayService extends Service {
                 // Ne temporiser qu'APRES libération du microphone en finally.
                 long retryMs = 0L;
                 AudioRecord ar = null;
-                Recognizer recognizer = null;
+                JarvisVoiceDecoder recognizer = null;
                 Recognizer stopRecognizer = null;
                 AudioManager.AudioRecordingCallback recordingCallback = null;
                 VoiceStopSpotter stopSpotter = new VoiceStopSpotter();
                 boolean stopRecognizerUnavailable = false;
+                boolean sherpaDecoderFailed = false;
                 try {
                     int minimum = AudioRecord.getMinBufferSize(16000, AudioFormat.CHANNEL_IN_MONO,
                         AudioFormat.ENCODING_PCM_16BIT);
@@ -367,6 +389,8 @@ public class FridayService extends Service {
                         } catch (RuntimeException ignored) { recordingCallback = null; }
                     }
                     recognizer = createRecognizer(model);
+                    event("status", "Reconnaissance générale : " + recognizer.name()
+                            + " · commandes STOP conservées avec Vosk");
                     ar.startRecording();
                     if (firstQuestionOnMicStart) {
                         firstQuestionOnMicStart = false;
@@ -374,7 +398,7 @@ public class FridayService extends Service {
                         asrDiagnostic("Micro et Vosk prêts : première question directe pendant 15 secondes");
                     }
                     event("status", PhoneAudioRoute.inputStatus(ar));
-                    voiceState("Micro actif : dites Jarvis pour parler");
+                    voiceState("Micro actif : dites Jarvis ou Friday pour parler");
                     interruptDiagnostics = bargeEnabled
                             ? "Micro PCM prêt · décodeur STOP démarre à la réponse"
                             : "Désactivé dans Réglages · autoriser l'interruption vocale";
@@ -386,6 +410,8 @@ public class FridayService extends Service {
                     long lastPolicyCheck = 0, lastVoice = 0, lastPartialPublished = 0;
                     long lastMicLevelAt = 0;
                     long lastSignalSampleAt = 0;
+                    long signalPeakWindowAt = 0;
+                    int signalPeak = 0;
                     long noPcmSince = 0;
                     long lastPhoneInputCheckAt = 0;
                     String completed = "", interim = "";
@@ -428,11 +454,20 @@ public class FridayService extends Service {
                         }
                         noPcmSince = 0;
                         long sampleAt = SystemClock.elapsedRealtime();
+                        // Le niveau instantané seul peut manquer une syllabe ;
+                        // conserver aussi le pic maximal sur six secondes.
+                        int level = MicSignalMeter.level(buffer, count);
+                        if (signalPeakWindowAt == 0
+                                || sampleAt - signalPeakWindowAt >= 6000L) {
+                            signalPeakWindowAt = sampleAt;
+                            signalPeak = 0;
+                        }
+                        signalPeak = Math.max(signalPeak, level);
                         if (sampleAt - lastSignalSampleAt >= 1200L) {
                             lastSignalSampleAt = sampleAt;
-                            int level = MicSignalMeter.level(buffer, count);
                             microphoneSignal = "Entrée téléphone : " + level
-                                    + "/100 (volume relatif, pas une note de qualité)"
+                                    + "/100 · pic 6 s : " + signalPeak
+                                    + "/100 (niveaux relatifs)"
                                     + (silencedByPolicy.get() ? " · entrée muette imposée par Android" : "");
                         }
                         long phoneCheck = SystemClock.elapsedRealtime();
@@ -505,7 +540,7 @@ public class FridayService extends Service {
                         if (currentTurn != null && bargeEnabled &&
                                 micNow - lastMicLevelAt >= 1200) {
                             lastMicLevelAt = micNow;
-                            int level = MicSignalMeter.level(buffer, count);
+                            // Réutiliser le niveau PCM déjà mesuré pour cette trame.
                             interruptDiagnostics = stopRecognizerUnavailable
                                     ? "Décodeur STOP indisponible · niveau micro " + level + "/100"
                                     : "Décodeur STOP actif · niveau micro " + level
@@ -606,6 +641,7 @@ public class FridayService extends Service {
                             String resultJson = recognizer.getResult();
                             String segment = parse(resultJson, "text");
                             if (!segment.isEmpty()) {
+                                lastAsrTextAt = now;
                                 double[] stats = confidenceStats(resultJson);
                                 confidenceSum += stats[0];
                                 confidenceCount += (int) stats[1];
@@ -621,6 +657,7 @@ public class FridayService extends Service {
                         } else {
                             String next = parse(recognizer.getPartialResult(), "partial");
                             if (!next.isEmpty() && !next.equals(interim)) {
+                                lastAsrTextAt = now;
                                 interim = next;
                                 lastVoice = now;
                                 if (now - lastPartialPublished >= 250) {
@@ -670,24 +707,41 @@ public class FridayService extends Service {
                             // Un mot-clé explicitement reconnu autorise un seuil
                             // plus tolérant ; la dictée sans mot-clé reste prudente.
                             boolean explicitWake = BargeInPolicy.startsWithWake(phrase);
+                            boolean clearHandsfreeRequest = HandsFreeQuestionPolicy.acceptsDirectQuestion(
+                                    phrase, "1".equals(settings.get("followup_handsfree", "0")),
+                                    !speakingNow && SystemClock.elapsedRealtime() >= echoBlockUntil);
+                            // Les questions clairement formulées, acceptées par la
+                            // politique mains libres, ne doivent pas être perdues
+                            // à cause du seuil sévère des bribes ambiantes.
+                            double minimumConfidence = explicitWake ? 0.35
+                                    : clearHandsfreeRequest ? 0.40 : 0.55;
                             boolean unclear = !controlPhrase && phrase.split("\\s+").length >= 3
-                                    && confidence > 0 && confidence < (explicitWake ? 0.35 : 0.55);
+                                    && confidence > 0 && confidence < minimumConfidence;
                             if (!dropSpeaker && !phrase.trim().isEmpty()) {
                                 if (unclear) {
                                     asrDiagnostic("Phrase reconnue mais confiance Vosk faible ("
                                             + Math.round(confidence * 100) + " %)");
                                     // Transcription douteuse : on montre ce qui a été entendu au lieu d'interroger l'IA.
-                                    event("user", phrase.trim());
-                                    event("error", "Je n'ai pas bien compris : « " + phrase.trim()
-                                            + " » (confiance " + Math.round(confidence * 100) + " %). Pouvez-vous répéter ?");
+                                    event("asr_rejected", phrase.trim());
+                                    event("error", "Transcription vocale incertaine (confiance "
+                                            + Math.round(confidence * 100)
+                                            + " %). Reformulez ou dites Jarvis avant la question.");
                                 } else {
                                     handlePhrase(phrase.trim());
                                 }
                             }
                         }
                     }
-                } catch (Exception captureError) {
+                } catch (Exception | LinkageError captureError) {
                     if (!running) break;
+                    if (recognizer instanceof SherpaVoiceDecoder) {
+                        // Un crash ASR après chargement ne doit pas réouvrir
+                        // éternellement sherpa dans la boucle du microphone.
+                        sherpaDecoderFailed = true;
+                        settings.put("sherpa_voice_enabled", "0");
+                        event("error", "Le moteur vocal sherpa-onnx a échoué. "
+                                + "Vosk sera rétabli à la prochaine tentative.");
+                    }
                     consecutiveErrors++;
                     // La v3.11.1 arretait definitivement le service apres trois
                     // echec AudioRecord, ou restait muette apres deux reprises.
@@ -719,6 +773,7 @@ public class FridayService extends Service {
                     recorder = null;
                     if (recognizer != null) recognizer.close();
                     if (stopRecognizer != null) stopRecognizer.close();
+                    if (sherpaDecoderFailed) SherpaVoiceDecoder.shutdown();
                 }
                 // AudioRecord, callbacks et effets doivent être fermés avant
                 // la pause : sinon Android peut refuser la prochaine capture.
@@ -732,7 +787,7 @@ public class FridayService extends Service {
             }
         } catch (Exception e) {
             if (running) event("error", "Moteur vocal : " + e.getMessage());
-        } finally { shutdown(); stopSelf(); }
+        } finally { SherpaVoiceDecoder.shutdown(); shutdown(); stopSelf(); }
     }
     private void releaseAudioEffects() {
         try { if (echoCanceler != null) echoCanceler.release(); } catch (Exception ignored) { }
@@ -830,8 +885,12 @@ public class FridayService extends Service {
         boolean activated = BargeInPolicy.startsWithWake(heard) && RustWake.detect(heard);
         boolean activeResponse = currentTurn != null;
         if (activeResponse) {
-            if (!"1".equals(settings.get("barge_in_enabled", "1")) ||
-                !BargeInPolicy.canBarge(heard, spokenText)) return;
+            // L'interruption pendant la VOIX reste soumise au réglage anti-écho.
+            // Mais si le moteur IA réfléchit encore sans rien prononcer, un
+            // nouveau « Jarvis / Friday » doit pouvoir relancer la demande.
+            if (!VoiceTurnPolicy.canReplace(activeResponse, speakingNow,
+                    "1".equals(settings.get("barge_in_enabled", "0")),
+                    BargeInPolicy.canBarge(heard, spokenText))) return;
             interruptResponse("Nouvelle question détectée, ancienne réponse arrêtée.");
         }
         String question;
@@ -846,6 +905,16 @@ public class FridayService extends Service {
                 return;
             }
         } else if ((TtsEchoGate.followupAccepts(now, echoBlockUntil, wakeOnlyUntil) ||
+                // Une question française COMPLETE est acceptée à tout moment
+                // en mode mains libres, même sans premier mot-clé. Les bribes
+                // et la voix de synthèse restent bloquées par la politique.
+                HandsFreeQuestionPolicy.acceptsDirectQuestion(heard,
+                        "1".equals(settings.get("followup_handsfree", "0")),
+                        !speakingNow && now >= echoBlockUntil) ||
+                // Après « Pour quelle ville ? », « Paris » est une réponse
+                // complète, même si elle n'a qu'un mot et arrive après 20 s.
+                (WeatherDialogue.cityFollowup(settings, heard)
+                        && !speakingNow && now >= echoBlockUntil) ||
                 ("1".equals(settings.get("followup_handsfree", "0")) && wakeArmed &&
                 (now - lastReplyAt <= followupMs || now < clarificationUntil))) &&
                 now >= echoBlockUntil) {
@@ -853,13 +922,27 @@ public class FridayService extends Service {
             // le haut-parleur, une TV ou du bruit en fausse question.
             // « Écoute ON », le bouton d'interruption ou un mot-clé isolé
             // autorisent UNE question directe pendant une fenêtre courte.
-            if (heard.trim().split("\\s+").length < 2) return;
+            if (!VoiceQuestionPolicy.plausibleDirectQuestion(
+                    heard, !latestQuestion.isEmpty())
+                    && !WeatherDialogue.cityFollowup(settings, heard)
+                    && !WeatherRequestPolicy.isWeatherRequest(heard)) {
+                // Une bribe Vosk n'est pas une question : ne pas lancer le Web
+                // ni injecter cette transcription dans le dialogue privé.
+                asrDiagnostic("Transcription incomplète ou sans demande claire ; "
+                        + "réessayez ou dites Jarvis au début");
+                event("asr_rejected", heard.trim());
+                return;
+            }
             question = heard;
         } else {
             // Le PCM est présent, Vosk comprend une phrase, mais aucun mot-clé :
             // ce n'est pas une panne de Jarvis ou du microphone.
-            if (heard.trim().split("\\s+").length >= 2)
-                asrDiagnostic("Vosk a transcrit une phrase ; mot-clé Jarvis absent");
+            if (heard.trim().split("\\s+").length >= 2) {
+                asrDiagnostic("Phrase transcrite ; mot-clé Jarvis ou Friday absent");
+                // Uniquement pour l'interface visible, sans historique ni journal.
+                // Le cockpit effacera ce texte local automatiquement après 15 s.
+                event("asr_rejected", heard.trim());
+            }
             return;
         }
         if (BargeInPolicy.wantsToAddDetails(question)) {
@@ -877,7 +960,10 @@ public class FridayService extends Service {
         clarificationUntil = 0L;
         latestQuestion = request;
         asrDiagnostic(activated ? "Mot-clé Jarvis reconnu, question envoyée à Jarvis"
-                : "Question directe reconnue, envoyée à Jarvis");
+                : "Question vocale complète reconnue et envoyée à Jarvis");
+        // Une transcription affichée en aperçu n'était pas forcément
+        // envoyée : l'événement utilisateur ci-dessous donne la confirmation.
+        event("status", "Question vocale acceptée · Jarvis prépare sa réponse.");
         ResponseTurn turn = new ResponseTurn(anchor);
         currentTurn = turn;
         boolean localJarvis = true; // Mode exclusif Jarvis pour toute demande vocale.
@@ -921,7 +1007,16 @@ public class FridayService extends Service {
             }
             if (live(turn)) event("status", memoryAction ? "Commande mémoire locale…"
                     : "Jarvis local réfléchit sur le téléphone…");
-            String local = PersonalMemory.command(settings, question);
+            // Prévisions météo directes : une question sans ville déclenche
+            // « Pour quelle ville ? ». La réponse courte sera acceptée par
+            // le même service vocal. Aucun LLM ni recherche Web générale.
+            WeatherDialogue.Answer weatherAnswer = WeatherDialogue.answer(
+                    settings, question, turn.api);
+            String local = weatherAnswer == null
+                    ? PersonalMemory.command(settings, question) : weatherAnswer.text;
+            if (weatherAnswer != null && weatherAnswer.usedInternet)
+                event("web_sources", "Source météorologique : Open-Meteo — "
+                        + WeatherForecast.SOURCE);
             // Ne jamais rechercher « mémoire de nos dialogues » sur Wikipédia :
             // répondre en fonction de l'historique réellement déchiffrable.
             if (local == null && DialogueMemoryPolicy.asksMemoryStatus(question))
@@ -1025,13 +1120,19 @@ public class FridayService extends Service {
                 webResearch = JarvisInternet.answer(
                         this, settings, question, privateDialogue, turn.api);
                 answer = webResearch.text;
-                if (webResearch.usedInternet) event("web_sources", webResearch.sources);
+                if (webResearch.usedInternet) {
+                    event("latency", "Temps recherche Internet : " + webResearch.researchMs
+                            + " ms ; génération Jarvis locale : " + webResearch.generationMs
+                            + " ms. Les deux opérations sont mesurées séparément.");
+                    event("web_sources", webResearch.sources);
+                }
             } else {
                 event("status", "Jarvis local : réponse générée sur le téléphone sans moteur distant.");
                 answer = LocalJarvisEngine.answer(
                         this, settings, question, privateDialogue, turn.api);
             }
-            String speechAnswer = webResearch == null ? answer : webResearch.speech;
+            String speechAnswer = weatherAnswer != null ? weatherAnswer.speech
+                    : webResearch == null ? answer : webResearch.speech;
             if (!live(turn)) return;
             // Preuve d'une transmission API ponctuelle réussie, sans conserver les coordonnées.
             // Aucune coordonnée GPS n'est envoyée à une API distante.

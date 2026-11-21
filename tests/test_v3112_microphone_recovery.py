@@ -28,7 +28,8 @@ class MicrophoneRecovery(unittest.TestCase):
         self.assertIn("Math.min(10000L, 500L * Math.min(consecutiveErrors, 20))", SERVICE)
         self.assertIn("Thread.sleep(retryMs)", SERVICE)
         self.assertIn("if (!running) break;", SERVICE)
-        self.assertIn("finally { shutdown(); stopSelf(); }", SERVICE)
+        self.assertIn("finally { SherpaVoiceDecoder.shutdown(); shutdown(); stopSelf(); }", SERVICE)
+        self.assertIn("if (recognizer != null) recognizer.close();", SERVICE)
 
     def test_tts_cannot_shut_down_micro_from_false_stop(self):
         start=SERVICE.index("VoiceStopSpotter.Action action =")
@@ -42,8 +43,8 @@ class MicrophoneRecovery(unittest.TestCase):
 
     def test_version(self):
         gradle=(ROOT/"app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 93", gradle)
-        self.assertIn("versionName '3.13.8'", gradle)
+        self.assertIn("versionCode 103", gradle)
+        self.assertIn("versionName '3.13.18'", gradle)
 
 if __name__ == "__main__":
     unittest.main()

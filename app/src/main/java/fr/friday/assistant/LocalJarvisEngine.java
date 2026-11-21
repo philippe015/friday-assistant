@@ -238,7 +238,7 @@ public final class LocalJarvisEngine {
     private static String buildLocalPrompt(SecurePrefs cfg, String cleaned,
                                           String privateDialogue) {
         boolean hasWebSources = cleaned.contains("[DEBUT EXTRAITS WEB PUBLICS");
-        StringBuilder prompt = new StringBuilder(hasWebSources ? 5000 : 1800);
+        StringBuilder prompt = new StringBuilder(hasWebSources ? 5000 : 3000);
         prompt.append("Tu es JARVIS, assistant IA fonctionnant sur le téléphone Android. "
                 + "Réponds en français sans inventer de faits ou d'actualités. "
                 + "Tu ne transmets ni mémoire ni question à un autre moteur IA. ");
@@ -275,7 +275,9 @@ public final class LocalJarvisEngine {
         // Ce contexte vient UNIQUEMENT de l'historique AES-GCM sur Android.
         // Il n'est pas ajouté aux mots-clés ou aux URLs des moteurs Web.
         if (privateDialogue != null && !privateDialogue.trim().isEmpty()) {
-            int limit = hasWebSources ? 800 : 2200;
+            // L'extrait DialogueContext est déjà borné ; ne pas couper son
+            // début au milieu d'une phrase, ce qui casserait les références.
+            int limit = hasWebSources ? 800 : 2900;
             String compact = privateDialogue.length() <= limit
                     ? privateDialogue : privateDialogue.substring(
                             privateDialogue.length() - limit);
@@ -283,7 +285,10 @@ public final class LocalJarvisEngine {
                     .append(compact)
                     .append("\nCes anciens échanges peuvent contenir des erreurs. "
                             + "Utilise-les pour comprendre les pronoms, approfondir et "
-                            + "reprendre le sujet. Réponds à la demande ACTUELLE, "
+                            + "reprendre le sujet. Pour une relance courte, "
+                            + "reprends la dernière question et la dernière réponse "
+                            + "avant de répondre. Si le référent est ambigu, "
+                            + "demande une précision. Réponds à la demande ACTUELLE, "
                             + "sans inventer de souvenirs.\n[FIN DU CONTEXTE PRIVÉ]");
         }
         int maxQuestion = hasWebSources ? 3900 : 1200;

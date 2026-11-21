@@ -17,9 +17,9 @@ BARGE = (JAVA / "BargeInPolicy.java").read_text(encoding="utf-8")
 class VoiceAndWebRegression(unittest.TestCase):
     def test_wake_fallback_even_when_native_library_loaded(self):
         self.assertIn("hasWakeWord(normalized) || VoiceText.hasWakeWord(text)", RUST)
-        for spelling in ("jarvis", "jarvise", "jervis", "jervi"):
+        for spelling in ("jarvis", "jarvise", "jervis", "jervi", "friday", "jar vis"):
             self.assertIn(spelling, VOICE)
-            self.assertIn(spelling, BARGE)
+        self.assertIn("VoiceText.startsWithWakeWord(phrase)", BARGE)
 
     def test_java_wake_recognition_behavior(self):
         if not shutil.which("javac") or not shutil.which("java"):
@@ -28,7 +28,7 @@ class VoiceAndWebRegression(unittest.TestCase):
             import fr.friday.assistant.*;
             public class WakeSmoke {
                 public static void main(String[] args) {
-                    for (String name : new String[]{"Jarvis", "Jarvise", "Jervis", "Jervi"}) {
+                    for (String name : new String[]{"Jarvis", "Jarvise", "Jervis", "Jervi", "Friday", "Jar vis"}) {
                         String sentence = name + ", quelle heure est-il ?";
                         if (!BargeInPolicy.startsWithWake(sentence)) throw new AssertionError(name);
                         if (!VoiceText.hasWakeWord(sentence)) throw new AssertionError(name);
@@ -62,7 +62,9 @@ class VoiceAndWebRegression(unittest.TestCase):
 
     def test_two_provider_fallback_deduplicates(self):
         self.assertIn("private static void mergeUnique(", WEB)
-        self.assertGreaterEqual(WEB.count("if (found.size() < MAX_RESULTS)"), 2)
+        # Trois articles datés suffisent pour éviter des recherches de secours lentes.
+        self.assertGreaterEqual(WEB.count("if (found.size() < 3)"), 2)
+        self.assertIn("if (found.size() < MAX_RESULTS)", WEB)
         self.assertIn("previous.url.equals(candidate.url)", WEB)
         self.assertIn("parseRss(", WEB)
         self.assertIn("parseDuckDuckGo(", WEB)

@@ -27,6 +27,6 @@ class JarvisOnlyMigration(unittest.TestCase):
         self.assertIn("stopRecognizer.acceptWaveForm(buffer, count)",VOICE)
     def test_version(self):
         gradle=(ROOT/"app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 93",gradle)
-        self.assertIn("versionName '3.13.8'",gradle)
+        self.assertIn("versionCode 103",gradle)
+        self.assertIn("versionName '3.13.18'",gradle)
 if __name__=="__main__": unittest.main()

@@ -1,0 +1,258 @@
+name: Publish JARVIS Sherpa FR beta signed APK
+
+on:
+  push:
+    branches: [ feature/sherpa-french-voice-beta-20261120 ]
+    paths:
+      - '.github/workflows/release-sherpa-fr-beta.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: jarvis-sherpa-fr-beta-release
+  cancel-in-progress: false
+
+jobs:
+  publish-sherpa-fr-beta:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+    steps:
+      - name: Checkout exact beta source
+        uses: actions/checkout@v4
+
+      - name: Check release version, features, and signing
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = "feature/sherpa-french-voice-beta-20261120"
+          test -n "$KEYSTORE_BASE64" || { echo "::error::Signing keystore secret not configured"; exit 1; }
+          test -n "$KEYSTORE_PASSWORD" || { echo "::error::Signing password not configured"; exit 1; }
+          test -n "$KEY_PASSWORD" || { echo "::error::Key password not configured"; exit 1; }
+          grep -Fq "versionCode 103" app/build.gradle
+          grep -Fq "versionName '3.13.18'" app/build.gradle
+          grep -Fq "applicationId 'fr.friday.assistant'" app/build.gradle
+          grep -Fq "sherpa-onnx:v2.0.2" app/build.gradle
+          grep -Fq "SherpaVoiceModels.importOfficialArchive" app/src/main/java/fr/friday/assistant/MainActivity.java
+          grep -Fq "SherpaArchivePolicy.acceptedDisplayName(sourceName)" app/src/main/java/fr/friday/assistant/SherpaVoiceModels.java
+          grep -Fq "SherpaArchivePolicy.checkedBzip2(input)" app/src/main/java/fr/friday/assistant/SherpaVoiceModels.java
+          grep -Fq "SherpaArchivePolicyTest" scripts/tester_sources.sh
+          grep -Fq "HandsFreeQuestionPolicyTest" scripts/tester_sources.sh
+          test -f tests/test_jarvis_quick_news_and_dialogue_20261121.py
+          test -f tests/test_jarvis_memory_latency_beta11.py
+          grep -Fq "NORMAL_DIALOGUE_MESSAGES = 6" app/src/main/java/fr/friday/assistant/DialogueContext.java
+          grep -Fq "MAX_DIALOGUE_MESSAGES = 14" app/src/main/java/fr/friday/assistant/DialogueContext.java
+          grep -Fq "sufficientIndependentSources(found)" app/src/main/java/fr/friday/assistant/JarvisInternet.java
+          grep -Fq "int pagesToRead" app/src/main/java/fr/friday/assistant/JarvisInternet.java
+          test -f tests/test_weather_dialogue_20261121.py
+          grep -Fq "WeatherRequestPolicyTest" scripts/tester_sources.sh
+          grep -Fq "WeatherPlacePolicyTest" scripts/tester_sources.sh
+          grep -Fq "WeatherPlacePolicy.sameCountry(" app/src/main/java/fr/friday/assistant/WeatherForecast.java
+          grep -Fq "if (requestedCountry.isEmpty())" app/src/main/java/fr/friday/assistant/WeatherForecast.java
+          grep -Fq "catch (WeatherForecast.NeedCountryException ambiguous)" app/src/main/java/fr/friday/assistant/WeatherDialogue.java
+          grep -Fq "AutoListenPolicy.retryWhileVisible(" app/src/main/java/fr/friday/assistant/MainActivity.java
+          grep -Fq 'prefs.put("jarvis_always_listening_v31317", "1")' app/src/main/java/fr/friday/assistant/MainActivity.java
+          grep -Fq "visibleListenHandler.removeCallbacks(visibleListenWatchdog)" app/src/main/java/fr/friday/assistant/MainActivity.java
+          grep -Fq "WeatherDialogue.cityFollowup(settings, heard)" app/src/main/java/fr/friday/assistant/FridayService.java
+          grep -Fq "WeatherDialogue.answer(" app/src/main/java/fr/friday/assistant/MainActivity.java
+          grep -Fq "https://geocoding-api.open-meteo.com/v1/search" app/src/main/java/fr/friday/assistant/WeatherForecast.java
+          grep -Fq "https://api.open-meteo.com/v1/forecast" app/src/main/java/fr/friday/assistant/WeatherForecast.java
+          grep -Fq "if (found.size() < 3)" app/src/main/java/fr/friday/assistant/JarvisInternet.java
+          grep -Fq 'self.assertGreaterEqual(WEB.count("if (found.size() < 3)"), 2)' tests/test_voice_web_reliability_patch.py
+          grep -Fq "if (RecentNewsPolicy.newsWindowHours(question) > 0)" app/src/main/java/fr/friday/assistant/JarvisInternet.java
+          grep -Fq "privateDialogue, new NativeAI.CancelToken()" app/src/main/java/fr/friday/assistant/MainActivity.java
+          grep -Fq "Temps recherche Internet :" app/src/main/java/fr/friday/assistant/FridayService.java
+          test -f tests/test_jarvis_handsfree_delivery_20261121.py
+          grep -Fq "HandsFreeQuestionPolicy.acceptsDirectQuestion(heard," app/src/main/java/fr/friday/assistant/FridayService.java
+          grep -Fq "AutoListenPolicy.retryOnResume(" app/src/main/java/fr/friday/assistant/MainActivity.java
+          grep -Fq 'prefs.put("voice_assistant_ready_v31314", "1")' app/src/main/java/fr/friday/assistant/MainActivity.java
+          grep -Fq "Arrêter et choisir le fichier" app/src/main/java/fr/friday/assistant/MainActivity.java
+          grep -Fq "if(kind==='partial')" app/src/main/assets/index.html
+          grep -Fq "Moteur de reconnaissance actif" app/src/main/java/fr/friday/assistant/MainActivity.java
+          grep -Fq "startsWithWakeWord(phrase)" app/src/main/java/fr/friday/assistant/BargeInPolicy.java
+          grep -Fq "VoiceTurnPolicy.canReplace(activeResponse, speakingNow," app/src/main/java/fr/friday/assistant/FridayService.java
+          grep -Fq "posez une question sans dire Jarvis" app/src/main/java/fr/friday/assistant/MainActivity.java
+          grep -Fq "VoiceTurnPolicyTest" scripts/tester_sources.sh
+          grep -Fq "NewsTopicPolicy.topic(question)" app/src/main/java/fr/friday/assistant/JarvisInternet.java
+          grep -Fq "VoiceQuestionPolicy.plausibleDirectQuestion" app/src/main/java/fr/friday/assistant/FridayService.java
+          grep -Fq "www.sciencedaily.com/rss/top/science.xml" app/src/main/java/fr/friday/assistant/JarvisInternet.java
+          grep -Fq "NewsTopicPolicyTest" scripts/tester_sources.sh
+          grep -Fq "VoiceQuestionPolicyTest" scripts/tester_sources.sh
+          grep -Fq "asr_rejected" app/src/main/assets/index.html
+          grep -Fq 'event("asr_rejected", heard.trim());' app/src/main/java/fr/friday/assistant/FridayService.java
+          grep -Fq "signalPeak = Math.max(signalPeak, level)" app/src/main/java/fr/friday/assistant/FridayService.java
+          grep -Fq 'lastAsrTextAt = now;' app/src/main/java/fr/friday/assistant/FridayService.java
+          test "$(grep -Fc 'int level = MicSignalMeter.level(buffer, count);' app/src/main/java/fr/friday/assistant/FridayService.java)" -eq 1
+          grep -Fq 'SherpaVoiceDecoder.shutdown()' app/src/main/java/fr/friday/assistant/FridayService.java
+          test -f docs/SHERPA_FR_ANDROID_BETA_20261120.md
+          if gh release view v3.13.18-sherpa-fr-beta.11 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::The prerelease already exists. Refusing to replace assets."
+            exit 1
+          fi
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Android SDK 35
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"; fi
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - name: Rust Android build tools
+        run: |
+          set -euo pipefail
+          rustup target add aarch64-linux-android
+          cargo install cargo-ndk --locked
+
+      - name: Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Tests Java Python Rust and JavaScript
+        run: bash scripts/tester_sources.sh
+
+      - name: Build Rust JNI libraries
+        run: |
+          set -euo pipefail
+          cd native
+          cargo ndk -t arm64-v8a -o ../app/src/main/jniLibs build --release
+
+      - name: Decode private signing keystore
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$RUNNER_TEMP/jarvis-signing"
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/jarvis-signing/release.jks"
+          chmod 600 "$RUNNER_TEMP/jarvis-signing/release.jks"
+          test -s "$RUNNER_TEMP/jarvis-signing/release.jks"
+          echo "KEYSTORE_PATH=$RUNNER_TEMP/jarvis-signing/release.jks" >> "$GITHUB_ENV"
+
+      - name: Build properly signed, non-debuggable Android APK
+        run: gradle --no-daemon :app:assembleRelease
+
+      - name: Verify signing and compare certificate to stable release
+        run: |
+          set -euo pipefail
+          mkdir -p dist previous
+          SRC="app/build/outputs/apk/release/app-release.apk"
+          APK="dist/JARVIS-v3.13.18-Memoire-Web-Rapide-beta11-release.apk"
+          test -s "$SRC"
+          cp "$SRC" "$APK"
+          unzip -tq "$APK"
+          SDK="$ANDROID_HOME/build-tools/35.0.0"
+          "$SDK/apksigner" verify --print-certs "$APK"
+          BADGING="$("$SDK/aapt2" dump badging "$APK")"
+          echo "$BADGING" | grep -F "name='fr.friday.assistant' versionCode='103' versionName='3.13.18'"
+          if echo "$BADGING" | grep -q 'application-debuggable'; then
+            echo "::error::Refusing to release an APK with android:debuggable."
+            exit 1
+          fi
+          gh release download v3.13.8 --repo "$GITHUB_REPOSITORY" --pattern 'JARVIS-v3.13.8-Outils-Locaux-Android-release.apk' --dir previous
+          OLD="previous/JARVIS-v3.13.8-Outils-Locaux-Android-release.apk"
+          test -s "$OLD"
+          PREV_CERT="$("$SDK/apksigner" verify --print-certs "$OLD" | grep 'Signer #1 certificate SHA-256 digest:' | head -1)"
+          NEXT_CERT="$("$SDK/apksigner" verify --print-certs "$APK" | grep 'Signer #1 certificate SHA-256 digest:' | head -1)"
+          test -n "$PREV_CERT"
+          test "$PREV_CERT" = "$NEXT_CERT" || { echo "::error::Release signing certificate changed; upgrade would fail"; exit 1; }
+          sha256sum "$APK" | tee dist/SHA256SUMS.txt
+
+      - name: Publish pre-release with direct APK asset
+        run: |
+          set -euo pipefail
+          APK="dist/JARVIS-v3.13.18-Memoire-Web-Rapide-beta11-release.apk"
+          cat > "$RUNNER_TEMP/sherpa-fr-beta-notes.md" <<'RELEASE_NOTES'
+          ## JARVIS Android — Mémoire contextuelle et recherches plus rapides bêta 11
+
+          **APK Android signé, même certificat que JARVIS v3.13.8**, mise à jour sans effacer l'application ni ses réglages. Version interne Android 3.13.18 (versionCode 103) ; version GitHub bêta distincte. Cette publication est expérimentale et non une version stable.
+
+          - Reconnaissance française **sherpa-onnx v2.0.2** facultative dans les réglages.
+          - **Correctif du mot-clé** : Jarvis et Friday sont acceptés en début de phrase ; variantes de dictée « Jar vis », « Jarvice », « Jervis », « Fridai ».
+          - **Correction de l'écoute** : lorsqu'une question est en calcul silencieux, une nouvelle question explicite « Jarvis… » ou « Friday… » peut la remplacer sans activer l'interruption pendant la voix.
+          - Le bouton **Écoute** réouvre 15 secondes de question directe, même si le microphone est déjà actif. Appuyez dessus, puis parlez sans prononcer le mot-clé.
+          - **Actualités scientifiques** : les instructions « publiées aujourd'hui, cite les sources » ne sont plus prises pour le sujet ; recherche ciblée science et secours RSS spécialisé ScienceDaily.
+          - **Aujourd'hui** : le filtre conserve les titres RSS datés du jour civil du téléphone et non ceux de la veille.
+          - **Écoute continue** : les fragments erronés comme « d'épices actuelle » ne déclenchent plus une recherche sans mot-clé. Les transcriptions incertaines restent temporaires, sans stockage dans l'historique.
+          - Les flux sans articles RSS datés ne sont jamais présentés comme des actualités vérifiées.
+          - Diagnostic conseillé : testez le bouton « Heure » en mode écrit et le test « IA Jarvis locale » afin de distinguer l'écoute, l'inférence et le TTS.
+          - Les phrases reconnues sans mot-clé sont visibles dans le cockpit pendant 15 secondes, sans entrée dans les journaux ou l’historique.
+          - Les mots courants « vendredi », « j’arrive » et un nom prononcé au milieu de phrase ne doivent pas activer l’assistant.
+          - **Correction de l'affichage : transcription vocale provisoire visible en direct** dans le cockpit, sans sauvegarde de la dictée partielle.
+          - Diagnostic amélioré : moteur Vosk/sherpa actif, dernier texte reconnu et pic PCM sur 6 secondes pour différencier capture et reconnaissance.
+          - Importation sur le téléphone d'une archive française officielle **.tar.bz2**, sans PC.
+          - **Import Sherpa corrigé** : le sélecteur Android reconnaît les téléchargements renommés par le navigateur avec « (1) » et une extension `.tar.bz`, mais vérifie toujours l'en-tête BZip2 et les quatre composants ONNX attendus.
+          - **Réponse vocale sans bouton** : en mode mains libres, les questions françaises clairement formulées sont envoyées directement à JARVIS, même après expiration des 20 secondes ; aucun mot-clé obligatoire pour ces demandes.
+          - **Dialogue météo interactif** : « Jarvis, la météo » provoque « Pour quelle ville souhaitez-vous la météo aujourd'hui ? ». Répondez simplement « Paris », « Lyon » ou « Paris, France ». L'écoute continue permet la réponse à un seul mot sans bouton ni nouveau mot-clé.
+          - **Pays météo toujours confirmé avant un bulletin** : si une ville est demandée sans pays, JARVIS demande « Quel pays souhaitez-vous ? » au lieu d'utiliser le premier résultat de géocodage. « Paris, France », « Paris France » (dictée sans virgule) ou « Paris en France » sont pris en charge.
+          - **Mémoire de suivi plus pertinente** : les questions de relance (« explique davantage », « et lui ? ») disposent d'un contexte chiffré plus étendu, avec rappel de la dernière question et de la dernière réponse, sans inventer de souvenirs.
+          - **Réponses indépendantes plus rapides** : contexte local plus compact quand une nouvelle question n'a pas besoin de reprendre la discussion ; aucun effacement d'historique ni envoi au cloud.
+          - **Recherche Internet allégée** : pour les sujets généraux non temporels, trois sources pertinentes réparties sur deux domaines indépendants suffisent à éviter des requêtes additionnelles.
+          - **Sources sensibles conservées** : les sujets scientifiques, médicaux, juridiques et les actualités gardent leur recherche spécifique ; les résultats de pages HTTPS restent identifiés comme documents non fiables et cités dans la réponse.
+          - **Moins de lectures de pages inutiles** : une seule lecture intégrale facultative pour les sujets généraux, tout en conservant les extraits indexés et les URL des sources.
+          - **Stabilité bêta 10** : aucun changement au microphone, aux restrictions Android sur l'écoute, à Stop, au GPS ni au choix du pays dans les bulletins météo.
+          - Les gains de temps et la qualité des relances sont à vérifier sur le téléphone ; l'APK est une bêta de test.
+
+          - **Aucune météo d'un autre pays par défaut** : le nom exact de la ville et le pays désigné sont tous les deux contrôlés sur les résultats Open-Meteo. Un pays incompatible bloque les prévisions plutôt que de substituer une autre ville.
+          - **Écoute automatique sans bouton** : l'écoute est réactivée lors de la mise à jour, démarre à l'ouverture avec la permission microphone et reste active via une notification de service premier plan, y compris écran verrouillé tant qu'Android le permet.
+          - **Surveillance de continuité** : tant que JARVIS est visible, un contrôle léger et limité peut relancer un service microphone arrêté ; jamais après Stop manuel, sans boucle de redémarrage et sans démarrage automatique caché au boot.
+          - **Bouton renommé** : « Relancer écoute (dépannage) » est facultatif et sert uniquement si Android empêche la première activation. La mise à jour doit encore être testée sur téléphone.
+
+          - **Prévision avec date** : « Quel temps fera-t-il demain ? » demande la ville, conserve « demain » pendant le dialogue et fournit minimum, maximum, conditions et risque de pluie ; après-demain est également pris en charge.
+          - **Source météorologique réelle** : géocodage de la ville et prévisions sur Open-Meteo par HTTPS, agrégeant des modèles météorologiques dont Météo-France selon les lieux. Les prévisions sont présentées comme des estimations et la source est affichée.
+          - **Sans GPS imposé ni clé API** : seules les villes indiquées par l'utilisateur sont transmises au fournisseur météo ; aucune conversation, clé secrète ni position GPS n'est envoyée.
+          - **Même parcours en texte et en vocal**, confirmation vocale TTS, refus explicite en cas de service météo inaccessible, sans inventer de température.
+          - **Bêta 8 préservée** : écoute continue, moteur Vosk/Sherpa facultatif, STOP, mémoire privée et corrections de latence inchangés. La météo reste à tester en conditions réelles sur le téléphone.
+
+          - **Actualités plus rapides** : pour les nouvelles datées, JARVIS exploite directement les flux RSS sans ouvrir ensuite deux pages Web facultatives ; les sources non datées restent rejetées.
+          - **Recherche résiliente** : si trois articles datés sont déjà trouvés, JARVIS évite des fournisseurs de secours supplémentaires. Aucune date ni source n'est inventée.
+          - **Mémoire de dialogue chiffrée** : les questions écrites comme les questions vocales utilisent maintenant l'historique de conversation stocké sur le téléphone pour les demandes de suivi.
+          - **Confidentialité maintenue** : le contexte privé est transmis uniquement au modèle IA local, jamais aux moteurs HTTPS publics.
+          - **Diagnostic des délais** : le cockpit distingue la durée de recherche Internet de la durée de génération du modèle local pour identifier le goulot d'étranglement.
+          - **Voix de la bêta 7 préservée** : même reconnaissance continue, STOP et mécanisme anti-écho ; aucun nouveau moteur vocal ajouté.
+          - La vitesse effective et la réutilisation de la mémoire doivent encore être vérifiées sur le téléphone.
+          - **Démarrage à l'ouverture** : l'écoute automatique et la conversation mains libres sont activées une seule fois lors de la mise à niveau, restent désactivables dans les réglages et respectent le bouton Stop.
+          - **Reprise après échec** : si Android empêche un premier démarrage, une nouvelle ouverture visible peut réessayer sans redémarrage au boot ni écoute cachée.
+          - **Diagnostics plus explicites** : une transcription provisoire non envoyée à JARVIS est distinguée d'une question réellement acceptée ; protection anti-écho conservée.
+          - Une voix provenant de la télévision pourrait toutefois déclencher une question en mode mains libres. Désactivez cette option ou utilisez Stop si nécessaire.
+          - Si le microphone est actif, l'application propose **Arrêter et choisir le fichier**, puis ouvre directement le sélecteur des documents.
+          - Les téléchargements incomplets ou les pages HTML reçues à la place du modèle sont rejetés avec une erreur explicite.
+          - À l'import, ouvrez Téléchargements et choisissez l'archive sans la décompresser. L'installation est confirmée par un message Android.
+          - Moteur vocal Vosk toujours présent, y compris pour STOP et en cas de panne sherpa.
+          - Un seul microphone Android, pas de seconde capture et pas de dépendance au Bluetooth.
+          - IA et mémoire locale chiffrée préservées ; aucune donnée personnelle embarquée dans l'APK.
+
+          **Pour utiliser Sherpa FR :** ouvrez JARVIS > Réglages > Reconnaissance française avancée. Téléchargez le modèle français officiel, importez l'archive, activez le moteur d'essai et relancez l'écoute.
+
+          Modèle officiel : https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-fr-2023-04-14.tar.bz2
+
+          Les tests automatisés et la signature Android ont été vérifiés par GitHub Actions. **La qualité réelle de la voix française et la commande STOP doivent encore être testées sur votre téléphone.** En cas de difficulté, décochez Sherpa et relancez le microphone pour revenir à Vosk.
+
+          Sources : https://github.com/k2-fsa/sherpa-onnx et https://github.com/open-jarvis/OpenJarvis
+          RELEASE_NOTES
+          gh release create v3.13.18-sherpa-fr-beta.11 "$APK" "dist/SHA256SUMS.txt" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "JARVIS v3.13.18 — Mémoire locale et recherches plus rapides (bêta 11)" \
+            --notes-file "$RUNNER_TEMP/sherpa-fr-beta-notes.md"
+          gh release view v3.13.18-sherpa-fr-beta.11 --repo "$GITHUB_REPOSITORY" --json url,isPrerelease,assets
+
+      - name: Remove temporary signing key
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/jarvis-signing/release.jks"

@@ -3,6 +3,17 @@ public class BargeInPolicyTest {
     static void check(boolean ok, String s) { if (!ok) throw new AssertionError(s); }
     public static void main(String[] args) {
         check(BargeInPolicy.startsWithWake("Jarvis, stop"), "wake");
+        check(BargeInPolicy.startsWithWake("Friday, quelle heure est-il ?"), "Friday en début");
+        check(BargeInPolicy.startsWithWake("Fridai, quelle heure est-il ?"), "fridai Vosk");
+        check(BargeInPolicy.startsWithWake("Jar vis, quelle heure est-il ?"), "Jar vis découpé");
+        check(BargeInPolicy.startsWithWake("Jarvice quelle heure est-il"), "Jarvice variante");
+        check(BargeInPolicy.isWakeOnly("Friday"), "Friday seul");
+        check(BargeInPolicy.isStopAnswer("Friday stop"), "Friday stop TTS");
+        check(!BargeInPolicy.startsWithWake("Une belle journée vendredi"), "vendredi sans réveil");
+        check(!BargeInPolicy.startsWithWake("Bonjour Friday"), "Friday au milieu interdit");
+        check(!BargeInPolicy.startsWithWake("Jarvissement"), "morceau de mot interdit");
+        check(!BargeInPolicy.startsWithWake("j'arrive demain"), "j'arrive pas mot-clé");
+
         check(!BargeInPolicy.startsWithWake("Bonjour friday"), "mot clé pas au début");
         check(BargeInPolicy.isStopAnswer("Jarvis stop"), "arrêt de parole");
         check(BargeInPolicy.isStopAnswer("Jarvis, arrête la réponse"), "arrêt de réponse");

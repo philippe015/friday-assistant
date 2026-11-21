@@ -20,4 +20,25 @@ public final class AutoListenPolicy {
                                       boolean manuallyStopped, boolean active) {
         return enabled(setting) && !attempted && !manuallyStopped && !active;
     }
+    /** Réessai au prochain onResume visible après un échec initial.
+     * Pas de boucle rapide, pas de démarrage après Stop ou désactivation. */
+    public static boolean retryOnResume(String setting, boolean manuallyStopped,
+                                        boolean active, long lastAttempt, long nowMs) {
+        return enabled(setting) && !manuallyStopped && !active
+                && lastAttempt > 0 && nowMs >= lastAttempt
+                && nowMs - lastAttempt >= 8000L;
+    }
+    /**
+     * Watchdog uniquement lorsque l'activité est au premier plan.
+     * Jamais depuis BOOT_COMPLETED, jamais après Stop, et anti-boucle.
+     */
+    public static boolean retryWhileVisible(String setting, boolean visible,
+                                            boolean manuallyStopped, boolean active,
+                                            long lastAttempt, long nowMs,
+                                            int previousAttempts) {
+        return enabled(setting) && visible && !manuallyStopped && !active
+                && previousAttempts < 3 && lastAttempt > 0
+                && nowMs >= lastAttempt && nowMs - lastAttempt >= 10_000L;
+    }
+
 }

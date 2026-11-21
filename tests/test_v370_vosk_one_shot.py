@@ -21,7 +21,10 @@ class VocabularyAndBatteryIntegration(unittest.TestCase):
         vocab = (JAVA / "VoiceVocabulary.java").read_text()
         self.assertIn('settings.get("vosk_hints_enabled", "0")', service)
         self.assertIn('settings.secret("vosk_hints")', service)
-        self.assertIn("recognizer.setGrammar(grammar)", service)
+        decoder = (JAVA / "JarvisVoiceDecoder.java").read_text()
+        self.assertIn("new JarvisVoiceDecoder.Vosk(model, grammar)", service)
+        self.assertIn("return decoder;", service)
+        self.assertIn("recognizer.setGrammar(grammar)", decoder)
         self.assertIn('prefs.setSecret("vosk_hints", hints)', activity)
         self.assertIn("[unk]", vocab)
 

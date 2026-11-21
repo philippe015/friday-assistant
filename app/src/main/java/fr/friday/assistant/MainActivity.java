@@ -47,6 +47,9 @@ public class MainActivity extends Activity {
     private TextView jarvisInternetStatus;
     private final AtomicBoolean jarvisWebTesting = new AtomicBoolean(false);
     private TextView localJarvisStatus;
+    private CheckBox sherpaVoiceEnabled;
+    private TextView sherpaVoiceStatus;
+    private final AtomicBoolean sherpaVoiceImporting = new AtomicBoolean(false);
     private final AtomicBoolean localJarvisImporting = new AtomicBoolean(false);
     private final AtomicBoolean localJarvisTesting = new AtomicBoolean(false);
     /** Empêche les téléchargements Vosk concurrents et reprend la demande d'écoute. */
@@ -62,8 +65,40 @@ public class MainActivity extends Activity {
     private CheckBox bargeEnabled, followupHandsfreeEnabled, autoListenOnOpen;
     /** One automatic start per Activity open; never rearm after manual Stop. */
     private boolean startupListenAttempted = false;
+    private long lastAutoListenAttemptAt = 0L;
     private boolean manuallyStoppedListening = false;
     private boolean activityVisible = false;
+    // L'ASR reste dans FridayService ; ce moniteur ne lit jamais le micro.
+    // Il ne redémarre le service que lorsque l'activité est visible.
+    private final android.os.Handler visibleListenHandler = new android.os.Handler(
+            android.os.Looper.getMainLooper());
+    private int visibleListenRetries = 0;
+    private final Runnable visibleListenWatchdog = new Runnable() {
+        @Override public void run() {
+            if (!activityVisible || isFinishing() || isDestroyed() || prefs == null)
+                return;
+            if (FridayService.isActive()) {
+                visibleListenRetries = 0;
+            } else if (AutoListenPolicy.retryWhileVisible(
+                    prefs.get("jarvis_auto_listen_on_open", "1"), activityVisible,
+                    manuallyStoppedListening, FridayService.isActive(),
+                    lastAutoListenAttemptAt,
+                    android.os.SystemClock.elapsedRealtime(), visibleListenRetries)
+                    && ModelInstaller.installed(MainActivity.this)
+                    && checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                            == PackageManager.PERMISSION_GRANTED
+                    && !voskDownloadRunning.get()) {
+                visibleListenRetries++;
+                lastAutoListenAttemptAt = android.os.SystemClock.elapsedRealtime();
+                status.setText("JARVIS : reprise automatique de l'écoute ("
+                        + visibleListenRetries + "/3)…");
+                startListening(true);
+            }
+            // Ne tourne jamais en arrière-plan : le service FGS déjà démarré
+            // peut cependant continuer l'écoute lorsque l'écran se verrouille.
+            visibleListenHandler.postDelayed(this, 4000L);
+        }
+    };
     private LinearLayout config;
     private ScrollView configScroll;
     private WebView hud;
@@ -79,6 +114,7 @@ public class MainActivity extends Activity {
     private static final int REQ_PHOTO = 82;
     private static final int REQ_VOICE_SAMPLE = 83;
     private static final int REQ_LOCAL_LLM_MODEL = 84;
+    private static final int REQ_SHERPA_FR_MODEL = 85;
     private volatile String cachedLocation = "";
     private File captureFile;
     private TextToSpeech webVoice;
@@ -89,6 +125,23 @@ public class MainActivity extends Activity {
         getWindow().setStatusBarColor(Color.rgb(3, 16, 26));
         getWindow().setNavigationBarColor(Color.rgb(3, 16, 26));
         prefs = new SecurePrefs(this);
+        // Mise à jour demandée : mode assistant vocal permanent tant que
+        // l'utilisateur l'autorise. Une seule migration, réglages modifiables.
+        if (!"1".equals(prefs.get("jarvis_always_listening_v31317", "0"))) {
+            prefs.put("jarvis_auto_listen_on_open", "1");
+            prefs.put("followup_handsfree", "1");
+            prefs.put("listen_once", "0");
+            prefs.put("jarvis_always_listening_v31317", "1");
+        }
+        // Profil mains libres demandé : activer une seule fois l'écoute
+        // automatique et les questions complètes sans mot-clé. Ces choix
+        // restent modifiables par l'utilisateur après cette migration.
+        if (!"1".equals(prefs.get("voice_assistant_ready_v31314", "0"))) {
+            prefs.put("jarvis_auto_listen_on_open", "1");
+            prefs.put("followup_handsfree", "1");
+            prefs.put("listen_once", "0");
+            prefs.put("voice_assistant_ready_v31314", "1");
+        }
         // Migration unique : supprimer l'ancienne clé API de l'autre fournisseur, sans effacer
         // une éventuelle clé Mistral déjà présente dans les anciens profils.
         if (!"1".equals(prefs.get("mistral_only_v330", "0"))) {
@@ -236,7 +289,7 @@ public class MainActivity extends Activity {
         configScroll.setVisibility(View.GONE);
         config.addView(label("DÉMARRAGE DE JARVIS · écoute prête à l'ouverture"));
         autoListenOnOpen = new CheckBox(this);
-        autoListenOnOpen.setText("Démarrer automatiquement l'écoute quand j'ouvre JARVIS");
+        autoListenOnOpen.setText("Écoute automatique permanente à l'ouverture de JARVIS");
         autoListenOnOpen.setTextColor(Color.WHITE);
         autoListenOnOpen.setChecked(AutoListenPolicy.enabled(
                 prefs.get("jarvis_auto_listen_on_open", "1")));
@@ -255,6 +308,42 @@ public class MainActivity extends Activity {
                 + "sur Android 14 et plus."));
         config.addView(label("MOTEUR VOCAL LOCAL · français Vosk (~41 Mo à télécharger une fois)"));
         config.addView(button(ModelInstaller.installed(this) ? "✓ Modèle installé" : "↓ Télécharger le modèle français", this::installModel));
+
+        config.addView(label("RECONNAISSANCE FRANÇAISE AVANCÉE · sherpa-onnx (bêta)"));
+        config.addView(label("Option facultative : Vosk reste installé, écoute STOP conservée "
+                + "et retour automatique à Vosk si sherpa ne démarre pas. "
+                + "L'IA Jarvis reste locale, sur le téléphone."));
+        sherpaVoiceEnabled = new CheckBox(this);
+        sherpaVoiceEnabled.setText("Essayer sherpa-onnx français (à la prochaine activation du micro)");
+        sherpaVoiceEnabled.setTextColor(Color.WHITE);
+        sherpaVoiceEnabled.setChecked("1".equals(prefs.get("sherpa_voice_enabled", "0")));
+        sherpaVoiceEnabled.setOnCheckedChangeListener((view, selected) -> {
+            if (selected && !SherpaVoiceModels.ready(this)) {
+                prefs.put("sherpa_voice_enabled", "0");
+                sherpaVoiceEnabled.setChecked(false);
+                sherpaVoiceStatus.setText("Modèle sherpa français absent : Vosk maintenu.");
+                return;
+            }
+            prefs.put("sherpa_voice_enabled", selected ? "1" : "0");
+            sherpaVoiceStatus.setText(SherpaVoicePolicy.explain(
+                    selected ? "1" : "0", SherpaVoiceModels.ready(this)));
+            if (FridayService.isActive()) {
+                status.setText("Pour changer le moteur vocal, appuyez sur Stop puis sur Écoute.");
+            }
+        });
+        config.addView(sherpaVoiceEnabled);
+        sherpaVoiceStatus = label(SherpaVoicePolicy.explain(
+                prefs.get("sherpa_voice_enabled", "0"), SherpaVoiceModels.ready(this)));
+        config.addView(sherpaVoiceStatus);
+        config.addView(button("1. Télécharger le modèle français officiel (.tar.bz2)",
+                this::openSherpaFrenchModel));
+        config.addView(button("2. Importer l'archive française sur le téléphone",
+                this::chooseSherpaFrenchArchive));
+        config.addView(label("Le téléchargement ouvre votre navigateur, mais n'installe pas le modèle. "
+                + "Pour l'importer, choisissez ensuite le fichier dans Téléchargements Android. "
+                + "Ne décompressez pas l'archive. Les noms renommés (1) et .tar.bz sont acceptés "
+                + "si le contenu est bien une archive BZip2 officielle compatible. "
+                + "Prévoyez au moins 450 Mo libres ; Vosk reste disponible."));
         config.addView(label("MOTEUR UNIQUE · Jarvis IA installé sur le téléphone. "
                 + "Aucun fournisseur Mistral, aucune requête Web vers un LLM. "
                 + "Téléchargez et importez un modèle compatible pour générer vos réponses. "
@@ -372,16 +461,18 @@ public class MainActivity extends Activity {
         followupInput.setInputType(InputType.TYPE_CLASS_NUMBER);
         followupInput.setText(prefs.get("followup_sec", "75")); config.addView(followupInput);
         followupHandsfreeEnabled = new CheckBox(this);
-        followupHandsfreeEnabled.setText("Prolonger les relances sans dire Friday "
-                + "(75 secondes par défaut, risque de fausses questions)");
+        followupHandsfreeEnabled.setText("Questions vocales complètes sans mot-clé "
+                + "(mains libres, risque d'activation par une autre voix)");
         followupHandsfreeEnabled.setTextColor(Color.WHITE);
         followupHandsfreeEnabled.setChecked("1".equals(prefs.get("followup_handsfree", "0")));
         config.addView(followupHandsfreeEnabled);
-        config.addView(label("Mode continu : après chaque réponse, FRIDAY ignore 2,5 secondes "
-                + "d'écho du haut-parleur puis accepte une question directe pendant "
-                + "20 secondes. Passé ce délai, dites Friday ou Jarvis. "
-                + "La case ci-dessus permet de prolonger cette période, avec "
-                + "davantage de risque de déclenchements involontaires."));
+        config.addView(label("Mode mains libres : après l'anti-écho, une question claire "
+                + "comme « Quelle heure est-il ? » ou « Cherche les actualités scientifiques » "
+                + "est envoyée à Jarvis à tout moment, même après 20 secondes. "
+                + "Les fragments et paroles incertaines ne sont pas envoyés. "
+                + "Décochez l'option pour imposer Jarvis/Friday après 20 secondes. "
+                + "Une autre personne ou la télévision peut poser une question : "
+                + "utilisez le bouton Stop pour couper complètement le micro."));
         bargeEnabled = new CheckBox(this);
         bargeEnabled.setText("Activer STOP vocal pendant la réponse (« stop », « Friday stop », « j’ai une précision »)");
         bargeEnabled.setTextColor(Color.WHITE);
@@ -710,8 +801,96 @@ public class MainActivity extends Activity {
         }
     }
 
+
+    private void openSherpaFrenchModel() {
+        Intent browser = new Intent(Intent.ACTION_VIEW, Uri.parse(
+                "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/"
+                + "sherpa-onnx-streaming-zipformer-fr-2023-04-14.tar.bz2"));
+        try { startActivity(browser); }
+        catch (Exception error) {
+            sherpaVoiceStatus.setText("Téléchargement indisponible : ouvrez le dépôt k2-fsa/sherpa-onnx.");
+        }
+    }
+
+    private void chooseSherpaFrenchArchive() {
+        if (FridayService.isActive()) {
+            // Ne pas laisser un libellé muet donner l'impression que le fichier
+            // est incompatible. Proposer l'arrêt du micro puis ouvrir le sélecteur.
+            new AlertDialog.Builder(this)
+                    .setTitle("JARVIS · importer le modèle français")
+                    .setMessage("L'écoute est encore active. L'importation nécessite "
+                            + "son arrêt temporaire. Votre modèle Vosk et vos "
+                            + "conversations seront conservés.\n\n"
+                            + "Choisissez ensuite le fichier téléchargé dans "
+                            + "Téléchargements, sans le décompresser.")
+                    .setPositiveButton("Arrêter et choisir le fichier", (dialog, which) -> {
+                        stopListening();
+                        launchSherpaFrenchArchivePicker();
+                    })
+                    .setNegativeButton("Annuler", null)
+                    .show();
+            return;
+        }
+        launchSherpaFrenchArchivePicker();
+    }
+
+    private void launchSherpaFrenchArchivePicker() {
+        if (!sherpaVoiceImporting.compareAndSet(false, true)) {
+            sherpaVoiceStatus.setText("Importation déjà en cours.");
+            return;
+        }
+        try {
+            Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            picker.addCategory(Intent.CATEGORY_OPENABLE);
+            // Les fournisseurs de téléchargements utilisent des MIME variés :
+            // application/x-bzip2, octet-stream, voire type inconnu.
+            picker.setType("*/*");
+            picker.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            sherpaVoiceStatus.setText("Sélectionnez dans Téléchargements l'archive "
+                    + "sherpa-onnx française (.tar.bz2, sans la décompresser).");
+            startActivityForResult(picker, REQ_SHERPA_FR_MODEL);
+        } catch (Exception error) {
+            sherpaVoiceImporting.set(false);
+            sherpaVoiceStatus.setText("Sélecteur Android indisponible : "
+                    + error.getClass().getSimpleName());
+        }
+    }
+
+    private void finishSherpaFrenchArchive(int resultCode, Intent data) {
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+            sherpaVoiceImporting.set(false);
+            sherpaVoiceStatus.setText("Aucune archive sélectionnée : importation annulée. "
+                    + "Ouvrez Téléchargements et sélectionnez le fichier .tar.bz2.");
+            return;
+        }
+        final Uri selected = data.getData();
+        sherpaVoiceStatus.setText("Extraction sécurisée de l'archive française sur le téléphone…");
+        new Thread(() -> {
+            String output;
+            try {
+                output = SherpaVoiceModels.importOfficialArchive(this, selected);
+            } catch (Exception error) {
+                output = "Importation échouée : " + error.getMessage()
+                        + " (Vosk et l'ancien modèle sont conservés).";
+            }
+            final String diagnostic = output;
+            sherpaVoiceImporting.set(false);
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                sherpaVoiceStatus.setText(diagnostic);
+                status.setText(diagnostic);
+                new AlertDialog.Builder(this).setTitle("JARVIS · sherpa-onnx français")
+                        .setMessage(diagnostic).setPositiveButton("Fermer", null).show();
+            });
+        }, "jarvis-sherpa-fr-import").start();
+    }
+
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_SHERPA_FR_MODEL) {
+            finishSherpaFrenchArchive(resultCode, data);
+            return;
+        }
         if (requestCode != REQ_LOCAL_LLM_MODEL) return;
         if (resultCode != RESULT_OK || data == null || data.getData() == null) {
             localJarvisImporting.set(false);
@@ -1077,7 +1256,8 @@ public class MainActivity extends Activity {
                 + "\nMicro Android rendu muet : " + (FridayService.isMicSilenced() ? "oui" : "non")
                 + "\nÉtat de l'écoute : " + FridayService.voiceReadiness()
                 + "\nSignal du microphone : " + FridayService.microphoneSignal()
-                + "\nDernière reconnaissance Vosk : " + FridayService.recognitionDiagnostic()
+                + "\nMoteur de reconnaissance actif : " + FridayService.recognitionEngine()
+                + "\nDernière activité de reconnaissance : " + FridayService.recognitionDiagnostic()
                 + "\nSilence de base : " + prefs.get("silence_ms", "2100")
                         + " ms (adaptatif pour les phrases incomplètes)"
                 + "\nInterruption STOP : " + FridayService.interruptionDiagnostics()
@@ -1152,7 +1332,29 @@ public class MainActivity extends Activity {
             String fault = null;
             boolean persisted = false;
             try {
-                if (MemoryIntent.kind(request) != MemoryIntent.NONE)
+                // Même dialogue météo pour l'écrit et l'oral : après
+                // « Pour quelle ville ? », un simple « Lyon » suffit.
+                WeatherDialogue.Answer weatherAnswer = WeatherDialogue.answer(
+                        prefs, request, new NativeAI.CancelToken());
+                if (weatherAnswer != null) {
+                    answer = weatherAnswer.text;
+                    speechAnswer = weatherAnswer.speech;
+                }
+                // Le texte écrit doit accéder au même historique chiffré
+                // que la voix. Ce contenu n'est transmis qu'au modèle local,
+                // jamais aux moteurs de recherche HTTPS.
+                String privateDialogue = "";
+                if (MemoryIntent.kind(request) == MemoryIntent.NONE
+                        && !LocationIntent.nearby(request)) {
+                    try {
+                        privateDialogue = DialogueContext.recent(
+                                getApplicationContext(), prefs, request);
+                    } catch (Exception inaccessibleHistory) {
+                        android.util.Log.w("FRIDAY_PRIVACY",
+                                "Contexte local chiffré indisponible ; poursuite sans historique");
+                    }
+                }
+                if (answer == null && MemoryIntent.kind(request) != MemoryIntent.NONE)
                     answer = PersonalMemory.command(prefs, request);
                 if (answer == null && DialogueMemoryPolicy.asksMemoryStatus(request))
                     answer = DialogueContext.memoryStatus(
@@ -1171,12 +1373,13 @@ public class MainActivity extends Activity {
                 if (answer == null) {
                     if (JarvisInternet.shouldResearch(prefs, request)) {
                         JarvisInternet.Result researched = JarvisInternet.answer(
-                                getApplicationContext(), prefs, request, new NativeAI.CancelToken());
+                                getApplicationContext(), prefs, request, privateDialogue,
+                                new NativeAI.CancelToken());
                         answer = researched.text;
                         speechAnswer = researched.speech;
                     } else {
                         answer = LocalJarvisEngine.answer(getApplicationContext(), prefs, request,
-                                new NativeAI.CancelToken());
+                                privateDialogue, new NativeAI.CancelToken());
                     }
                 }
                 if (answer == null || answer.trim().isEmpty())
@@ -1406,6 +1609,9 @@ public class MainActivity extends Activity {
 
     /** Invoked only from a visible Activity. Never at boot or in background. */
     private void startListening(boolean automatically) {
+        // Après un Stop explicite, une action manuelle « Relancer » réarme
+        // normalement l'écoute ; aucun réarmement automatique après Stop.
+        if (!automatically) manuallyStoppedListening = false;
         if (!ModelInstaller.installed(this)) {
             status.setText("Micro arrêté : modèle vocal Vosk français manquant.");
             new AlertDialog.Builder(this)
@@ -1427,7 +1633,13 @@ public class MainActivity extends Activity {
             requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_MIC); return;
         }
         if (FridayService.isActive()) {
-            status.setText("Le microphone natif est déjà actif, même écran verrouillé. Stoppez pour appliquer de nouveaux réglages.");
+            // Le bouton Écoute n'est plus inerte lorsque le micro tourne déjà :
+            // c'est une action explicite qui permet une nouvelle question sans
+            // mot d'activation pendant 15 s, sans fermer ni recréer AudioRecord.
+            startService(new Intent(this, FridayService.class)
+                    .setAction(FridayService.ACTION_INTERRUPT));
+            status.setText("JARVIS vous écoute : posez une question sans dire Jarvis "
+                    + "pendant 15 secondes. La réponse précédente est interrompue si nécessaire.");
             return;
         }
         // Le GPS est facultatif. Une permission de localisation manquante
@@ -1554,12 +1766,19 @@ public class MainActivity extends Activity {
         super.onResume();
         activityVisible = true;
         replayVoiceHistory();
-        if (!startupListenAttempted) {
+        visibleListenRetries = 0;
+        visibleListenHandler.removeCallbacks(visibleListenWatchdog);
+        visibleListenHandler.postDelayed(visibleListenWatchdog, 4000L);
+        if (!startupListenAttempted || AutoListenPolicy.retryOnResume(
+                prefs.get("jarvis_auto_listen_on_open", "1"),
+                manuallyStoppedListening, FridayService.isActive(),
+                lastAutoListenAttemptAt, android.os.SystemClock.elapsedRealtime())) {
             boolean shouldAutoStart = AutoListenPolicy.shouldStart(
                     prefs.get("jarvis_auto_listen_on_open", "1"),
-                    startupListenAttempted, manuallyStoppedListening,
+                    false, manuallyStoppedListening,
                     FridayService.isActive());
             startupListenAttempted = true;
+            lastAutoListenAttemptAt = android.os.SystemClock.elapsedRealtime();
             if (shouldAutoStart) {
                 status.setText("JARVIS se prépare : activation automatique du micro…");
                 // L'activité est désormais visible. Un seul démarrage
@@ -1581,19 +1800,26 @@ public class MainActivity extends Activity {
             }
         }
         if (status != null) {
-            if (FridayService.isMicSilenced()) status.setText("Microphone momentanément rendu muet par Android : vérifiez les autres applications.");
+            if (AutoListenPolicy.enabled(prefs.get("jarvis_auto_listen_on_open", "1"))
+                    && !manuallyStoppedListening && !FridayService.isActive()
+                    && ModelInstaller.installed(this)
+                    && checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                            == PackageManager.PERMISSION_GRANTED) {
+                status.setText("JARVIS : activation automatique de l'écoute demandée…");
+            } else if (FridayService.isMicSilenced()) status.setText("Microphone momentanément rendu muet par Android : vérifiez les autres applications.");
             else if (FridayService.isActive()) status.setText("Écoute native active · " + FridayVersionGuard.thisVersion(this));
             else if (voskDownloadRunning.get())
                 status.setText("Micro arrêté : téléchargement du modèle Vosk en cours.");
             else if (!ModelInstaller.installed(this))
-                status.setText("Micro arrêté : modèle Vosk français manquant. Appuyez sur Écoute pour l'installer.");
+                status.setText("Micro arrêté : modèle Vosk français manquant. Autorisez son installation pour activer l'écoute automatique.");
             else if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED)
-                status.setText("Micro arrêté : autorisation Android du microphone manquante. Appuyez sur Écoute.");
-            else status.setText("Micro arrêté. Appuyez sur Écoute pour démarrer le service vocal.");
+                status.setText("Micro arrêté : autorisez l'accès au microphone pour l'écoute automatique.");
+            else status.setText("Micro arrêté : l'activation automatique sera réessayée à l'ouverture.");
         }
     }
     @Override protected void onPause() {
         activityVisible = false;
+        visibleListenHandler.removeCallbacks(visibleListenWatchdog);
         super.onPause();
     }
 
@@ -1763,6 +1989,7 @@ public class MainActivity extends Activity {
         }
     }
     @Override public void onDestroy() {
+        visibleListenHandler.removeCallbacks(visibleListenWatchdog);
         hudCloneSpeaking.set(false);
         if (events != null) unregisterReceiver(events);
         if (testTts != null) { try { testTts.shutdown(); } catch (Exception ignored) {} testTts = null; }
