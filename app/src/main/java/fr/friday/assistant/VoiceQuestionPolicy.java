@@ -18,7 +18,8 @@ public final class VoiceQuestionPolicy {
             + "donne|quelle heure|actualites?|actus?|news|meteo|"
             + "informations?|infos?|date|heure|horaires?|"
             + "quelles sont|qu est|fais moi|"
-            + "sais tu|sais tu me dire|"
+            + "sais tu|sais tu me dire|je veux|je voudrais|"
+            + "j aimerais|j ai besoin de|est il possible de|"
             + "fais|resume|definis|traduis)\\b.*");
 
     private static final Pattern FOLLOWUP = Pattern.compile(
