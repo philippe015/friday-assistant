@@ -62,8 +62,8 @@ class JarvisExclusiveVoice(unittest.TestCase):
         self.assertNotIn("Analyser cette page Web avec Mistral",ui)
 
     def test_version(self):
-        self.assertIn("versionCode 99",GRADLE)
-        self.assertIn("versionName '3.13.14'",GRADLE)
+        self.assertIn("versionCode 100",GRADLE)
+        self.assertIn("versionName '3.13.15'",GRADLE)
 
 if __name__=="__main__":
     unittest.main()
