@@ -11,8 +11,8 @@ android {
         applicationId 'fr.friday.assistant'
         minSdk 26
         targetSdk 35
-        versionCode 98
-        versionName '3.14.4'
+        versionCode 99
+        versionName '3.14.5'
         ndk { abiFilters 'arm64-v8a' }
     }
     compileOptions {
@@ -34,7 +34,7 @@ android {
 
     buildTypes {
         // Installe la v2.0 à côté de la v1.x, sans effacer ses clés ni son modèle Vosk.
-        debug { applicationIdSuffix '.readerpreview' }
+        debug { applicationIdSuffix '.readerfixpreview' }
         release {
             minifyEnabled false
             if (System.getenv("KEYSTORE_PATH") != null) {

@@ -47,8 +47,9 @@ public class RssReadSmoke {
                 str(JAVA/"VoiceText.java"),str(JAVA/"WebPageReader.java"),
                 str(JAVA/"RssArticleIntent.java"),str(JAVA/"RssArticleText.java"),
                 str(base/"RssReadSmoke.java")],check=True,capture_output=True,text=True)
-            subprocess.run(["java","-cp",folder,"RssReadSmoke"],
-                check=True,capture_output=True,text=True)
+            run=subprocess.run(["java","-cp",folder,"RssReadSmoke"],
+                capture_output=True,text=True)
+            self.assertEqual(run.returncode,0,run.stdout+"\n"+run.stderr)
 
     def test_web_content_and_version(self):
         reader=(JAVA/"WebPageReader.java").read_text(encoding="utf-8")
@@ -62,7 +63,7 @@ public class RssReadSmoke {
         self.assertIn("RssArticleIntent.isRequest(",internet)
         self.assertIn("[TRADUCTION_ARTICLE_PUBLIC]",engine)
         self.assertIn("Lis l’article RSS 1",ui)
-        self.assertIn("versionName '3.14.4'",gradle)
-        self.assertIn("applicationIdSuffix '.readerpreview'",gradle)
+        self.assertIn("versionName '3.14.5'",gradle)
+        self.assertIn("applicationIdSuffix '.readerfixpreview'",gradle)
 
 if __name__=="__main__":unittest.main()

@@ -1,0 +1,91 @@
+name: Publish FRIDAY JARVIS v3.14.5 RSS reader corrective APK
+
+on:
+  push:
+    branches:
+      - feat/rss-publisher-article-fix-v3145-20261121
+    paths:
+      - .github/workflows/publish-v3145-rss-verified.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout GitHub publication workflow
+        uses: actions/checkout@v4
+
+      - name: Verify exact source commit and successful Android / test runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: 4ffefdcc58c0e54071b2a6eb85759ae6940cda5e
+          BUILD_RUN: '44946506092'
+          TEST_RUN: '44946505997'
+        run: |
+          set -euo pipefail
+          for RUN in "$BUILD_RUN" "$TEST_RUN"; do
+            SHA="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN" --jq '.head_sha')"
+            CONCLUSION="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN" --jq '.conclusion')"
+            test "$SHA" = "$SOURCE_SHA" || { echo "Wrong CI source SHA: $SHA"; exit 1; }
+            test "$CONCLUSION" = "success" || { echo "CI run $RUN did not succeed: $CONCLUSION"; exit 1; }
+          done
+          echo "Both Android build and tests were successful on $SOURCE_SHA"
+
+      - name: Download prevalidated APK from same GitHub commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh run download 44946506092 --repo "$GITHUB_REPOSITORY" --name FRIDAY-pr-debug-apk --dir dist
+          test -s dist/app-debug.apk
+          unzip -tq dist/app-debug.apk
+          mv dist/app-debug.apk dist/FRIDAY-JARVIS-v3.14.5-RSS-Profil-Correctif-test.apk
+
+      - name: Check Android package identity, signature and version
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"; fi
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "build-tools;35.0.0"
+          APK=dist/FRIDAY-JARVIS-v3.14.5-RSS-Profil-Correctif-test.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" > dist/package-info.txt
+          grep -F "package: name='fr.friday.assistant.readerfixpreview' versionCode='99' versionName='3.14.5'" dist/package-info.txt
+          (cd dist && sha256sum FRIDAY-JARVIS-v3.14.5-RSS-Profil-Correctif-test.apk > SHA256SUMS.txt)
+
+      - name: Publish APK on the public GitHub Releases page
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=v3.14.5-rss-publisher-fix-beta
+          SOURCE_SHA=4ffefdcc58c0e54071b2a6eb85759ae6940cda5e
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Refusing to overwrite existing release $TAG"; exit 1
+          fi
+          cat > dist/RELEASE_NOTES.md <<'EOF'
+          ## FRIDAY / JARVIS v3.14.5 — correctif RSS + profil (bêta)
+          - Corrige le défaut de la v3.14.4 qui pouvait lire du JavaScript Google Actualités comme un article.
+          - Cherche un lien public vers le site de l'éditeur et vérifie la cohérence du domaine et du titre.
+          - Si le texte n'est pas disponible (lien RSS indécodable, blocage du site, article payant), JARVIS signale la limite sans lire de code technique.
+          - Nouvelle commande « Jarvis, analyse l'article 1 avec mon profil » ; Gemma local applique le profil actif à l'analyse des textes réellement récupérés.
+          - Ne lance plus automatiquement l'article 1 pour des questions générales sur la lecture des articles.
+          - Tests Java / Python / Rust / JavaScript réussis : 240 vérifications.
+          
+          ### Installation et limites
+          **APK de test Android ARM64, signé en mode debug.**
+          Package distinct : `fr.friday.assistant.readerfixpreview` pour préserver les versions précédentes.
+          Installer ou réimporter Gemma 4, Vosk et le profil JSON dans cette installation distincte.
+          Les liens d'articles non disponibles ne sont pas contournés. Le STOP vocal est désactivé : utiliser le bouton **Interrompre la réponse**.
+          La qualité de l'analyse et de la lecture complète reste à valider sur téléphone.
+          
+          Sources et correctif : https://github.com/philippe015/friday-assistant/pull/94
+          EOF
+          gh release create "$TAG"             "dist/FRIDAY-JARVIS-v3.14.5-RSS-Profil-Correctif-test.apk"             "dist/SHA256SUMS.txt"             --repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" --prerelease --latest=false             --title "FRIDAY JARVIS v3.14.5 — Lecture RSS corrigée et analyse avec profil (bêta)"             --notes-file dist/RELEASE_NOTES.md
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets
