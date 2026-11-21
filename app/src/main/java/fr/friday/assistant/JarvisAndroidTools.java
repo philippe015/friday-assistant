@@ -20,6 +20,10 @@ public final class JarvisAndroidTools {
 
     public static String answer(Context context, SecurePrefs settings, String utterance) {
         if (utterance == null || utterance.trim().length() > 5000) return null;
+        // L'utilisateur n'a pas indiqué quelle présidentielle. Ne pas faire
+        // une longue recherche Web aveugle ni inventer des candidats.
+        String clarification = ElectionQuestionPolicy.clarification(utterance);
+        if (clarification != null) return clarification;
         JarvisToolPolicy.Kind kind = JarvisToolPolicy.classify(utterance);
         if (kind == JarvisToolPolicy.Kind.NONE) {
             // Reuse existing deterministic on-device tools before HTTPS or
