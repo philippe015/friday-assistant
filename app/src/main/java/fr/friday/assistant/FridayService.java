@@ -897,6 +897,12 @@ public class FridayService extends Service {
                 return;
             }
         } else if ((TtsEchoGate.followupAccepts(now, echoBlockUntil, wakeOnlyUntil) ||
+                // Une question française COMPLETE est acceptée à tout moment
+                // en mode mains libres, même sans premier mot-clé. Les bribes
+                // et la voix de synthèse restent bloquées par la politique.
+                HandsFreeQuestionPolicy.acceptsDirectQuestion(heard,
+                        "1".equals(settings.get("followup_handsfree", "0")),
+                        !speakingNow && now >= echoBlockUntil) ||
                 ("1".equals(settings.get("followup_handsfree", "0")) && wakeArmed &&
                 (now - lastReplyAt <= followupMs || now < clarificationUntil))) &&
                 now >= echoBlockUntil) {
@@ -940,7 +946,10 @@ public class FridayService extends Service {
         clarificationUntil = 0L;
         latestQuestion = request;
         asrDiagnostic(activated ? "Mot-clé Jarvis reconnu, question envoyée à Jarvis"
-                : "Question directe reconnue, envoyée à Jarvis");
+                : "Question vocale complète reconnue et envoyée à Jarvis");
+        // Une transcription affichée en aperçu n'était pas forcément
+        // envoyée : l'événement utilisateur ci-dessous donne la confirmation.
+        event("status", "Question vocale acceptée · Jarvis prépare sa réponse.");
         ResponseTurn turn = new ResponseTurn(anchor);
         currentTurn = turn;
         boolean localJarvis = true; // Mode exclusif Jarvis pour toute demande vocale.
