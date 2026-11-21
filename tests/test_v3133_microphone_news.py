@@ -41,7 +41,7 @@ class MicAndFreshNews(unittest.TestCase):
         self.assertIn("RssFreshness.publishedMillis(xmlField(item, \"pubDate\"))",WEB)
         self.assertIn("https://news.google.com/rss?hl=fr&gl=FR&ceid=FR:fr",WEB)
         self.assertIn("parseRss(fetch(feed), hours, now)",WEB)
-        self.assertIn("aucun article avec horodatage",WEB)
+        self.assertIn("Aucun article correspondant trouvé avec un horodatage",WEB)
         self.assertIn("DateTimeFormatter.RFC_1123_DATE_TIME",FRESH)
         self.assertIn("horodatage RSS",WEB)
 
