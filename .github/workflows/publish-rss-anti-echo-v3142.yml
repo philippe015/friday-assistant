@@ -1,0 +1,87 @@
+name: Publish JARVIS v3.14.2 RSS Anti-Echo beta
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-rss-anti-echo-v3142.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish-verified-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Verify source SHA and passing CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SOURCE_SHA=1bae4718dee3c16b60ef4b15f7f3e3d4d7a8b42e
+          BUILD="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/44932973094" --jq '[.head_sha,.conclusion] | join(" ")')"
+          TEST="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/44932973091" --jq '[.head_sha,.conclusion] | join(" ")')"
+          test "$BUILD" = "$SOURCE_SHA success"
+          test "$TEST" = "$SOURCE_SHA success"
+
+      - name: Retrieve compiled APK and enforce SHA-256
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh run download 44932973094 --repo "$GITHUB_REPOSITORY" --name FRIDAY-pr-debug-apk --dir dist
+          test -s dist/app-debug.apk
+          unzip -tq dist/app-debug.apk
+          printf '%s  %s\n' '90c1429184bdf627cca3fc728461cff513e211b1f20ae06024f184d843224973' 'dist/app-debug.apk' | sha256sum -c -
+          mv dist/app-debug.apk dist/FRIDAY-Jarvis-RSS-Monde-FR-v3.14.2-Anti-Echo-test.apk
+          cat > dist/RELEASE_NOTES.md <<'EOF'
+          ## JARVIS RSS Monde FR v3.14.2 — Correctif écho vocal (bêta)
+
+          Cette mise à jour expérimentale corrige deux défauts remontés dans le diagnostic Android du 21/11/2026 à 18:54.
+
+          ### Correctif 1 — ne plus renvoyer à JARVIS ses propres réponses
+          - Le dernier texte réellement prononcé par la synthèse vocale Android est mémorisé temporairement sur l'appareil.
+          - En cas de transcription Vosk très similaire dans les 45 secondes suivant la voix, cette *retranscription du haut-parleur* est ignorée plutôt que d'être envoyée comme une nouvelle question.
+          - La protection existante pendant le TTS et durant 2,5 secondes d'anti-écho reste en place.
+          - Une question véritable, notamment « Et demain ? », continue d'être reconnue.
+          - Aucun son ni historique privé n'est envoyé en ligne pour cette détection.
+
+          ### Correctif 2 — ne plus annoncer « zéro titre » à cause d'une recherche générale non datée
+          - Conserve explicitement les marqueurs de période (« actualités des 24 dernières heures ») jusqu'à la requête RSS.
+          - Vérifie que les articles présentés comme récents comportent réellement un horodatage dans la fenêtre demandée.
+          - Si aucun titre daté n'est disponible, annonce que les nouvelles n'ont pas pu être vérifiées, sans créer de faits ou de faux articles.
+
+          ### RSS monde et traduction française
+          La couverture multilingue de 17 flux et éditions, le bouton RSS Monde FR, les URL sources et la traduction 100 % locale par Gemma 4 sont conservés. Le modèle `gemma-4-E2B-it-gpu.litertlm` doit être importé par l'utilisateur ; il n'est pas inclus dans l'APK.
+
+          ### Vérification et précautions
+          - Tests GitHub Actions et compilation Android réussis pour le commit `1bae4718dee3c16b60ef4b15f7f3e3d4d7a8b42e`.
+          - **L'APK est encore une bêta et le correctif acoustique doit être essayé sur le téléphone.**
+          - Android package `fr.friday.assistant.rsspreview`. Conserver l'édition fonctionnelle `fr.friday.assistant.smartpreview` v3.14.0 ; ses modèles et son historique ne sont pas partagés.
+          - Selon la signature des APK debug, une mise à jour directe de la bêta 3.14.1 peut être refusée. Ne désinstaller l'ancienne bêta qu'après sauvegarde de ses modèles et données.
+          - Vérification SHA-256 : `90c1429184bdf627cca3fc728461cff513e211b1f20ae06024f184d843224973`.
+
+          Source : https://github.com/philippe015/friday-assistant/pull/91
+          EOF
+
+      - name: Publish a new prerelease, without replacing tested v3.14.0
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=v3.14.2-rss-anti-echo-beta
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release already exists, refusing to overwrite: $TAG"
+            exit 0
+          fi
+          gh release create "$TAG" dist/FRIDAY-Jarvis-RSS-Monde-FR-v3.14.2-Anti-Echo-test.apk \
+            --repo "$GITHUB_REPOSITORY" \
+            --target 1bae4718dee3c16b60ef4b15f7f3e3d4d7a8b42e \
+            --prerelease \
+            --title "JARVIS v3.14.2 — RSS Monde FR et correctif anti-écho (bêta)" \
+            --notes-file dist/RELEASE_NOTES.md
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets
