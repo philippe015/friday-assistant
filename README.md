@@ -2,6 +2,20 @@
 
 **Dernière version fonctionnelle validée sur téléphone Android : 21 novembre 2026**
 
+## Aperçu de J.A.R.V.I.S. sur Android — v3.14.5 (bêta)
+
+<p align="center">
+  <img src="docs/images/jarvis-android-v3.14.5.webp" alt="Capture d’écran de J.A.R.V.I.S. sur Android : assistant IA local, écoute continue, boutons Réglages, Versions, Profil et cockpit lumineux." width="380">
+</p>
+
+*Capture réelle de l’interface J.A.R.V.I.S. sur Android, fournie par un utilisateur et optimisée pour l’affichage GitHub.*
+
+**[Télécharger la bêta JARVIS v3.14.5 — correctif lecture RSS et analyse avec profil](https://github.com/philippe015/friday-assistant/releases/tag/v3.14.5-rss-publisher-fix-beta)**
+
+Cette capture montre le cockpit vocal Android : **écoute continue**, accès aux **réglages**, **versions** et **profils**, télémétrie et interruption de la réponse. La bêta v3.14.5 corrige la lecture du code JavaScript de Google Actualités et permet de demander une analyse des articles récupérés selon le profil actif. Les pages bloquées ou payantes restent inaccessibles et les essais complets de cette bêta sur téléphone restent nécessaires.
+
+---
+
 ### [📥 TÉLÉCHARGER FRIDAY-Jarvis-Intelligence-Plus-v3.14.0-test.apk](https://github.com/philippe015/friday-assistant/releases/download/v3.14.0-test/FRIDAY-Jarvis-Intelligence-Plus-v3.14.0-test.apk)
 
 
