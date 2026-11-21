@@ -48,6 +48,14 @@ class WeatherDialogueAndroid(unittest.TestCase):
         self.assertIn("Je ne vais pas inventer des températures", DIALOGUE)
         self.assertIn("Aucune coordonnée GPS", FORECAST)
         self.assertIn("WeatherRequestPolicyTest.java", SCRIPT)
+        self.assertIn("WeatherPlacePolicyTest.java", SCRIPT)
+        self.assertIn("if (requestedCountry.isEmpty())", FORECAST)
+        self.assertIn("WeatherPlacePolicy.sameCity(", FORECAST)
+        self.assertIn("WeatherPlacePolicy.sameCountry(", FORECAST)
+        self.assertIn("throw new NeedCountryException(", FORECAST)
+        self.assertIn("catch (WeatherForecast.NeedCountryException ambiguous)", DIALOGUE)
+        self.assertIn("PENDING_COUNTRY", DIALOGUE)
+        self.assertIn("PENDING_CITY", DIALOGUE)
 
     def test_existing_audio_stack_retained(self):
         self.assertIn("recognizer.acceptWaveForm(buffer, count)", VOICE)
