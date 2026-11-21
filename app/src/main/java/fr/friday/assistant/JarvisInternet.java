@@ -386,6 +386,14 @@ public final class JarvisInternet {
                             + "actu-actualites-particuliers.rss", true), hours, now), 2, topic);
                 } catch (Exception failure) { trouble = noteFailure(trouble, failure); }
             }
+            // « Aujourd'hui » désigne le jour civil du téléphone, pas
+            // automatiquement les dernières 24 heures. Respecter ce filtre
+            // après lecture des flux et avant de sélectionner les sources.
+            long todayStart = RecentNewsPolicy.civilTodayStartMillis(
+                    q, now, java.time.ZoneId.systemDefault());
+            if (todayStart > 0)
+                found.removeIf(source -> source.publishedAt < todayStart);
+
             // Les titres les plus récents d'abord, sans date future éloignée.
             found.sort((a, b) -> Long.compare(b.publishedAt, a.publishedAt));
             if (found.isEmpty())
@@ -492,18 +500,7 @@ public final class JarvisInternet {
 
     /** Retire les expressions temporelles d'une demande générale d'actualités. */
     private static String recentNewsTopic(String question) {
-        String words = VoiceText.normalize(question).replaceAll("[^a-z0-9 ]+", " ")
-                .replaceAll("\\s+", " ").trim();
-        words = words.replaceAll("\\b(?:friday|frida|freiday|freday|fride|"
-                + "actualites?|actus?|nouvelles?|infos?|informations?|news|"
-                + "titres?|journal|flash|evenements?|"
-                + "dernieres?|dernier|precedentes?|precedents?|recentes?|"
-                + "aujourd|hui|jour|matin|soir|actuelles?|nouveautes?|"
-                + "des?|de|du|la|le|les|sur|au|aux|en|dans|pendant|cours|"
-                + "heures?|\\d{1,2}|sept|six|douze|trois|quatre|vingt|"
-                + "quelles?|quels?|sont|donne|moi|cherche|recherche|"
-                + "parle|fais|resume|friday|jarvis)\\b", " ");
-        return words.replaceAll("\\s+", " ").trim();
+        return NewsTopicPolicy.topic(question);
     }
 
     /** Transport HTTPS borné : redirections internes au fournisseur seulement. */
@@ -679,7 +676,7 @@ public final class JarvisInternet {
             if (into.size() >= MAX_RESULTS || added >= maxPerFeed) break;
             if (candidate.publishedAt <= 0 || candidate.title.isEmpty()) continue;
             if (topic != null && !topic.trim().isEmpty()
-                    && !WebSearch.relevantResult(topic, candidate.title, candidate.summary))
+                    && !NewsTopicPolicy.matchesGeneralFeed(topic, candidate.title, candidate.summary))
                 continue;
             boolean duplicate = false;
             String normTitle = VoiceText.normalize(candidate.title).trim();
