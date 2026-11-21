@@ -169,6 +169,9 @@ public class FridayService extends Service {
             return START_NOT_STICKY;
         }
         if (running) return START_NOT_STICKY;
+        // Retrait définitif de l’interruption vocale : aucune ancienne préférence
+        // ne doit réactiver le décodeur STOP. Le bouton reste opérationnel.
+        settings.put("barge_in_enabled", "0");
         // Mise a niveau de stabilite : le mode « une question » fermait le
         // service apres la premiere reponse. Sur la premiere ouverture de
         // v3.11.2, garantir une ecoute continue et neutraliser les faux STOP
@@ -294,7 +297,7 @@ public class FridayService extends Service {
     /** Capture Vosk continue pendant les appels Mistral et la lecture audio. */
     private void runLoop() {
         try (Model model = new Model(ModelInstaller.modelDir(this).getAbsolutePath())) {
-            event("status", "Reconnaissance française prête. Pendant une réponse, STOP et les précisions restent disponibles ; les nouvelles questions reprennent après la voix.");
+            event("status", "Reconnaissance française prête. La réponse est lue intégralement ; interruption uniquement par le bouton. Écoute vocale reprise après la voix.");
             // Ne pas bloquer 15 secondes le micro en attendant le moteur TTS Android.
             new Thread(this::initTts, "friday-tts-setup").start();
             int consecutiveErrors = 0;
@@ -314,7 +317,10 @@ public class FridayService extends Service {
                     if (minimum <= 0) throw new IllegalStateException("Microphone 16 kHz indisponible");
                     int bytes = Math.max(16384, minimum * 4);
                     PhoneAudioRoute.usePhoneSpeaker(this);
-                    boolean bargeEnabled = "1".equals(settings.get("barge_in_enabled", "0"));
+                    // Désactivation permanente du décodeur des commandes STOP.
+                    // Le microphone est toujours utilisé pour les questions, jamais
+                    // pour interrompre une réponse en cours.
+                    boolean bargeEnabled = false;
                     // Si Android a rendu VOICE_COMMUNICATION muet, repartir
                     // sur VOICE_RECOGNITION lors de la prochaine session audio.
                     int src = (bargeEnabled && mutedMicroReopens == 0)
@@ -377,9 +383,7 @@ public class FridayService extends Service {
                     }
                     event("status", PhoneAudioRoute.inputStatus(ar));
                     voiceState("Micro actif : dites Jarvis pour parler");
-                    interruptDiagnostics = bargeEnabled
-                            ? "Micro PCM prêt · décodeur STOP démarre à la réponse"
-                            : "Désactivé dans Réglages · autoriser l'interruption vocale";
+                    interruptDiagnostics = "STOP vocal retiré · utiliser le bouton Interrompre";
                     event("status", "Microphone du téléphone prêt. Réduction du bruit "
                             + (noiseSuppressor != null ? "active" : "non disponible")
                             + " · gain " + (gainControl != null ? "automatique" : "standard")
@@ -798,6 +802,12 @@ public class FridayService extends Service {
     private void handlePhrase(String heard) {
         if (!running || heard == null || heard.trim().isEmpty()) return;
         long now = SystemClock.elapsedRealtime();
+        // Aucun ordre vocal ne doit interrompre FRIDAY : seules les actions
+        // explicites du bouton (ou une nouvelle question écrite) ont ce droit.
+        if (BargeInPolicy.isStopListening(heard)
+                || BargeInPolicy.isStopAnswer(heard)
+                || BargeInPolicy.isBareStopAnswer(heard)) return;
+        if (currentTurn != null) return;
         if (BargeInPolicy.isStopListening(heard)) {
             event("status", "Arrêt complet de l'écoute demandé.");
             shutdown(); return;
