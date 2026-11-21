@@ -28,7 +28,7 @@ class VoiceQuestionCaptureRegressions(unittest.TestCase):
 
     def test_manual_stop_still_enabled_and_voice_stop_disabled(self):
         self.assertIn("boolean bargeEnabled = false;", SERVICE)
-        self.assertIn("if (currentTurn != null) return;", SERVICE)
+        self.assertIn("if (currentTurn != null) {", SERVICE)
         self.assertIn('if (running) interruptResponse("Réponse interrompue.', SERVICE)
 
     def test_presidential_candidate_clarification_is_fast_and_local(self):
