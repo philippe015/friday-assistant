@@ -37,8 +37,8 @@ class EchoRegression(unittest.TestCase):
 
     def test_version_and_privacy(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertRegex(gradle, r"versionCode (?:67|68|69|70|71|72|73|74|75|76|77|78|79|80|81|82|83|84|85|86|87|88|89|90|91|92|93|94)")
-        self.assertRegex(gradle, r"versionName '(?:3\.8\.[456789]|3\.9\.0|3\.10\.0|3\.11\.0|3\.11\.1|3\.11\.2|3\.12\.0|3\.12\.1|3\.12\.2|3\.12\.3|3\.12\.4|3\.12\.5|3\.12\.6|3\.13\.0|3\.13\.1|3\.13\.2|3\.13\.3|3\.13\.4|3\.13\.5|3\.13\.6|3\.13\.7|3\.13\.8|3\.14\.0)'")
+        self.assertRegex(gradle, r"versionCode (?:67|68|69|70|71|72|73|74|75|76|77|78|79|80|81|82|83|84|85|86|87|88|89|90|91|92|93|94|95)")
+        self.assertRegex(gradle, r"versionName '(?:3\.8\.[456789]|3\.9\.0|3\.10\.0|3\.11\.0|3\.11\.1|3\.11\.2|3\.12\.0|3\.12\.1|3\.12\.2|3\.12\.3|3\.12\.4|3\.12\.5|3\.12\.6|3\.13\.0|3\.13\.1|3\.13\.2|3\.13\.3|3\.13\.4|3\.13\.5|3\.13\.6|3\.13\.7|3\.13\.8|3\.14\.0|3\.14\.1)'")
         memory = (JAVA / "PersonalMemory.java").read_text(encoding="utf-8")
         self.assertIn('cfg.get("memory_share_mistral", "0")', memory)
         ai = (JAVA / "NativeAI.java").read_text(encoding="utf-8")
