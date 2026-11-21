@@ -87,6 +87,21 @@ public final class RecentNewsPolicy {
         return isNews(question) && requestedHours(question) > 0;
     }
 
+    /**
+     * Les "actualités aujourd'hui / du jour" concernent le calendrier du
+     * téléphone ; un bulletin "dernières 7 heures" reste une période mobile.
+     * Retourne 0 si aucun jour civil n'est demandé explicitement.
+     */
+    public static long civilTodayStartMillis(String question, long nowMs,
+                                             java.time.ZoneId zone) {
+        if (!isNews(question) || requestedHours(question) > 0) return 0;
+        String normalized = fold(question);
+        if (!normalized.matches(".*\\b(?:aujourd hui|du jour|ce matin|"
+                + "de ce matin|ce soir)\\b.*")) return 0;
+        return java.time.Instant.ofEpochMilli(nowMs).atZone(zone)
+                .toLocalDate().atStartOfDay(zone).toInstant().toEpochMilli();
+    }
+
     public static String searchPrompt(String original, long nowMs, TimeZone zone) {
         int hours = requestedHours(original);
         if (!isNews(original) || hours < 1) return original;
