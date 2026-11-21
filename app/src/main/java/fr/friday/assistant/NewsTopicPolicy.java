@@ -29,7 +29,7 @@ public final class NewsTopicPolicy {
             + "aujourd|hui|jour|matin|soir|actuelles?|nouveautes?|"
             + "publiees?|publies?|publication|parues?|parus?|articles?|"
             + "cite[rs]?|citation|references?|sources?|liens?|urls?|medias?|"
-            + "des?|de|du|la|le|les|sur|au|aux|en|dans|pendant|cours|"
+            + "d|l|un|une|des?|de|du|la|le|les|sur|au|aux|en|dans|pendant|cours|"
             + "heures?|[0-9]{1,2}|sept|six|douze|trois|quatre|vingt|"
             + "quelles?|quels?|sont|et|a|avec|depuis|cette|ce)\\b");
 
