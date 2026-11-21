@@ -214,6 +214,19 @@ public final class JarvisInternet {
                         .append(" — ").append(source.url);
             }
             String spoken = verifiedRecentHeadlines(sources, newsHours, System.currentTimeMillis());
+            // Aucun faux bulletin de titres : si une source a perdu son
+            // horodatage, la recherche est explicitement non aboutie.
+            boolean anyDated = false;
+            for (Source item : sources)
+                if (RssFreshness.withinHours(item.publishedAt,
+                        System.currentTimeMillis(), newsHours)) anyDated = true;
+            if (!anyDated) {
+                String unavailable = "Aucun titre RSS daté vérifiable dans les "
+                        + newsHours + " dernières heures. "
+                        + "Je ne vais pas présenter des résultats Web sans date "
+                        + "comme des actualités récentes.";
+                return new Result(unavailable, unavailable, false, "");
+            }
             return new Result(spoken + "\n\n" + references,
                     spoken, true, references.toString());
         }
@@ -556,7 +569,14 @@ public final class JarvisInternet {
             sources.add(source);
             return sources;
         }
-        sources.addAll(search(WebSearch.searchQuery(question, ""), cancellation));
+        // Ne JAMAIS supprimer « actualités / 24 dernières heures » avant
+        // d'envoyer la requête : le filtrage RSS requiert ces marqueurs.
+        // Auparavant WebSearch.searchQuery() retirait les mots de temps,
+        // ce qui produisait des résultats Web généraux non datés et un
+        // bulletin « zéro titre RSS » alors que des sources étaient affichées.
+        String effectiveQuery = RecentNewsPolicy.newsWindowHours(question) > 0
+                ? question : WebSearch.searchQuery(question, "");
+        sources.addAll(search(effectiveQuery, cancellation));
         for (int i = 0; i < sources.size() && i < 2; i++) {
             if (cancellation != null) cancellation.check();
             try {
