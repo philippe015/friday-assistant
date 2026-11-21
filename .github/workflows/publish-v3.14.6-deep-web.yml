@@ -1,0 +1,109 @@
+name: Publish JARVIS v3.14.6 deep-web beta
+
+on:
+  push:
+    branches:
+      - feat/jarvis-profile-deep-web-v3146-20261121
+    paths:
+      - .github/workflows/publish-v3.14.6-deep-web.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate-build-publish:
+    if: github.repository == 'philippe015/friday-assistant'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Python 3.14 for Chaquopy
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Android SDK
+        run: |
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - name: Rust Android target
+        run: |
+          rustup target add aarch64-linux-android
+          cargo install cargo-ndk --locked
+
+      - name: Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Regression tests (Python Java JS Rust)
+        run: bash scripts/tester_sources.sh
+
+      - name: Build Rust JNI
+        run: |
+          cd native
+          cargo ndk -t arm64-v8a -o ../app/src/main/jniLibs build --release
+
+      - name: Compile Android debug APK
+        run: gradle --no-daemon :app:assembleDebug
+
+      - name: Verify and prepare beta APK
+        run: |
+          grep -Fq "versionCode 100" app/build.gradle
+          grep -Fq "versionName '3.14.6'" app/build.gradle
+          grep -Fq "applicationIdSuffix '.readerfixpreview'" app/build.gradle
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk \
+            dist/JARVIS-v3.14.6-profil-web-profond-beta.apk
+          test -s dist/JARVIS-v3.14.6-profil-web-profond-beta.apk
+          unzip -t dist/JARVIS-v3.14.6-profil-web-profond-beta.apk >/dev/null
+          sha256sum dist/JARVIS-v3.14.6-profil-web-profond-beta.apk \
+            | tee dist/SHA256SUMS.txt
+
+      - name: Upload verified APK as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-v3.14.6-profile-web-beta
+          path: |
+            dist/JARVIS-v3.14.6-profil-web-profond-beta.apk
+            dist/SHA256SUMS.txt
+
+      - name: Publish downloadable beta release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v3.14.6-profil-web-profond-beta"
+          APK="dist/JARVIS-v3.14.6-profil-web-profond-beta.apk"
+          cat > dist/NOTES.md <<'EOF'
+          Bêta Android JARVIS v3.14.6 — analyse HTTPS publique approfondie
+          (jusqu'à 36 000 caractères de texte accessible par page), profil local
+          appliqué à chaque réponse Gemma, synthèses segmentées sans troncature
+          silencieuse. Lecture explicite d'URL et jusqu'à deux pages comparées.
+          Sans IA distante ; mémoire personnelle et GPS non transmis au Web.
+
+          À installer seulement pour tests. Le package debug est
+          fr.friday.assistant.readerfixpreview ; une signature Android debug
+          différente peut empêcher la mise à jour sans perte de données.
+          Gardez l'APK fonctionnelle et ses sauvegardes. Le modèle local doit
+          être installé séparément. Essais réels sur téléphone non certifiés.
+          EOF
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" dist/SHA256SUMS.txt --clobber
+          else
+            gh release create "$TAG" "$APK" dist/SHA256SUMS.txt \
+              --target "$GITHUB_SHA" --prerelease \
+              --title "JARVIS v3.14.6 — Profil + Web approfondi (bêta)" \
+              --notes-file dist/NOTES.md
+          fi

@@ -1,3 +1,19 @@
+## J.A.R.V.I.S. v3.14.6 — profil permanent et lecture Web approfondie (bêta)
+
+Cette branche de développement ajoute l'analyse HTTPS publique jusqu'à 36 000
+caractères lorsqu'une page est accessible. Le texte est traité intégralement
+par segments puis synthétisé **avec le profil actif stocké sur Android**.
+« Jarvis, analyse cette page https://… » et « Jarvis, lis cette page en entier »
+utilisent la lecture approfondie ; une analyse explicite de plusieurs pages Web
+peut couvrir jusqu'à deux pages accessibles. Le moteur IA reste local.
+
+**Statut :** version source en validation CI ; ne pas remplacer aveuglément une
+installation déjà fonctionnelle. Tests sur téléphone nécessaires.
+
+[Guide d'utilisation et limites](docs/JARVIS_V3146_PROFIL_WEB_PROFOND.md)
+
+---
+
 ## FRIDAY/JARVIS v3.14.1 (PRÉVERSION) — RSS mondiaux traduits localement en français
 
 **Nouveau :** 17 flux et éditions RSS internationales, un choix ciblé selon la région demandée, et traduction en français des titres/extraits avec le **modèle Gemma 4 E2B GPU local** (aucun service de traduction cloud). Sources originales, dates RSS et liens conservés. Réglage désactivable dans **Internet Jarvis** et bouton **RSS Monde FR** dans le cockpit.

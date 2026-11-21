@@ -21,6 +21,9 @@ import java.util.regex.Pattern;
 public final class WebPageReader {
     private static final int MAX_BYTES = 450_000;
     public static final int MAX_TEXT = 12_000;
+    /** Lecture longue uniquement sur demande, RAM et trafic strictement bornés. */
+    public static final int MAX_DEEP_BYTES = 1_500_000;
+    public static final int MAX_DEEP_TEXT = 36_000;
     private WebPageReader() {}
 
     public static final class Page {
@@ -127,7 +130,17 @@ public final class WebPageReader {
         return readInternal(url, true);
     }
 
+    /** Lit le contenu public accessible d'une page longue, sans script ni paywall. */
+    public static Page readDeep(String url) throws Exception {
+        return readInternal(url, true, MAX_DEEP_BYTES, MAX_DEEP_TEXT);
+    }
+
     private static Page readInternal(String url, boolean articleMode) throws Exception {
+        return readInternal(url, articleMode, MAX_BYTES, MAX_TEXT);
+    }
+
+    private static Page readInternal(String url, boolean articleMode,
+                                     int maxBytes, int maxText) throws Exception {
         URI target = checkedUri(url);
         for (int redirect = 0; redirect <= 3; redirect++) {
             checkPublicDns(target);
@@ -157,7 +170,7 @@ public final class WebPageReader {
                         || type.startsWith("application/xhtml+xml")))
                     throw new IllegalArgumentException("Cette adresse ne renvoie pas une page HTML ou texte.");
                 int declared = conn.getContentLength();
-                if (declared > MAX_BYTES)
+                if (declared > maxBytes)
                     throw new IllegalArgumentException("Page trop volumineuse pour la lecture locale.");
                 ByteArrayOutputStream output = new ByteArrayOutputStream();
                 boolean capped = false;
@@ -165,8 +178,8 @@ public final class WebPageReader {
                     byte[] buf = new byte[4096];
                     int n;
                     while ((n = in.read(buf)) != -1) {
-                        if (output.size() + n > MAX_BYTES) {
-                            output.write(buf, 0, Math.max(0, MAX_BYTES - output.size()));
+                        if (output.size() + n > maxBytes) {
+                            output.write(buf, 0, Math.max(0, maxBytes - output.size()));
                             capped = true;
                             break;
                         }
@@ -199,8 +212,8 @@ public final class WebPageReader {
                             "Aucun texte d'article exploitable sur cette page publique.");
                 if (text.length() < 45)
                     throw new IllegalArgumentException("Page vide ou chargée uniquement en JavaScript.");
-                boolean trimmed = text.length() > MAX_TEXT;
-                if (trimmed) text = text.substring(0, MAX_TEXT);
+                boolean trimmed = text.length() > maxText;
+                if (trimmed) text = text.substring(0, maxText);
                 return new Page(target.toString(), title, text,
                         capped || trimmed, extracted != null && extracted.detected);
             } finally {
