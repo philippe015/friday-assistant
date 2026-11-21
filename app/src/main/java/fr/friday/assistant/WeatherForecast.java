@@ -53,7 +53,7 @@ public final class WeatherForecast {
         connection.setReadTimeout(7_000);
         connection.setRequestProperty("Accept", "application/json");
         connection.setRequestProperty("User-Agent",
-                "JARVIS-Android/3.13.16 (+https://github.com/philippe015/friday-assistant)");
+                "JARVIS-Android/3.13.17 (+https://github.com/philippe015/friday-assistant)");
         try {
             int status = connection.getResponseCode();
             if (status != 200) throw new IOException("Service météo HTTP " + status);
