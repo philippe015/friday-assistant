@@ -242,8 +242,12 @@ public final class LocalJarvisEngine {
         // privées : celles-ci ne sont pas utiles à une traduction fidèle.
         boolean rssTranslationOnly = cleaned.startsWith("[TRADUCTION_RSS_PUBLIQUE]")
                 || cleaned.startsWith("[TRADUCTION_ARTICLE_PUBLIC]");
+        String activeName = PersonalityProfiles.activeName(cfg);
+        String activePrompt = PersonalityProfiles.activePrompt(cfg);
+        String assistantName = AssistantIdentity.displayName(activeName, activePrompt);
         StringBuilder prompt = new StringBuilder(hasWebSources ? 5000 : 1800);
-        prompt.append("Tu es JARVIS, assistant IA fonctionnant sur le téléphone Android. "
+        prompt.append("Tu es ").append(assistantName)
+                .append(", assistant IA fonctionnant sur le téléphone Android. "
                 + "Réponds en français sans inventer de faits ou d'actualités. "
                 + "Tu ne transmets ni mémoire ni question à un autre moteur IA. "
                 + "En dialogue, réponds d'abord à la demande précise, "
@@ -271,9 +275,7 @@ public final class LocalJarvisEngine {
         // La tâche de traduction RSS publique reste strictement indépendante
         // des personnalités et des notes privées pour éviter toute dérive.
         if (!rssTranslationOnly) {
-            prompt.append(ProfilePromptPolicy.localInstructions(
-                    PersonalityProfiles.activeName(cfg),
-                    PersonalityProfiles.activePrompt(cfg)));
+            prompt.append(ProfilePromptPolicy.localInstructions(activeName, activePrompt));
         }
         if (PersonalMemory.enabled(cfg) && !hasWebSources && !rssTranslationOnly) {
             // Une note corrompue ne doit pas empêcher une génération locale.
