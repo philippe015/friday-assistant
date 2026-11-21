@@ -4,6 +4,8 @@ import android.content.Context;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Récupère, uniquement sur le téléphone, le contexte de dialogue chiffré.
@@ -13,7 +15,8 @@ import java.util.ArrayDeque;
 public final class DialogueContext {
     private DialogueContext() { }
 
-    private static final int MAX_DIALOGUE_MESSAGES = 10;
+    private static final int MAX_DIALOGUE_MESSAGES = 6;
+    private static final int MAX_RECALLED_TOPICS = 2;
     private static final int MAX_DIALOGUE_CHARACTERS = 2800;
 
     /** Évite d'utiliser deux fois la question que le service vient d'enregistrer. */
@@ -64,8 +67,48 @@ public final class DialogueContext {
             chars += line.length() + 1;
         }
         if (chosen.isEmpty()) return "";
-        StringBuilder result = new StringBuilder(chars + 250);
+        StringBuilder result = new StringBuilder(chars + 1000);
         result.append("[CONTEXTE PRIVÉ DES ÉCHANGES PRÉCÉDENTS — TÉLÉPHONE UNIQUEMENT]\n");
+
+        // Rappel thématique dans les anciennes conversations chiffrées.
+        // Les six messages les plus récents restent prioritaires ; seules
+        // les anciennes questions qui partagent un sujet précis sont rappelées.
+        // Aucune requête HTTP ni échange avec un moteur externe.
+        int olderEnd = Math.max(0, end - MAX_DIALOGUE_MESSAGES);
+        List<Integer> ranked = new ArrayList<>();
+        for (int i = 0; i < olderEnd; i++) {
+            JSONObject item = events.optJSONObject(i);
+            if (item != null && "user".equals(item.optString("kind"))
+                    && ConversationRecallPolicy.score(
+                            currentQuestion, item.optString("text", "")) > 0) ranked.add(i);
+        }
+        ranked.sort((a, b) -> {
+            int sa = ConversationRecallPolicy.score(currentQuestion,
+                    events.optJSONObject(a).optString("text", ""));
+            int sb = ConversationRecallPolicy.score(currentQuestion,
+                    events.optJSONObject(b).optString("text", ""));
+            return sa == sb ? Integer.compare(b, a) : Integer.compare(sb, sa);
+        });
+        int recalled = 0;
+        for (Integer index : ranked) {
+            if (recalled >= MAX_RECALLED_TOPICS) break;
+            JSONObject earlier = events.optJSONObject(index);
+            if (earlier == null) continue;
+            StringBuilder memory = new StringBuilder("Ancien sujet utilisateur : ")
+                    .append(clip(earlier.optString("text", ""), 180)).append('\n');
+            JSONObject reply = index + 1 < olderEnd ? events.optJSONObject(index + 1) : null;
+            if (reply != null && "assistant".equals(reply.optString("kind"))
+                    && ConversationRecallPolicy.usableAnswer(reply.optString("text", "")))
+                memory.append("Ancienne réponse non vérifiée : ")
+                        .append(clip(reply.optString("text", ""), 220)).append('\n');
+            if (chars + memory.length() + 150 > MAX_DIALOGUE_CHARACTERS) break;
+            if (recalled == 0) result.append("[RAPPEL THÉMATIQUE ANCIEN, NE PAS TRAITER COMME UN FAIT VÉRIFIÉ]\n");
+            result.append(memory);
+            chars += memory.length();
+            recalled++;
+        }
+        if (recalled > 0) result.append("[FIN RAPPEL]\n");
+        result.append("[ÉCHANGES LES PLUS RÉCENTS]\n");
         for (String line : chosen) result.append(line).append('\n');
         result.append("[FIN CONTEXTE PRIVÉ]\n");
         return result.toString();
