@@ -327,7 +327,13 @@ public final class JarvisInternet {
         // Ne jamais lire une URL d'agrégateur si elle n'est pas nécessaire.
         if (RecentNewsPolicy.newsWindowHours(question) > 0)
             return sources;
-        for (int i = 0; i < sources.size() && i < 2; i++) {
+        // Une lecture HTTP supplémentaire peut prendre 10 s sur mobile.
+        // Pour les sujets médicaux, juridiques ou techniques nécessitant des
+        // sources institutionnelles, garder deux pages ; une seule page suffit
+        // pour compléter les extraits des questions générales.
+        int pagesToRead = OfficialSourcePolicy.preferredSites(question).length > 0
+                || WebSearch.requiresCurrentEvidence(question) ? 2 : 1;
+        for (int i = 0; i < sources.size() && i < pagesToRead; i++) {
             if (cancellation != null) cancellation.check();
             try {
                 // Les liens d'agrégateurs RSS renvoient souvent vers une
@@ -467,6 +473,16 @@ public final class JarvisInternet {
             mergeRelevant(found, parseRss(fetch("https://www.bing.com/search?q="
                     + encoded + "&format=rss"), 0, now), q);
         } catch (Exception fail) { trouble = noteFailure(trouble, fail); }
+
+        // Pour une recherche générale non sensible au temps, trois sources
+        // distinctes pertinentes suffisent. Ne pas contacter Wikipédia,
+        // Wikidata et DuckDuckGo uniquement pour remplir cinq références.
+        // Les demandes scientifiques, réglementaires ou d'actualité gardent
+        // leurs parcours spécialisés et les contrôles de provenance.
+        if (found.size() >= 3 && OfficialSourcePolicy.preferredSites(q).length == 0
+                && !WebSearch.requiresCurrentEvidence(q)
+                && !WebSearch.scientificResearch(q))
+            return found;
 
         if (WebSearch.scientificResearch(q) && !WebSearch.requiresCurrentEvidence(q)
                 && found.size() < MAX_RESULTS) {
