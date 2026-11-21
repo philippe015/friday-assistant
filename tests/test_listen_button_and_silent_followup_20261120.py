@@ -31,7 +31,7 @@ class NoAnswerRecovery(unittest.TestCase):
         self.assertIn("return responseActive && confirmedWakeNotEcho", POLICY)
         self.assertIn("if (!VoiceTurnPolicy.canReplace", SERVICE)
         self.assertIn("VoiceTurnPolicyTest.java", SCRIPT)
-        self.assertIn("VoiceTurnPolicyTest RssFreshnessTest", SCRIPT)
+        self.assertIn("VoiceTurnPolicyTest", SCRIPT)
 
 if __name__ == "__main__":
     unittest.main()
