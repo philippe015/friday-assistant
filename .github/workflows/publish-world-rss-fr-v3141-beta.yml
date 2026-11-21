@@ -1,0 +1,79 @@
+name: Publish JARVIS v3.14.1 RSS Monde FR beta APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-world-rss-fr-v3141-beta.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release-verified-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check exact tested source and both CI outcomes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          REPO="$GITHUB_REPOSITORY"
+          EXPECTED_SHA=dbf01ce0e778a9b46f93216a4d183d8e2e949d68
+          BUILD="$(gh api "repos/$REPO/actions/runs/44930050392" --jq '[.head_sha,.conclusion] | join(" ")')"
+          TEST="$(gh api "repos/$REPO/actions/runs/44930050398" --jq '[.head_sha,.conclusion] | join(" ")')"
+          test "$BUILD" = "$EXPECTED_SHA success"
+          test "$TEST" = "$EXPECTED_SHA success"
+
+      - name: Download APK and verify exact SHA-256
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh run download 44930050392 --repo "$GITHUB_REPOSITORY" --name FRIDAY-pr-debug-apk --dir dist
+          test -s dist/app-debug.apk
+          unzip -tq dist/app-debug.apk
+          echo "942217a0680cb7c89b7e7aae99e42abbeefd4c44b2ebd4c3050088987afe40a1  dist/app-debug.apk" | sha256sum -c -
+          mv dist/app-debug.apk dist/FRIDAY-Jarvis-RSS-Monde-FR-v3.14.1-test.apk
+          cat > dist/RELEASE_NOTES.md <<'EOF'
+          # JARVIS v3.14.1 — RSS Monde FR (préversion expérimentale)
+
+          **L'APK est compilé et les 230 tests CI réussissent. Cette version RSS n'a pas encore été validée sur un téléphone.**
+
+          - Catalogue de **17 flux RSS publics internationaux et éditions géographiques** : France, Royaume-Uni, Allemagne, Espagne, Brésil, Japon, monde arabe, Inde, États-Unis, Afrique du Sud, Italie, Canada et Australie.
+          - Sélection ciblée de **4 à 7 sources** selon le pays ou la région demandée ; réponses limitées aux articles dont le flux RSS fournit une date exploitable.
+          - **Traduction française locale** des titres et brefs extraits par votre modèle `gemma-4-E2B-it-gpu.litertlm` déjà installé sur le téléphone. Aucune API de traduction à distance.
+          - Titres originaux, dates RSS et liens affichés pour vérification ; absence de sources récentes ou traduction indisponible signalées.
+          - Case à cocher pour la traduction, bouton **RSS Monde FR** dans le cockpit.
+          - Aucun envoi de GPS, de mémoire personnelle ou d'historique privé aux flux RSS ou services de traduction.
+
+          **Installation de test sécurisée :** le package Android est `fr.friday.assistant.rsspreview`. Il s'installe **à côté** de la v3.14.0 fonctionnelle (package `fr.friday.assistant.smartpreview`) sans l'écraser. Il faut importer le modèle Gemma 4 à nouveau dans cette édition si vous souhaitez tester la traduction. **Ne désinstallez pas votre v3.14.0 fonctionnelle**.
+
+          **Limite :** impossible de promettre tous les RSS mondiaux ; le catalogue est extensible et des flux peuvent être indisponibles. Les traductions générées localement restent à vérifier.
+
+          Code source : https://github.com/philippe015/friday-assistant/pull/91
+
+          SHA-256 APK : `942217a0680cb7c89b7e7aae99e42abbeefd4c44b2ebd4c3050088987afe40a1`.
+          EOF
+
+      - name: Publish prerelease without replacing user-tested v3.14.0
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=v3.14.1-rss-monde-beta
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release already exists: refusing to overwrite $TAG"
+            exit 0
+          fi
+          gh release create "$TAG" dist/FRIDAY-Jarvis-RSS-Monde-FR-v3.14.1-test.apk \
+            --repo "$GITHUB_REPOSITORY" \
+            --target dbf01ce0e778a9b46f93216a4d183d8e2e949d68 \
+            --prerelease \
+            --title "JARVIS v3.14.1 — RSS Monde FR, traduction locale Gemma 4 (bêta)" \
+            --notes-file dist/RELEASE_NOTES.md
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets
