@@ -404,8 +404,9 @@ public class FridayService extends Service {
                     long mutedSince = 0;
                     long nextMuteNoticeAt = 0;
                     while (running) {
-                        // Une question : écoute active PENDANT la réponse pour permettre
-                        // « stop » et « j'ai une précision ». Fermeture APRÈS la réponse.
+                        // Capture maintenue par Android, mais transcription Vosk
+                        // suspendue pendant une réponse : STOP vocal est retiré.
+                        // Seul le bouton explicite peut interrompre le tour actif.
                         if (oneShotTriggered && currentTurn == null) {
                             event("status", "Mode une question : réponse terminée, micro arrêté.");
                             break;
@@ -584,13 +585,15 @@ public class FridayService extends Service {
                             stopRecognizer.close(); stopRecognizer = null; stopSpotter.reset();
                             if (bargeEnabled) interruptDiagnostics = "Micro actif · prêt";
                         }
-                        // Pendant Mistral/Web en attente, FRIDAY NE PARLE PAS :
-                        // le Vosk général doit rester disponible pour une nouvelle
-                        // question « Friday ... », même si currentTurn est présent.
-                        // Seule la sortie TTS effective et sa queue d'écho le bloquent.
+                        // En mode interruption PAR BOUTON, ne plus entraîner Vosk
+                        // à transcrire le bruit ambiant ou les répétitions de la
+                        // question pendant qu'une réponse Web est en préparation.
+                        // Les PCM restent lus pour surveiller la politique Android,
+                        // mais ne sont pas transmis au reconnaisseur.
                         long asrNow = SystemClock.elapsedRealtime();
-                        boolean blocked = TtsEchoGate.suppressGeneralAsr(
-                                speakingNow, asrNow, echoBlockUntil);
+                        boolean blocked = currentTurn != null
+                                || TtsEchoGate.suppressGeneralAsr(
+                                        speakingNow, asrNow, echoBlockUntil);
                         if (blocked) {
                             if (!generalInputBlocked) {
                                 generalInputBlocked = true;
@@ -598,8 +601,12 @@ public class FridayService extends Service {
                                 completed = interim = ""; lastVoice = 0;
                                 confidenceSum = 0; confidenceCount = 0;
                                 earlyCancelled = false; sawSpeakerFeedback = false;
-                                voiceState("Lecture TTS / anti-écho : dictée suspendue, interruption uniquement par bouton");
-                                event("barge_diag", "Protection anti-écho : dictée suspendue · STOP vocal désactivé · bouton disponible");
+                                voiceState(speakingNow
+                                        ? "Lecture TTS / anti-écho : dictée suspendue, interruption uniquement par bouton"
+                                        : "Jarvis prépare sa réponse : transcription temporairement suspendue");
+                                event("barge_diag", speakingNow
+                                        ? "Protection anti-écho : dictée suspendue · STOP vocal désactivé · bouton disponible"
+                                        : "Question reçue · transcription suspendue pendant la préparation · bouton disponible");
                             }
                             continue;
                         }
@@ -697,6 +704,10 @@ public class FridayService extends Service {
                                     event("error", "Je n'ai pas bien compris : « " + phrase.trim()
                                             + " » (confiance " + Math.round(confidence * 100) + " %). Pouvez-vous répéter ?");
                                 } else {
+                                    asrDiagnostic("Question finalisée par Vosk : « "
+                                            + (phrase.length() > 140
+                                                    ? phrase.substring(0, 140) + "…" : phrase)
+                                            + " »");
                                     handlePhrase(phrase.trim());
                                 }
                             }
@@ -908,7 +919,7 @@ public class FridayService extends Service {
                 + (JarvisInternet.shouldResearch(settings, question)
                     ? " · recherche Web publique possible si disponible"
                     : " · sans recherche Web pour cette question")
-                + " · micro prêt pour une nouvelle question avec Jarvis");
+                + " · transcription en pause jusqu'à la fin de la réponse");
         // Protège contre un fournisseur/API bloqué : aucun tour muet ne doit
         // garder l'écoute occupée indéfiniment. Un TTS en lecture n'est pas coupé.
         turn.watchdog = () -> {
