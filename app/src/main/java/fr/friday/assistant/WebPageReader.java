@@ -190,6 +190,13 @@ public final class WebPageReader {
                 String text = extracted == null
                         ? (type.startsWith("text/plain") ? body : plainText(body))
                         : extracted.text;
+                if (articleMode && (RssArticleText.looksLikeExecutableCode(body)
+                        || RssArticleText.looksLikeExecutableCode(text)))
+                    throw new IllegalArgumentException(
+                            "Page JavaScript technique sans contenu éditorial lisible.");
+                if (text.length() < 100 && articleMode)
+                    throw new IllegalArgumentException(
+                            "Aucun texte d'article exploitable sur cette page publique.");
                 if (text.length() < 45)
                     throw new IllegalArgumentException("Page vide ou chargée uniquement en JavaScript.");
                 boolean trimmed = text.length() > MAX_TEXT;
@@ -208,6 +215,7 @@ public final class WebPageReader {
         String text = html
                 .replaceAll("(?is)<!--.*?-->", " ")
                 .replaceAll("(?is)<(script|style|noscript|svg|nav|footer|form)\\b[^>]*>.*?</\\1\\s*>", " ")
+                .replaceAll("(?is)<script\\b[^>]*>[\\s\\S]*$", " ")
                 .replaceAll("(?is)<(br|p|div|li|h[1-6]|section|article|tr|td)\\b[^>]*>", "\n")
                 .replaceAll("(?s)<[^>]*>", " ")
                 .replace("&nbsp;", " ").replace("&amp;", "&")
