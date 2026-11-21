@@ -263,6 +263,17 @@ public final class LocalJarvisEngine {
             prompt.append("Aucune recherche Internet n'a été effectuée pour cette question. ");
         }
         prompt.append("\nDate locale : ").append(NativeAI.timeContext());
+        // IMPORTANT : auparavant le menu Profil chiffré était seulement
+        // enregistré/affiché et n'avait AUCUN effet sur l'IA locale.
+        // Relire le profil actif pour CHAQUE requête (texte et Vosk) :
+        // un changement de profil prend effet sans redémarrer le moteur.
+        // La tâche de traduction RSS publique reste strictement indépendante
+        // des personnalités et des notes privées pour éviter toute dérive.
+        if (!rssTranslationOnly) {
+            prompt.append(ProfilePromptPolicy.localInstructions(
+                    PersonalityProfiles.activeName(cfg),
+                    PersonalityProfiles.activePrompt(cfg)));
+        }
         if (PersonalMemory.enabled(cfg) && !hasWebSources && !rssTranslationOnly) {
             // Une note corrompue ne doit pas empêcher une génération locale.
             // Aucune transmission au cloud en cas d'échec Keystore.
