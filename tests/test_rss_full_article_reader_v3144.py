@@ -63,7 +63,7 @@ public class RssReadSmoke {
         self.assertIn("RssArticleIntent.isRequest(",internet)
         self.assertIn("[TRADUCTION_ARTICLE_PUBLIC]",engine)
         self.assertIn("Lis l’article RSS 1",ui)
-        self.assertIn("versionName '3.14.5'",gradle)
+        self.assertIn("versionName '3.14.6'",gradle)
         self.assertIn("applicationIdSuffix '.readerfixpreview'",gradle)
 
 if __name__=="__main__":unittest.main()
