@@ -66,6 +66,56 @@ public final class JarvisInternet {
         return "1".equals(settings.get("jarvis_web_enabled", "1"));
     }
 
+    /** Only a headline already cited from a public news RSS feed may enrich
+     * a follow-up. Never forward the encrypted conversation or user memory
+     * to search providers. This works after an app restart as well. */
+    private static String publicNewsFollowUpQuery(Context context, SecurePrefs prefs,
+                                                   String currentQuestion) {
+        if (!NewsFollowUpPolicy.isPublicNewsFollowUp(currentQuestion)) return currentQuestion;
+        try {
+            JSONArray history = new JSONArray(PrivateConversationHistory.read(context, prefs));
+            if (history.length() < 2) return currentQuestion;
+            JSONObject last = history.optJSONObject(history.length() - 1);
+            JSONObject prior = history.optJSONObject(history.length() - 2);
+            if (last == null || prior == null
+                    || !"assistant".equals(last.optString("kind"))
+                    || !"user".equals(prior.optString("kind"))) return currentQuestion;
+            return NewsFollowUpPolicy.enrich(currentQuestion,
+                    prior.optString("text", ""), last.optString("text", ""));
+        } catch (Exception unavailable) {
+            // Failed local decryption must NEVER trigger a remote history lookup.
+            Log.w("FRIDAY_NEWS", "Contexte public de la relance indisponible");
+            return currentQuestion;
+        }
+    }
+
+    /** Deterministic digest: the Android code checks RSS timestamps, not the
+     * language model. An RSS time does NOT prove when the event took place. */
+    private static String verifiedRecentHeadlines(List<Source> sources, int hours, long now) {
+        StringBuilder report = new StringBuilder();
+        int count = 0;
+        for (Source source : sources)
+            if (RssFreshness.withinHours(source.publishedAt, now, hours)) count++;
+        report.append("J'ai trouvé ").append(count).append(" titre")
+                .append(count > 1 ? "s" : "")
+                .append(" dont l'horodatage RSS se situe dans les ")
+                .append(hours).append(" dernières heures. ")
+                .append("Cela ne prouve ni l'heure de l'événement ni l'exactitude "
+                        + "des informations publiées. ");
+        int index = 0;
+        for (Source source : sources) {
+            index++;
+            if (!RssFreshness.withinHours(source.publishedAt, now, hours)) continue;
+            report.append("Article ").append(index).append(" : ")
+                    .append(clip(source.title, 150)).append(". ")
+                    .append("Date du flux RSS : ")
+                    .append(RssFreshness.display(source.publishedAt)).append(". ");
+        }
+        report.append("Les liens figurent dans les sources écrites. "
+                + "Je ne dispose pas nécessairement du texte intégral des articles.");
+        return report.toString();
+    }
+
     public static boolean shouldResearch(SecurePrefs settings, String question) {
         if (!enabled(settings)) return false;
         // Ne jamais envoyer commandes de mémoire ni données de position
@@ -94,9 +144,14 @@ public final class JarvisInternet {
             return new Result(answer, answer, false, "");
         }
         if (cancellation != null) cancellation.check();
+        String publicNewsQuery = publicNewsFollowUpQuery(context, settings, question);
         List<Source> sources;
         try {
-            sources = research(question, cancellation);
+            if (publicNewsQuery.equals(question)) {
+                sources = research(question, cancellation);
+            } else {
+                sources = research(publicNewsQuery, cancellation);
+            }
         } catch (IOException unavailable) {
             if (cancellation != null) cancellation.check();
             // L'absence de résultats ne doit pas rendre l'IA locale muette.
@@ -104,7 +159,8 @@ public final class JarvisInternet {
             String reason = clip(unavailable.getMessage(), 210);
             String warning = "Recherche Internet non aboutie : " + reason;
             if (!WebSearch.firstUrl(question).isEmpty()
-                    || WebSearch.requiresCurrentEvidence(question)) {
+                    || WebSearch.requiresCurrentEvidence(question)
+                    || RecentNewsPolicy.newsWindowHours(publicNewsQuery) > 0) {
                 String notice = warning + " Je ne peux pas vérifier les informations "
                         + "actuelles ou le contenu de cette page et je ne vais pas les inventer.";
                 return new Result(notice, notice, false, "");
@@ -121,6 +177,27 @@ public final class JarvisInternet {
         }
         if (sources.isEmpty())
             throw new IOException("Aucune source Internet exploitable pour cette demande.");
+        int newsHours = RecentNewsPolicy.newsWindowHours(publicNewsQuery);
+        if (newsHours > 0) {
+            // User requests are recent: avoid a local model claiming that
+            // three actually-in-window RSS items were published too early.
+            // Preserve the original public source links and index numbering.
+            StringBuilder references = new StringBuilder("Sources Internet consultées :");
+            int number = 0;
+            for (Source source : sources) {
+                number++;
+                references.append("\n[").append(number).append("] ")
+                        .append(clip(source.title, 90)).append(" — ")
+                        .append(OfficialSourcePolicy.isOfficialUrl(source.url)
+                                ? "domaine institutionnel — " : "source secondaire — ")
+                        .append("horodatage RSS ")
+                        .append(RssFreshness.display(source.publishedAt))
+                        .append(" — ").append(source.url);
+            }
+            String spoken = verifiedRecentHeadlines(sources, newsHours, System.currentTimeMillis());
+            return new Result(spoken + "\n\n" + references,
+                    spoken, true, references.toString());
+        }
         StringBuilder contextPrompt = new StringBuilder(MAX_WEB_PROMPT + 400);
         contextPrompt.append("Question de l'utilisateur : ").append(clip(question, 380))
                 .append("\nHeure de consultation : ")
