@@ -714,9 +714,10 @@ public class FridayService extends Service {
                                     asrDiagnostic("Phrase reconnue mais confiance Vosk faible ("
                                             + Math.round(confidence * 100) + " %)");
                                     // Transcription douteuse : on montre ce qui a été entendu au lieu d'interroger l'IA.
-                                    event("user", phrase.trim());
-                                    event("error", "Je n'ai pas bien compris : « " + phrase.trim()
-                                            + " » (confiance " + Math.round(confidence * 100) + " %). Pouvez-vous répéter ?");
+                                    event("asr_rejected", phrase.trim());
+                                    event("error", "Transcription vocale incertaine (confiance "
+                                            + Math.round(confidence * 100)
+                                            + " %). Reformulez ou dites Jarvis avant la question.");
                                 } else {
                                     handlePhrase(phrase.trim());
                                 }
@@ -903,7 +904,15 @@ public class FridayService extends Service {
             // le haut-parleur, une TV ou du bruit en fausse question.
             // « Écoute ON », le bouton d'interruption ou un mot-clé isolé
             // autorisent UNE question directe pendant une fenêtre courte.
-            if (heard.trim().split("\\s+").length < 2) return;
+            if (!VoiceQuestionPolicy.plausibleDirectQuestion(
+                    heard, !latestQuestion.isEmpty())) {
+                // Une bribe Vosk n'est pas une question : ne pas lancer le Web
+                // ni injecter cette transcription dans le dialogue privé.
+                asrDiagnostic("Transcription incomplète ou sans demande claire ; "
+                        + "réessayez ou dites Jarvis au début");
+                event("asr_rejected", heard.trim());
+                return;
+            }
             question = heard;
         } else {
             // Le PCM est présent, Vosk comprend une phrase, mais aucun mot-clé :
