@@ -43,6 +43,7 @@ jobs:
           grep -Fq "SherpaArchivePolicy.checkedBzip2(input)" app/src/main/java/fr/friday/assistant/SherpaVoiceModels.java
           grep -Fq "SherpaArchivePolicyTest" scripts/tester_sources.sh
           grep -Fq "HandsFreeQuestionPolicyTest" scripts/tester_sources.sh
+          test -f tests/test_jarvis_handsfree_delivery_20261121.py
           grep -Fq "HandsFreeQuestionPolicy.acceptsDirectQuestion(heard," app/src/main/java/fr/friday/assistant/FridayService.java
           grep -Fq "AutoListenPolicy.retryOnResume(" app/src/main/java/fr/friday/assistant/MainActivity.java
           grep -Fq 'prefs.put("voice_assistant_ready_v31314", "1")' app/src/main/java/fr/friday/assistant/MainActivity.java
