@@ -4,6 +4,21 @@
 
 ### [📥 TÉLÉCHARGER FRIDAY-Jarvis-Intelligence-Plus-v3.14.0-test.apk](https://github.com/philippe015/friday-assistant/releases/download/v3.14.0-test/FRIDAY-Jarvis-Intelligence-Plus-v3.14.0-test.apk)
 
+
+### Installer le modèle IA local Gemma 4 E2B GPU sur Android
+
+**[📥 TÉLÉCHARGER DIRECTEMENT gemma-4-E2B-it-gpu.litertlm (2,34 Go)](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-gpu.litertlm)**
+
+[Voir la page du modèle LiteRT-LM sur Hugging Face](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/blob/main/gemma-4-E2B-it-gpu.litertlm)
+
+1. Sur le téléphone Android, télécharger entièrement le fichier `gemma-4-E2B-it-gpu.litertlm` (connexion Wi-Fi recommandée ; conserver le nom et l'extension d'origine).
+2. Ouvrir **FRIDAY/JARVIS v3.14.0 → Réglages → Jarvis local → Importer un modèle IA local**.
+3. Dans **Téléchargements**, sélectionner le fichier `.litertlm`, attendre la fin de l'importation, puis lancer **Tester Jarvis IA locale sans Internet**.
+4. Garder **Gemma 4 E2B GPU** comme moteur local : aucun compte/API Mistral ni modèle Qwen n'est nécessaire à l'inférence.
+
+**Note :** le fichier de modèle de 2,34 Go est téléchargé séparément ; il n'est pas inclus dans l'APK. La compatibilité GPU/RAM dépend du téléphone. Ne désinstallez pas l'édition qui fonctionne avant d'avoir sauvegardé ses modèles et ses données.
+
+
 **[Voir la version testée et les détails d'installation](https://github.com/philippe015/friday-assistant/releases/tag/v3.14.0-test)** · [Code source de cette version (PR #90)](https://github.com/philippe015/friday-assistant/pull/90)
 
 > **VERSION DE TEST VALIDÉE SUR ANDROID**, avec `gemma-4-E2B-it-gpu.litertlm` comme modèle IA local. Le modèle Gemma 4 **n'est pas fourni dans l'APK** : il s'importe séparément dans les réglages de Jarvis. Cette édition conserve le système vocal déjà fonctionnel.
