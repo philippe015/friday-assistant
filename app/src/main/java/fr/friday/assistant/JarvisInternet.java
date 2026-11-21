@@ -514,7 +514,8 @@ public final class JarvisInternet {
                     ? resolvePublisherLink(url, title, source + " " + publisher, cancellation)
                     : url;
             if (cancellation != null) cancellation.check();
-            page = RssArticleIntent.wantsAnalysis(question)
+            page = (RssArticleIntent.wantsAnalysis(question)
+                    || WebAnalysisPolicy.verbatimRequested(question))
                     ? WebPageReader.readDeep(publisherUrl)
                     : WebPageReader.readArticle(publisherUrl);
         } catch (java.util.concurrent.CancellationException cancelled) {
