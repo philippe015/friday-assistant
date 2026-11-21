@@ -34,8 +34,8 @@ jobs:
           test -n "$KEYSTORE_BASE64" || { echo "::error::Signing keystore secret not configured"; exit 1; }
           test -n "$KEYSTORE_PASSWORD" || { echo "::error::Signing password not configured"; exit 1; }
           test -n "$KEY_PASSWORD" || { echo "::error::Key password not configured"; exit 1; }
-          grep -Fq "versionCode 96" app/build.gradle
-          grep -Fq "versionName '3.13.11'" app/build.gradle
+          grep -Fq "versionCode 97" app/build.gradle
+          grep -Fq "versionName '3.13.12'" app/build.gradle
           grep -Fq "applicationId 'fr.friday.assistant'" app/build.gradle
           grep -Fq "sherpa-onnx:v2.0.2" app/build.gradle
           grep -Fq "SherpaVoiceModels.importOfficialArchive" app/src/main/java/fr/friday/assistant/MainActivity.java
@@ -45,6 +45,11 @@ jobs:
           grep -Fq "VoiceTurnPolicy.canReplace(activeResponse, speakingNow," app/src/main/java/fr/friday/assistant/FridayService.java
           grep -Fq "posez une question sans dire Jarvis" app/src/main/java/fr/friday/assistant/MainActivity.java
           grep -Fq "VoiceTurnPolicyTest" scripts/tester_sources.sh
+          grep -Fq "NewsTopicPolicy.topic(question)" app/src/main/java/fr/friday/assistant/JarvisInternet.java
+          grep -Fq "VoiceQuestionPolicy.plausibleDirectQuestion" app/src/main/java/fr/friday/assistant/FridayService.java
+          grep -Fq "www.sciencedaily.com/rss/top/science.xml" app/src/main/java/fr/friday/assistant/JarvisInternet.java
+          grep -Fq "NewsTopicPolicyTest" scripts/tester_sources.sh
+          grep -Fq "VoiceQuestionPolicyTest" scripts/tester_sources.sh
           grep -Fq "asr_rejected" app/src/main/assets/index.html
           grep -Fq 'event("asr_rejected", heard.trim());' app/src/main/java/fr/friday/assistant/FridayService.java
           grep -Fq "signalPeak = Math.max(signalPeak, level)" app/src/main/java/fr/friday/assistant/FridayService.java
@@ -52,7 +57,7 @@ jobs:
           test "$(grep -Fc 'int level = MicSignalMeter.level(buffer, count);' app/src/main/java/fr/friday/assistant/FridayService.java)" -eq 1
           grep -Fq 'SherpaVoiceDecoder.shutdown()' app/src/main/java/fr/friday/assistant/FridayService.java
           test -f docs/SHERPA_FR_ANDROID_BETA_20261120.md
-          if gh release view v3.13.11-sherpa-fr-beta.4 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v3.13.12-sherpa-fr-beta.5 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "::error::The prerelease already exists. Refusing to replace assets."
             exit 1
           fi
@@ -113,14 +118,14 @@ jobs:
           set -euo pipefail
           mkdir -p dist previous
           SRC="app/build/outputs/apk/release/app-release.apk"
-          APK="dist/JARVIS-v3.13.11-Sherpa-FR-beta4-release.apk"
+          APK="dist/JARVIS-v3.13.12-Sherpa-FR-beta5-release.apk"
           test -s "$SRC"
           cp "$SRC" "$APK"
           unzip -tq "$APK"
           SDK="$ANDROID_HOME/build-tools/35.0.0"
           "$SDK/apksigner" verify --print-certs "$APK"
           BADGING="$("$SDK/aapt2" dump badging "$APK")"
-          echo "$BADGING" | grep -F "name='fr.friday.assistant' versionCode='96' versionName='3.13.11'"
+          echo "$BADGING" | grep -F "name='fr.friday.assistant' versionCode='97' versionName='3.13.12'"
           if echo "$BADGING" | grep -q 'application-debuggable'; then
             echo "::error::Refusing to release an APK with android:debuggable."
             exit 1
@@ -137,16 +142,20 @@ jobs:
       - name: Publish pre-release with direct APK asset
         run: |
           set -euo pipefail
-          APK="dist/JARVIS-v3.13.11-Sherpa-FR-beta4-release.apk"
+          APK="dist/JARVIS-v3.13.12-Sherpa-FR-beta5-release.apk"
           cat > "$RUNNER_TEMP/sherpa-fr-beta-notes.md" <<'RELEASE_NOTES'
-          ## JARVIS Android — Écoute et réponses vocales bêta 4
+          ## JARVIS Android — Actualités scientifiques et écoute bêta 5
 
-          **APK Android signé, même certificat que JARVIS v3.13.8**, mise à jour sans effacer l'application ni ses réglages. Version interne Android 3.13.11 (versionCode 96) ; version GitHub bêta distincte. Cette publication est expérimentale et non une version stable.
+          **APK Android signé, même certificat que JARVIS v3.13.8**, mise à jour sans effacer l'application ni ses réglages. Version interne Android 3.13.12 (versionCode 97) ; version GitHub bêta distincte. Cette publication est expérimentale et non une version stable.
 
           - Reconnaissance française **sherpa-onnx v2.0.2** facultative dans les réglages.
           - **Correctif du mot-clé** : Jarvis et Friday sont acceptés en début de phrase ; variantes de dictée « Jar vis », « Jarvice », « Jervis », « Fridai ».
           - **Correction de l'écoute** : lorsqu'une question est en calcul silencieux, une nouvelle question explicite « Jarvis… » ou « Friday… » peut la remplacer sans activer l'interruption pendant la voix.
           - Le bouton **Écoute** réouvre 15 secondes de question directe, même si le microphone est déjà actif. Appuyez dessus, puis parlez sans prononcer le mot-clé.
+          - **Actualités scientifiques** : les instructions « publiées aujourd'hui, cite les sources » ne sont plus prises pour le sujet ; recherche ciblée science et secours RSS spécialisé ScienceDaily.
+          - **Aujourd'hui** : le filtre conserve les titres RSS datés du jour civil du téléphone et non ceux de la veille.
+          - **Écoute continue** : les fragments erronés comme « d'épices actuelle » ne déclenchent plus une recherche sans mot-clé. Les transcriptions incertaines restent temporaires, sans stockage dans l'historique.
+          - Les flux sans articles RSS datés ne sont jamais présentés comme des actualités vérifiées.
           - Diagnostic conseillé : testez le bouton « Heure » en mode écrit et le test « IA Jarvis locale » afin de distinguer l'écoute, l'inférence et le TTS.
           - Les phrases reconnues sans mot-clé sont visibles dans le cockpit pendant 15 secondes, sans entrée dans les journaux ou l’historique.
           - Les mots courants « vendredi », « j’arrive » et un nom prononcé au milieu de phrase ne doivent pas activer l’assistant.
@@ -165,13 +174,13 @@ jobs:
 
           Sources : https://github.com/k2-fsa/sherpa-onnx et https://github.com/open-jarvis/OpenJarvis
           RELEASE_NOTES
-          gh release create v3.13.11-sherpa-fr-beta.4 "$APK" "dist/SHA256SUMS.txt" \
+          gh release create v3.13.12-sherpa-fr-beta.5 "$APK" "dist/SHA256SUMS.txt" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --prerelease \
-            --title "JARVIS v3.13.11 — Écoute et réponses vocales (bêta 4)" \
+            --title "JARVIS v3.13.12 — Actualités scientifiques et écoute (bêta 5)" \
             --notes-file "$RUNNER_TEMP/sherpa-fr-beta-notes.md"
-          gh release view v3.13.11-sherpa-fr-beta.4 --repo "$GITHUB_REPOSITORY" --json url,isPrerelease,assets
+          gh release view v3.13.12-sherpa-fr-beta.5 --repo "$GITHUB_REPOSITORY" --json url,isPrerelease,assets
 
       - name: Remove temporary signing key
         if: always()
