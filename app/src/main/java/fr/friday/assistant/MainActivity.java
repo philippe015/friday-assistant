@@ -43,7 +43,8 @@ public class MainActivity extends Activity {
     private TextView webDiagnosticLabel;
     private final AtomicBoolean webTestRunning = new AtomicBoolean(false);
     private CheckBox localJarvisEnabled, localJarvisAll;
-    private CheckBox jarvisInternetEnabled, jarvisWebEveryAnswerEnabled;
+    private CheckBox jarvisInternetEnabled, jarvisWebEveryAnswerEnabled,
+            jarvisWorldRssTranslateFrEnabled;
     private TextView jarvisInternetStatus;
     private final AtomicBoolean jarvisWebTesting = new AtomicBoolean(false);
     private TextView localJarvisStatus;
@@ -306,6 +307,23 @@ public class MainActivity extends Activity {
         jarvisWebEveryAnswerEnabled.setChecked(
                 "1".equals(prefs.get("jarvis_web_every_answer", "1")));
         config.addView(jarvisWebEveryAnswerEnabled);
+        config.addView(label("ACTUALITÉS MONDIALES · flux RSS multilingues"));
+        jarvisWorldRssTranslateFrEnabled = new CheckBox(this);
+        jarvisWorldRssTranslateFrEnabled.setText(
+                "Traduire les titres et extraits RSS internationaux en français avec Gemma local");
+        jarvisWorldRssTranslateFrEnabled.setTextColor(Color.WHITE);
+        jarvisWorldRssTranslateFrEnabled.setChecked(
+                "1".equals(prefs.get("jarvis_world_rss_translate_fr", "1")));
+        config.addView(jarvisWorldRssTranslateFrEnabled);
+        config.addView(label("Exemples : « Jarvis, les actualités mondiales des "
+                + "24 dernières heures » ou « Les actualités du Japon ». "
+                + "Catalogue mondial de 17 flux publics : français, anglais, espagnol, "
+                + "allemand, portugais, japonais, arabe, hindi et italien. "
+                + "Un sous-ensemble des flux est consulté à chaque question. "
+                + "Gemma traduit sur le téléphone et affiche les titres originaux, "
+                + "les dates et les liens des sources. Il n'existe aucune garantie "
+                + "d'accès à tous les RSS, ni de traduction parfaite. "
+                + "L'historique privé n'est pas transmis aux éditeurs."));
         config.addView(label("Fournisseurs : Bing RSS, DuckDuckGo, Wikipédia, Wikidata, "
                 + "Crossref (publications scientifiques) et Google Actualités. "
                 + "Les questions générales interrogent plusieurs sources publiques "
@@ -524,6 +542,8 @@ public class MainActivity extends Activity {
             prefs.put("jarvis_web_enabled", jarvisInternetEnabled.isChecked() ? "1" : "0");
             prefs.put("jarvis_web_every_answer",
                     jarvisWebEveryAnswerEnabled.isChecked() ? "1" : "0");
+            prefs.put("jarvis_world_rss_translate_fr",
+                    jarvisWorldRssTranslateFrEnabled.isChecked() ? "1" : "0");
             prefs.put("stream_enabled", "0");
             prefs.put("location_share", "0");
             saveLocalJarvisPrefs();
