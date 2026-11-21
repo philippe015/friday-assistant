@@ -28,6 +28,9 @@ public final class RssArticleText {
 
     public static Extracted extract(String html) {
         if (html == null || html.trim().isEmpty()) return new Extracted("", false);
+        // RSS Google News renvoie parfois l'application Angular/minified JS au lieu
+        // de l'article. Ne jamais envoyer ce code au moteur TTS ou Gemma.
+        if (looksLikeExecutableCode(html)) return new Extracted("", false);
         Extracted article = best(ARTICLE, html);
         if (article.text.length() >= 240) return article;
         Extracted body = best(BODY, html);
@@ -36,7 +39,9 @@ public final class RssArticleText {
         if (main.text.length() >= 240) return main;
         // L'absence de balise <article> ne prouve pas que la page est vide.
         // Le lecteur doit indiquer qu'il s'agit du texte disponible de la page.
-        return new Extracted(WebPageReader.plainText(html), false);
+        String fallback = WebPageReader.plainText(html);
+        return looksLikeExecutableCode(fallback)
+                ? new Extracted("", false) : new Extracted(fallback, false);
     }
 
     private static Extracted best(Pattern pattern, String html) {
@@ -50,6 +55,26 @@ public final class RssArticleText {
             String extracted = WebPageReader.plainText(fragment);
             if (extracted.length() > best.length()) best = extracted;
         }
-        return new Extracted(best, !best.isEmpty());
+        return looksLikeExecutableCode(best)
+                ? new Extracted("", false) : new Extracted(best, !best.isEmpty());
+    }
+
+    /** Non-content minified code seen in real v3.14.4 Google News diagnostics. */
+    public static boolean looksLikeExecutableCode(String text) {
+        if (text == null || text.isEmpty()) return false;
+        String head = text.substring(0, Math.min(text.length(), 2200)).trim();
+        String low = head.toLowerCase(java.util.Locale.ROOT);
+        if (low.startsWith("\"use strict\";") || low.startsWith("'use strict';")
+                || low.startsWith("javascript:")
+                || low.contains("this.default_dotssplashui")
+                || low.contains("copyright the closure library")
+                || low.contains("webpackjsonp")
+                || low.contains("function(_){var window=this")) return true;
+        if (low.contains("function(") && low.contains("var ") && low.contains("this.")
+                && low.contains("=>")) return true;
+        // Huge unbroken identifiers/operators should not become spoken prose.
+        if (head.length() >= 800 && head.matches("(?s).*[A-Za-z_$][A-Za-z0-9_$]{300,}.*"))
+            return true;
+        return false;
     }
 }
