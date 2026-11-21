@@ -33,8 +33,8 @@ public final class WeatherForecast {
     public static final class NeedCountryException extends IOException {
         public final String city;
         public NeedCountryException(String city, String countries) {
-            super("Plusieurs lieux portent le nom « " + city + " » : "
-                    + countries + ". Quel pays souhaitez-vous ?");
+            super("Pour « " + city + " », je dois vérifier le pays. "
+                    + "Pays trouvés : " + countries + ". Quel pays souhaitez-vous ?");
             this.city = city;
         }
     }
@@ -108,7 +108,10 @@ public final class WeatherForecast {
             throw new IOException("Ville ou période météo invalide.");
         String requestedCity = WeatherPlacePolicy.city(city);
         String requestedCountry = WeatherPlacePolicy.country(city);
-        String q = URLEncoder.encode(city.trim(), "UTF-8");
+        // Le moteur ASR peut supprimer la virgule de « Paris France ».
+        // La recherche géographique ne porte que sur la ville ; le pays
+        // déclaré est validé séparément sur la réponse Open-Meteo.
+        String q = URLEncoder.encode(requestedCity.trim(), "UTF-8");
         JSONObject geocode = fetch(
                 "https://geocoding-api.open-meteo.com/v1/search?name=" + q
                 + "&count=40&language=fr&format=json", cancellation);
@@ -138,7 +141,9 @@ public final class WeatherForecast {
             if (requestedCountry.isEmpty() && place == null)
                 place = candidate;
         }
-        if (requestedCountry.isEmpty() && countries.size() > 1) {
+        // Ne présumer ni la France ni le pays du premier résultat :
+        // sans pays explicite, demander confirmation avant tout bulletin.
+        if (requestedCountry.isEmpty()) {
             StringBuilder options = new StringBuilder();
             int shown = 0;
             for (String country : countries) {
