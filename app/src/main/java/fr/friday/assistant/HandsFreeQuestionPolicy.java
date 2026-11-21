@@ -14,7 +14,11 @@ public final class HandsFreeQuestionPolicy {
         if (!enabled || !voiceSafe || heard == null) return false;
         String normalized = VoiceText.normalize(heard).replaceAll("[^a-z0-9 ]+", " ")
                 .replaceAll("\\s+", " ").trim();
-        if (normalized.isEmpty() || normalized.split(" ").length < 3) return false;
+        if (normalized.isEmpty()) return false;
+        // « la météo » / « météo » sont des demandes autonomes :
+        // Jarvis demandera le nom de la ville plutôt que rester silencieux.
+        if (WeatherRequestPolicy.isWeatherRequest(heard)) return true;
+        if (normalized.split(" ").length < 3) return false;
         return VoiceQuestionPolicy.plausibleDirectQuestion(heard, false);
     }
 }
