@@ -31,6 +31,6 @@ class WrittenInputIndependent(unittest.TestCase):
         self.assertIn("AudioDeviceInfo.TYPE_BUILTIN_SPEAKER",ROUTE)
     def test_version(self):
         gradle=(ROOT/"app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 98",gradle)
-        self.assertIn("versionName '3.14.4'",gradle)
+        self.assertIn("versionCode 99",gradle)
+        self.assertIn("versionName '3.14.5'",gradle)
 if __name__=="__main__":unittest.main()
