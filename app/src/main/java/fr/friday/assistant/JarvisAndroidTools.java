@@ -24,6 +24,10 @@ public final class JarvisAndroidTools {
         // une longue recherche Web aveugle ni inventer des candidats.
         String clarification = ElectionQuestionPolicy.clarification(utterance);
         if (clarification != null) return clarification;
+        // L'outil météo consulte un vrai service pour une ville explicite,
+        // jamais la position Android ni une localisation déduite.
+        String weather = JarvisWeather.answer(utterance, JarvisInternet.enabled(settings));
+        if (weather != null) return weather;
         JarvisToolPolicy.Kind kind = JarvisToolPolicy.classify(utterance);
         if (kind == JarvisToolPolicy.Kind.NONE) {
             // Reuse existing deterministic on-device tools before HTTPS or
@@ -52,7 +56,8 @@ public final class JarvisAndroidTools {
                 + "le modèle de français est installé, synthèse vocale Android, "
                 + "calculs simples, date et heure du téléphone, état du micro, "
                 + "du modèle IA et de la batterie, mémoire locale chiffrée, "
-                + "et recherche de pages Internet publiques si elle est autorisée. "
+                + "météo vérifiée par ville nommée et recherche de pages Internet "
+                + "publiques si elle est autorisée. "
                 + (LocalJarvisEngine.ready(context)
                     ? "Un fichier modèle IA local est importé ; son fonctionnement doit "
                       + "être confirmé par un test de génération. "
