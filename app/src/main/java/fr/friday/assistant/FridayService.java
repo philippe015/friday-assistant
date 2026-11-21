@@ -925,8 +925,7 @@ public class FridayService extends Service {
             if (!VoiceQuestionPolicy.plausibleDirectQuestion(
                     heard, !latestQuestion.isEmpty())
                     && !WeatherDialogue.cityFollowup(settings, heard)
-                    && !(WeatherRequestPolicy.isWeatherRequest(heard)
-                            && heard.trim().split("\\s+").length >= 2)) {
+                    && !WeatherRequestPolicy.isWeatherRequest(heard)) {
                 // Une bribe Vosk n'est pas une question : ne pas lancer le Web
                 // ni injecter cette transcription dans le dialogue privé.
                 asrDiagnostic("Transcription incomplète ou sans demande claire ; "
