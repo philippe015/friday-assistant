@@ -1,0 +1,76 @@
+name: Publish user-tested FRIDAY Intelligence+ v3.14.0 APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-tested-intelligence-plus-v314.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish-tested-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Verify exact tested source and passing CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SOURCE_SHA=14ee038898ea9550efbd4537f7056e399478f67c
+          BUILD_ID=44917697761
+          TEST_ID=44917697811
+          BUILD="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_ID" --jq '[.head_sha,.conclusion] | join(" ")')"
+          TEST="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TEST_ID" --jq '[.head_sha,.conclusion] | join(" ")')"
+          test "$BUILD" = "$SOURCE_SHA success"
+          test "$TEST" = "$SOURCE_SHA success"
+          echo "CI success for exact user-tested commit $SOURCE_SHA"
+
+      - name: Download, verify and name the exact tested APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh run download 44917697761 --repo "$GITHUB_REPOSITORY" --name FRIDAY-pr-debug-apk --dir dist
+          test -s dist/app-debug.apk
+          unzip -tq dist/app-debug.apk
+          printf '%s  %s\n' '80bb9b467c35e7e198087c981548f68df1da4d8217dcf215f8f56225f6931d64' 'dist/app-debug.apk' | sha256sum -c -
+          mv dist/app-debug.apk dist/FRIDAY-Jarvis-Intelligence-Plus-v3.14.0-test.apk
+          cat > dist/RELEASE_NOTES.md <<'EOF'
+          ## FRIDAY/Jarvis Intelligence+ v3.14.0 — version fonctionnelle testée sur Android
+
+          Cette version a été **testée et validée sur téléphone par l'utilisateur le 21 novembre 2026**, avec le modèle IA local `gemma-4-E2B-it-gpu.litertlm` importé séparément.
+
+          **Améliorations :** écoute vocale continue conservée, mémoire contextuelle locale chiffrée, météo Open-Meteo par ville avec relances, actualités RSS datées et réponses locales plus pertinentes.
+
+          **État de vérification :** 227 tests automatiques réussis, compilation Android réussie, puis confirmation de fonctionnement sur téléphone.
+
+          **Important :** il s'agit d'un APK de test avec le package Android `fr.friday.assistant.smartpreview`, non d'une mise à jour signée de l'application officielle `fr.friday.assistant`. Le fichier modèle Gemma 4 n'est pas inclus. Une installation distincte possède ses propres modèles et données privées.
+
+          **Source du code :** https://github.com/philippe015/friday-assistant/pull/90 (commit `14ee038898ea9550efbd4537f7056e399478f67c`). Cette préversion est distincte de la branche principale.
+
+          SHA-256 de l'APK : `80bb9b467c35e7e198087c981548f68df1da4d8217dcf215f8f56225f6931d64`.
+          EOF
+
+      - name: Publish immutable-by-policy test prerelease without overwriting any tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=v3.14.0-test
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists: refusing to overwrite"
+            exit 0
+          fi
+          gh release create "$TAG" dist/FRIDAY-Jarvis-Intelligence-Plus-v3.14.0-test.apk \
+            --repo "$GITHUB_REPOSITORY" \
+            --target 14ee038898ea9550efbd4537f7056e399478f67c \
+            --prerelease \
+            --title 'FRIDAY/Jarvis v3.14.0 Intelligence+ — version fonctionnelle testée sur Android' \
+            --notes-file dist/RELEASE_NOTES.md
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets
