@@ -296,7 +296,7 @@ public final class LocalJarvisEngine {
                             + "Réponds à la demande ACTUELLE, "
                             + "sans inventer de souvenirs.\n[FIN DU CONTEXTE PRIVÉ]");
         }
-        int maxQuestion = hasWebSources ? 3900 : 1200;
+        int maxQuestion = rssTranslationOnly ? 3400 : (hasWebSources ? 3900 : 1200);
         prompt.append("\nDemande ACTUELLE : ").append(cleaned.length() > maxQuestion
                 ? cleaned.substring(0, maxQuestion) : cleaned).append("\nJARVIS :");
 
