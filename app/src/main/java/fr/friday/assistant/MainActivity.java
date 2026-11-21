@@ -64,6 +64,10 @@ public class MainActivity extends Activity {
     private boolean startupListenAttempted = false;
     private boolean manuallyStoppedListening = false;
     private boolean activityVisible = false;
+    /** Le service vocal autorise les questions directes pendant que le cockpit
+     * est réellement visible, même après expiration de la fenêtre de 20 s. */
+    private static volatile boolean cockpitVisible = false;
+    public static boolean isCockpitVisible() { return cockpitVisible; }
     private LinearLayout config;
     private ScrollView configScroll;
     private WebView hud;
@@ -214,7 +218,7 @@ public class MainActivity extends Activity {
         outer.addView(button("⏸ Interrompre la réponse et écouter", this::interruptSpeaking));
         LinearLayout checks = new LinearLayout(this);
         checks.setPadding(dp(7),0,dp(7),0);
-        checks.addView(button("🔊 Tester la voix", this::testVoice), new LinearLayout.LayoutParams(0,dp(48),1));
+        checks.addView(button("🔊 Tester le haut-parleur", this::testVoice), new LinearLayout.LayoutParams(0,dp(48),1));
         checks.addView(button("✓ Tester IA Jarvis locale", this::testLocalAnswer), new LinearLayout.LayoutParams(0,dp(48),1));
         outer.addView(checks);
         status = label(FridayService.isActive() ?
@@ -1434,7 +1438,7 @@ public class MainActivity extends Activity {
         // y compris après l'autorisation RECORD_AUDIO : l'activité doit rester
         // visible au moment du démarrage du service de premier plan.
         java.util.List<FridayVersionGuard.Installed> others = FridayVersionGuard.installed(this);
-        if (!others.isEmpty()) {
+        if (!others.isEmpty() && !automatically) {
             new AlertDialog.Builder(this)
                 .setTitle("Autre édition F.R.I.D.A.Y. installée")
                 .setMessage(FridayVersionPolicy.warning(others.size()) +
@@ -1446,6 +1450,11 @@ public class MainActivity extends Activity {
                 .show();
             return;
         }
+        // Ne pas bloquer le démarrage automatique par une fenêtre modale :
+        // Android n'indique pas si une autre édition utilise réellement le micro.
+        if (automatically && !others.isEmpty())
+            status.setText("Démarrage automatique : d'autres éditions FRIDAY sont installées. "
+                    + "Si Android rend le micro muet, forcez l'arrêt des anciennes éditions.");
         startServiceUnchecked();
     }
     private void startServiceUnchecked() {
@@ -1547,6 +1556,7 @@ public class MainActivity extends Activity {
     @Override protected void onResume() {
         super.onResume();
         activityVisible = true;
+        cockpitVisible = true;
         replayVoiceHistory();
         if (!startupListenAttempted) {
             boolean shouldAutoStart = AutoListenPolicy.shouldStart(
@@ -1588,6 +1598,7 @@ public class MainActivity extends Activity {
     }
     @Override protected void onPause() {
         activityVisible = false;
+        cockpitVisible = false;
         super.onPause();
     }
 
@@ -1757,6 +1768,7 @@ public class MainActivity extends Activity {
     }
     @Override public void onDestroy() {
         hudCloneSpeaking.set(false);
+        cockpitVisible = false;
         if (events != null) unregisterReceiver(events);
         if (testTts != null) { try { testTts.shutdown(); } catch (Exception ignored) {} testTts = null; }
         if (webVoice != null) { try { webVoice.shutdown(); } catch (Exception ignored) {} webVoice = null; }
