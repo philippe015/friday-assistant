@@ -49,7 +49,7 @@ class AutoListeningStartup(unittest.TestCase):
     def test_start_only_after_visible_on_resume(self):
         self.assertIn("startupListenAttempted = false", ACTIVITY)
         self.assertIn("manuallyStoppedListening = false", ACTIVITY)
-        self.assertIn("if (!startupListenAttempted)", ACTIVITY)
+        self.assertIn("if (!startupListenAttempted || AutoListenPolicy.retryOnResume(", ACTIVITY)
         self.assertIn("startupListenAttempted = true;", ACTIVITY)
         self.assertIn("AutoListenPolicy.shouldStart(", ACTIVITY)
         self.assertIn("AutoListenPolicy.retryOnResume(", ACTIVITY)
