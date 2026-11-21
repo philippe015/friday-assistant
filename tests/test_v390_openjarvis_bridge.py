@@ -40,8 +40,8 @@ class OnlyLocalJarvisAndMistral(unittest.TestCase):
 
     def test_apk_version(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 97", gradle)
-        self.assertIn("versionName '3.13.12'", gradle)
+        self.assertIn("versionCode 98", gradle)
+        self.assertIn("versionName '3.13.13'", gradle)
 
 if __name__ == "__main__":
     unittest.main()
