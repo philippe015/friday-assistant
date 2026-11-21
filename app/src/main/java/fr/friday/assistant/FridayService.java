@@ -1105,7 +1105,12 @@ public class FridayService extends Service {
                 webResearch = JarvisInternet.answer(
                         this, settings, question, privateDialogue, turn.api);
                 answer = webResearch.text;
-                if (webResearch.usedInternet) event("web_sources", webResearch.sources);
+                if (webResearch.usedInternet) {
+                    event("latency", "Temps recherche Internet : " + webResearch.researchMs
+                            + " ms ; génération Jarvis locale : " + webResearch.generationMs
+                            + " ms. Les deux opérations sont mesurées séparément.");
+                    event("web_sources", webResearch.sources);
+                }
             } else {
                 event("status", "Jarvis local : réponse générée sur le téléphone sans moteur distant.");
                 answer = LocalJarvisEngine.answer(
