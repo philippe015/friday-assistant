@@ -12,13 +12,15 @@ def code(name):
     return (JAVA / name).read_text(encoding="utf-8")
 
 class FullVoiceAuditV389(unittest.TestCase):
-    def test_web_network_wait_does_not_mute_general_vosk(self):
+    def test_response_processing_suspends_general_vosk_until_next_turn(self):
         service = code("FridayService.java")
         gate = code("TtsEchoGate.java")
-        self.assertIn("TtsEchoGate.suppressGeneralAsr(\n                                speakingNow, asrNow, echoBlockUntil)", service)
-        self.assertNotIn("TtsEchoGate.suppressGeneralAsr(\n                                currentTurn != null", service)
-        self.assertIn("TtsEchoGate.useStopRecognizer(speakingNow, bargeEnabled)", service)
-        self.assertIn("BargeInPolicy.canBarge(heard, spokenText)", service)
+        self.assertIn("boolean blocked = currentTurn != null", service)
+        self.assertIn("TtsEchoGate.suppressGeneralAsr(", service)
+        self.assertIn("if (blocked) {", service)
+        self.assertIn("recognizer.close(); recognizer = createRecognizer(model);", service)
+        self.assertIn("transcription temporairement suspendue", service)
+        self.assertIn("boolean bargeEnabled = false;", service)
         self.assertIn("return voicePlaybackActive || nowMs < untilMs;", gate)
         self.assertIn("!voicePlaybackActive", gate)
 
