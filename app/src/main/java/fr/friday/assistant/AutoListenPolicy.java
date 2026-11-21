@@ -20,4 +20,13 @@ public final class AutoListenPolicy {
                                       boolean manuallyStopped, boolean active) {
         return enabled(setting) && !attempted && !manuallyStopped && !active;
     }
+    /** Réessai au prochain onResume visible après un échec initial.
+     * Pas de boucle rapide, pas de démarrage après Stop ou désactivation. */
+    public static boolean retryOnResume(String setting, boolean manuallyStopped,
+                                        boolean active, long lastAttempt, long nowMs) {
+        return enabled(setting) && !manuallyStopped && !active
+                && lastAttempt > 0 && nowMs >= lastAttempt
+                && nowMs - lastAttempt >= 8000L;
+    }
+
 }
