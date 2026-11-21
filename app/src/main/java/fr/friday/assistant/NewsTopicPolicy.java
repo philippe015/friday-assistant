@@ -42,6 +42,10 @@ public final class NewsTopicPolicy {
         return bare;
     }
 
+    public static boolean isScienceTopic(String topic) {
+        return "science".equals(topic) || (topic != null && topic.endsWith(" science"));
+    }
+
     /** Vérification supplémentaire pour les flux généralistes non ciblés. */
     public static boolean matchesGeneralFeed(String topic, String title, String summary) {
         if ("science".equals(topic)) {
