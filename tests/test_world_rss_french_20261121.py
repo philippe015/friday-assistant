@@ -20,8 +20,7 @@ class WorldwideRssFrenchRegression(unittest.TestCase):
         self.assertIn("LocalJarvisEngine.answer(context, settings,",web)
         self.assertIn('translationPrompt.toString(), "", cancellation)',web)
         self.assertIn("WorldRssTranslationPolicy.parse(generated)",web)
-        self.assertIn("translation française indisponible",web)
-        self.assertIn("Titre original",web) if False else None
+        self.assertIn("traduction française indisponible",web)
         self.assertIn("titre original : ",web)
         self.assertIn("https://www.nhk.or.jp/rss/news/cat6.xml",policy)
         self.assertIn("https://feeds.bbci.co.uk/news/world/rss.xml",policy)
