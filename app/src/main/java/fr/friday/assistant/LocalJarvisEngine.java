@@ -238,6 +238,9 @@ public final class LocalJarvisEngine {
     private static String buildLocalPrompt(SecurePrefs cfg, String cleaned,
                                           String privateDialogue) {
         boolean hasWebSources = cleaned.contains("[DEBUT EXTRAITS WEB PUBLICS");
+        // Une traduction de titres RSS publics ne doit pas recevoir de notes
+        // privées : celles-ci ne sont pas utiles à une traduction fidèle.
+        boolean rssTranslationOnly = cleaned.startsWith("[TRADUCTION_RSS_PUBLIQUE]");
         StringBuilder prompt = new StringBuilder(hasWebSources ? 5000 : 1800);
         prompt.append("Tu es JARVIS, assistant IA fonctionnant sur le téléphone Android. "
                 + "Réponds en français sans inventer de faits ou d'actualités. "
@@ -260,7 +263,7 @@ public final class LocalJarvisEngine {
             prompt.append("Aucune recherche Internet n'a été effectuée pour cette question. ");
         }
         prompt.append("\nDate locale : ").append(NativeAI.timeContext());
-        if (PersonalMemory.enabled(cfg) && !hasWebSources) {
+        if (PersonalMemory.enabled(cfg) && !hasWebSources && !rssTranslationOnly) {
             // Une note corrompue ne doit pas empêcher une génération locale.
             // Aucune transmission au cloud en cas d'échec Keystore.
             try {
@@ -293,7 +296,7 @@ public final class LocalJarvisEngine {
                             + "Réponds à la demande ACTUELLE, "
                             + "sans inventer de souvenirs.\n[FIN DU CONTEXTE PRIVÉ]");
         }
-        int maxQuestion = hasWebSources ? 3900 : 1200;
+        int maxQuestion = rssTranslationOnly ? 3400 : (hasWebSources ? 3900 : 1200);
         prompt.append("\nDemande ACTUELLE : ").append(cleaned.length() > maxQuestion
                 ? cleaned.substring(0, maxQuestion) : cleaned).append("\nJARVIS :");
 
