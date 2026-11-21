@@ -14,7 +14,7 @@ public final class WorldRssTranslationPolicy {
     private WorldRssTranslationPolicy() {}
 
     private static final Pattern ITEM = Pattern.compile(
-            "^\\s*\\[?([TR])([1-5])\\]?\\s*[:|=]\\s*(.*?)\\s*$",
+            "^\\s*\\[?([TR])([1-7])\\]?\\s*[:|=]\\s*(.*?)\\s*$",
             Pattern.CASE_INSENSITIVE);
 
     public static Map<String, String> parse(String response) {
