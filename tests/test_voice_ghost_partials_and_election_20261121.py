@@ -12,13 +12,13 @@ TOOLS = (JAVA / "JarvisAndroidTools.java").read_text(encoding="utf-8")
 POLICY = (JAVA / "ElectionQuestionPolicy.java").read_text(encoding="utf-8")
 
 class VoiceQuestionCaptureRegressions(unittest.TestCase):
-    def test_no_partial_transcription_while_answer_is_preparing(self):
-        self.assertIn("boolean blocked = currentTurn != null", SERVICE)
-        self.assertIn("TtsEchoGate.suppressGeneralAsr(", SERVICE)
+    def test_microphone_keeps_listening_while_web_search_is_pending(self):
+        self.assertNotIn("boolean blocked = currentTurn != null", SERVICE)
+        self.assertIn("boolean blocked = TtsEchoGate.suppressGeneralAsr(", SERVICE)
         self.assertIn("if (blocked) {", SERVICE)
         self.assertIn("recognizer.close(); recognizer = createRecognizer(model);", SERVICE)
-        self.assertIn("Jarvis prépare sa réponse : transcription temporairement suspendue", SERVICE)
-        self.assertIn("transcription en pause jusqu'à la fin de la réponse", SERVICE)
+        self.assertIn("écoute Vosk active pendant la recherche", SERVICE)
+        self.assertIn("Question entendue pendant le traitement précédent", SERVICE)
 
     def test_final_vosk_phrase_is_logged_instead_of_guessing_from_partials(self):
         self.assertIn('asrDiagnostic("Question finalisée par Vosk : « "', SERVICE)
