@@ -83,7 +83,7 @@ public final class WeatherRequestPolicy {
         if (input == null || isWeatherRequest(input)) return "";
         String spoken = VoiceText.withoutWakeWord(input).trim();
         spoken = spoken.replaceFirst("(?iu)^(?:(?:c['’]est|la ville de|"
-                + "pour|à|a|dans|sur)\\s+)", "").trim();
+                + "pour|à|a|dans|sur|en|au|aux)\\s+)", "").trim();
         return validCity(spoken);
     }
 
