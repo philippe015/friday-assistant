@@ -34,6 +34,8 @@ javac -encoding UTF-8 -d "$TMP_TEST" \
   app/src/main/java/fr/friday/assistant/RecentNewsPolicy.java \
   app/src/main/java/fr/friday/assistant/WebToolPolicy.java \
   app/src/main/java/fr/friday/assistant/WebPageReader.java \
+  app/src/main/java/fr/friday/assistant/RssArticleText.java \
+  app/src/main/java/fr/friday/assistant/RssArticleIntent.java \
   app/src/main/java/fr/friday/assistant/BargeInPolicy.java \
   app/src/main/java/fr/friday/assistant/VoiceStopSpotter.java \
   app/src/main/java/fr/friday/assistant/TtsEchoGate.java \
