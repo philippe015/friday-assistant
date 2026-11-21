@@ -7,7 +7,7 @@ import java.util.regex.Pattern;
 public final class RssArticleIntent {
     private RssArticleIntent() {}
     private static final Pattern REFERENCE = Pattern.compile(
-            "\\b(?:article|page)\\s+(?:(?:numero|n|no)\\s*)?(\\d{1,2}|premier|premiere|"
+            "\\b(?:article|page)\\s+(?:rss\\s+)?(?:(?:numero|n|no)\\s*)?(\\d{1,2}|premier|premiere|"
             + "deuxieme|second|seconde|troisieme|quatrieme|cinquieme|sixieme|septieme)\\b");
     private static final Pattern ORDINAL = Pattern.compile(
             "\\b(premier|premiere|deuxieme|second|seconde|troisieme|quatrieme|cinquieme|"
