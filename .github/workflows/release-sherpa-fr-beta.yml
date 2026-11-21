@@ -34,11 +34,15 @@ jobs:
           test -n "$KEYSTORE_BASE64" || { echo "::error::Signing keystore secret not configured"; exit 1; }
           test -n "$KEYSTORE_PASSWORD" || { echo "::error::Signing password not configured"; exit 1; }
           test -n "$KEY_PASSWORD" || { echo "::error::Key password not configured"; exit 1; }
-          grep -Fq "versionCode 97" app/build.gradle
-          grep -Fq "versionName '3.13.12'" app/build.gradle
+          grep -Fq "versionCode 98" app/build.gradle
+          grep -Fq "versionName '3.13.13'" app/build.gradle
           grep -Fq "applicationId 'fr.friday.assistant'" app/build.gradle
           grep -Fq "sherpa-onnx:v2.0.2" app/build.gradle
           grep -Fq "SherpaVoiceModels.importOfficialArchive" app/src/main/java/fr/friday/assistant/MainActivity.java
+          grep -Fq "SherpaArchivePolicy.acceptedDisplayName(sourceName)" app/src/main/java/fr/friday/assistant/SherpaVoiceModels.java
+          grep -Fq "SherpaArchivePolicy.checkedBzip2(input)" app/src/main/java/fr/friday/assistant/SherpaVoiceModels.java
+          grep -Fq "SherpaArchivePolicyTest" scripts/tester_sources.sh
+          grep -Fq "Arrêter et choisir le fichier" app/src/main/java/fr/friday/assistant/MainActivity.java
           grep -Fq "if(kind==='partial')" app/src/main/assets/index.html
           grep -Fq "Moteur de reconnaissance actif" app/src/main/java/fr/friday/assistant/MainActivity.java
           grep -Fq "startsWithWakeWord(phrase)" app/src/main/java/fr/friday/assistant/BargeInPolicy.java
@@ -57,7 +61,7 @@ jobs:
           test "$(grep -Fc 'int level = MicSignalMeter.level(buffer, count);' app/src/main/java/fr/friday/assistant/FridayService.java)" -eq 1
           grep -Fq 'SherpaVoiceDecoder.shutdown()' app/src/main/java/fr/friday/assistant/FridayService.java
           test -f docs/SHERPA_FR_ANDROID_BETA_20261120.md
-          if gh release view v3.13.12-sherpa-fr-beta.5 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v3.13.13-sherpa-fr-beta.6 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "::error::The prerelease already exists. Refusing to replace assets."
             exit 1
           fi
@@ -118,7 +122,7 @@ jobs:
           set -euo pipefail
           mkdir -p dist previous
           SRC="app/build/outputs/apk/release/app-release.apk"
-          APK="dist/JARVIS-v3.13.12-Sherpa-FR-beta5-release.apk"
+          APK="dist/JARVIS-v3.13.13-Sherpa-FR-beta6-release.apk"
           test -s "$SRC"
           cp "$SRC" "$APK"
           unzip -tq "$APK"
@@ -142,11 +146,11 @@ jobs:
       - name: Publish pre-release with direct APK asset
         run: |
           set -euo pipefail
-          APK="dist/JARVIS-v3.13.12-Sherpa-FR-beta5-release.apk"
+          APK="dist/JARVIS-v3.13.13-Sherpa-FR-beta6-release.apk"
           cat > "$RUNNER_TEMP/sherpa-fr-beta-notes.md" <<'RELEASE_NOTES'
-          ## JARVIS Android — Actualités scientifiques et écoute bêta 5
+          ## JARVIS Android — Importation du modèle français Sherpa bêta 6
 
-          **APK Android signé, même certificat que JARVIS v3.13.8**, mise à jour sans effacer l'application ni ses réglages. Version interne Android 3.13.12 (versionCode 97) ; version GitHub bêta distincte. Cette publication est expérimentale et non une version stable.
+          **APK Android signé, même certificat que JARVIS v3.13.8**, mise à jour sans effacer l'application ni ses réglages. Version interne Android 3.13.13 (versionCode 98) ; version GitHub bêta distincte. Cette publication est expérimentale et non une version stable.
 
           - Reconnaissance française **sherpa-onnx v2.0.2** facultative dans les réglages.
           - **Correctif du mot-clé** : Jarvis et Friday sont acceptés en début de phrase ; variantes de dictée « Jar vis », « Jarvice », « Jervis », « Fridai ».
@@ -162,6 +166,10 @@ jobs:
           - **Correction de l'affichage : transcription vocale provisoire visible en direct** dans le cockpit, sans sauvegarde de la dictée partielle.
           - Diagnostic amélioré : moteur Vosk/sherpa actif, dernier texte reconnu et pic PCM sur 6 secondes pour différencier capture et reconnaissance.
           - Importation sur le téléphone d'une archive française officielle **.tar.bz2**, sans PC.
+          - **Import Sherpa corrigé** : le sélecteur Android reconnaît les téléchargements renommés par le navigateur avec « (1) » et une extension `.tar.bz`, mais vérifie toujours l'en-tête BZip2 et les quatre composants ONNX attendus.
+          - Si le microphone est actif, l'application propose **Arrêter et choisir le fichier**, puis ouvre directement le sélecteur des documents.
+          - Les téléchargements incomplets ou les pages HTML reçues à la place du modèle sont rejetés avec une erreur explicite.
+          - À l'import, ouvrez Téléchargements et choisissez l'archive sans la décompresser. L'installation est confirmée par un message Android.
           - Moteur vocal Vosk toujours présent, y compris pour STOP et en cas de panne sherpa.
           - Un seul microphone Android, pas de seconde capture et pas de dépendance au Bluetooth.
           - IA et mémoire locale chiffrée préservées ; aucune donnée personnelle embarquée dans l'APK.
@@ -174,13 +182,13 @@ jobs:
 
           Sources : https://github.com/k2-fsa/sherpa-onnx et https://github.com/open-jarvis/OpenJarvis
           RELEASE_NOTES
-          gh release create v3.13.12-sherpa-fr-beta.5 "$APK" "dist/SHA256SUMS.txt" \
+          gh release create v3.13.13-sherpa-fr-beta.6 "$APK" "dist/SHA256SUMS.txt" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --prerelease \
-            --title "JARVIS v3.13.12 — Actualités scientifiques et écoute (bêta 5)" \
+            --title "JARVIS v3.13.13 — Importation Sherpa FR (bêta 6)" \
             --notes-file "$RUNNER_TEMP/sherpa-fr-beta-notes.md"
-          gh release view v3.13.12-sherpa-fr-beta.5 --repo "$GITHUB_REPOSITORY" --json url,isPrerelease,assets
+          gh release view v3.13.13-sherpa-fr-beta.6 --repo "$GITHUB_REPOSITORY" --json url,isPrerelease,assets
 
       - name: Remove temporary signing key
         if: always()
