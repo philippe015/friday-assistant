@@ -45,9 +45,17 @@ public final class JarvisInternet {
         public final String speech;
         public final boolean usedInternet;
         public final String sources;
+        /** Durées locales, sans données personnelles ni détails de la recherche. */
+        public final long researchMs;
+        public final long generationMs;
         Result(String text, String speech, boolean usedInternet, String sources) {
+            this(text, speech, usedInternet, sources, 0, 0);
+        }
+        Result(String text, String speech, boolean usedInternet, String sources,
+               long researchMs, long generationMs) {
             this.text = text; this.speech = speech;
             this.usedInternet = usedInternet; this.sources = sources;
+            this.researchMs = researchMs; this.generationMs = generationMs;
         }
     }
 
@@ -95,8 +103,11 @@ public final class JarvisInternet {
         }
         if (cancellation != null) cancellation.check();
         List<Source> sources;
+        long searchStarted = android.os.SystemClock.elapsedRealtime();
+        long researchMs;
         try {
             sources = research(question, cancellation);
+            researchMs = android.os.SystemClock.elapsedRealtime() - searchStarted;
         } catch (IOException unavailable) {
             if (cancellation != null) cancellation.check();
             // L'absence de résultats ne doit pas rendre l'IA locale muette.
@@ -171,11 +182,14 @@ public final class JarvisInternet {
                 : contextPrompt.substring(0, available) + "\n[CONTEXTE TRONQUE]")
                 + closing;
         if (cancellation != null) cancellation.check();
+        long generationStarted = android.os.SystemClock.elapsedRealtime();
         String spoken = LocalJarvisEngine.answer(
                 context, settings, prompt, privateDialogue, cancellation);
+        long generationMs = android.os.SystemClock.elapsedRealtime() - generationStarted;
         // Les liens demeurent visibles dans la conversation sans que le TTS
         // épelle de longues URLs à haute voix.
-        return new Result(spoken + "\n\n" + references, spoken, true, references.toString());
+        return new Result(spoken + "\n\n" + references, spoken, true,
+                references.toString(), researchMs, generationMs);
     }
 
     /** Un vrai essai de recherche publique, sans transmettre la question,
