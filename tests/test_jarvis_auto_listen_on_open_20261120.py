@@ -34,6 +34,20 @@ class AutoListeningStartup(unittest.TestCase):
                     expect(AutoListenPolicy.retryOnResume("1", true, false, 1000, 10000), false);
                     expect(AutoListenPolicy.retryOnResume("0", false, false, 1000, 10000), false);
                     expect(AutoListenPolicy.retryOnResume("1", false, true, 1000, 10000), false);
+                    expect(AutoListenPolicy.retryWhileVisible(
+                            "1", true, false, false, 1000, 12000, 0), true);
+                    expect(AutoListenPolicy.retryWhileVisible(
+                            "1", false, false, false, 1000, 12000, 0), false);
+                    expect(AutoListenPolicy.retryWhileVisible(
+                            "1", true, true, false, 1000, 12000, 0), false);
+                    expect(AutoListenPolicy.retryWhileVisible(
+                            "0", true, false, false, 1000, 12000, 0), false);
+                    expect(AutoListenPolicy.retryWhileVisible(
+                            "1", true, false, true, 1000, 12000, 0), false);
+                    expect(AutoListenPolicy.retryWhileVisible(
+                            "1", true, false, false, 1000, 5000, 0), false);
+                    expect(AutoListenPolicy.retryWhileVisible(
+                            "1", true, false, false, 1000, 12000, 3), false);
                 }
             }
         """
@@ -53,6 +67,10 @@ class AutoListeningStartup(unittest.TestCase):
         self.assertIn("startupListenAttempted = true;", ACTIVITY)
         self.assertIn("AutoListenPolicy.shouldStart(", ACTIVITY)
         self.assertIn("AutoListenPolicy.retryOnResume(", ACTIVITY)
+        self.assertIn("AutoListenPolicy.retryWhileVisible(", ACTIVITY)
+        self.assertIn("visibleListenHandler.postDelayed(this, 4000L)", ACTIVITY)
+        self.assertIn("visibleListenHandler.removeCallbacks(visibleListenWatchdog)", ACTIVITY)
+        self.assertIn('prefs.put("jarvis_always_listening_v31317", "1")', ACTIVITY)
         self.assertIn("lastAutoListenAttemptAt", ACTIVITY)
         self.assertIn("status.post(() -> {", ACTIVITY)
         self.assertIn("startListening(true);", ACTIVITY)
