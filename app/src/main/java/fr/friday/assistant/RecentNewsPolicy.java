@@ -102,6 +102,10 @@ public final class RecentNewsPolicy {
         return requestedHours(question) > 0 && newsWindowHours(question) > 0;
     }
 
+    public static boolean isStrikeTopic(String question) {
+        return CONFLICT_EVENTS.matcher(fold(question)).find();
+    }
+
     /** Une recherche ciblée sur des frappes ne doit pas retenir des articles
      * sans événement militaire simplement parce qu'ils parlent de Russie. */
     public static boolean relevantStrikeReport(String topic, String title, String summary) {
