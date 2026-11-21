@@ -707,8 +707,16 @@ public class FridayService extends Service {
                             // Un mot-clé explicitement reconnu autorise un seuil
                             // plus tolérant ; la dictée sans mot-clé reste prudente.
                             boolean explicitWake = BargeInPolicy.startsWithWake(phrase);
+                            boolean clearHandsfreeRequest = HandsFreeQuestionPolicy.acceptsDirectQuestion(
+                                    phrase, "1".equals(settings.get("followup_handsfree", "0")),
+                                    !speakingNow && SystemClock.elapsedRealtime() >= echoBlockUntil);
+                            // Les questions clairement formulées, acceptées par la
+                            // politique mains libres, ne doivent pas être perdues
+                            // à cause du seuil sévère des bribes ambiantes.
+                            double minimumConfidence = explicitWake ? 0.35
+                                    : clearHandsfreeRequest ? 0.40 : 0.55;
                             boolean unclear = !controlPhrase && phrase.split("\\s+").length >= 3
-                                    && confidence > 0 && confidence < (explicitWake ? 0.35 : 0.55);
+                                    && confidence > 0 && confidence < minimumConfidence;
                             if (!dropSpeaker && !phrase.trim().isEmpty()) {
                                 if (unclear) {
                                     asrDiagnostic("Phrase reconnue mais confiance Vosk faible ("
