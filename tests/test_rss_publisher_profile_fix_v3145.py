@@ -83,8 +83,9 @@ public class PublisherArticleSmoke {
                     "RssArticleIntent.java","RssPublisherArticlePolicy.java")
             ]+[str(file)]
             subprocess.run(args,check=True,capture_output=True,text=True)
-            subprocess.run(["java","-cp",tmp,"PublisherArticleSmoke"],
-                check=True,capture_output=True,text=True)
+            run=subprocess.run(["java","-cp",tmp,"PublisherArticleSmoke"],
+                capture_output=True,text=True)
+            self.assertEqual(run.returncode,0,run.stdout+"\n"+run.stderr)
 
     def test_source_linkage_and_profile_are_real(self):
         internet=(JAVA/"JarvisInternet.java").read_text(encoding="utf-8")
