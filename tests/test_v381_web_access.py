@@ -46,7 +46,7 @@ class WebAccessRegression(unittest.TestCase):
         self.assertIn("versionCode 94",gradle)
         self.assertIn("versionName '3.14.0'",gradle)
         html=(ROOT/"app/src/main/assets/index.html").read_text()
-        self.assertIn("v3.13.8",html)
+        self.assertIn("v3.14.0",html)
 
     def test_memory_privacy_preserved(self):
         native = src("NativeAI.java")
