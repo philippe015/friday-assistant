@@ -69,6 +69,9 @@ public class FridayService extends Service {
     /** Protège la dictée normale des derniers sons TTS, même après la fin du tour. */
     private volatile long echoBlockUntil = 0;
     private volatile String spokenText = "";
+    /** Dernière réponse réellement prononcée : garde locale anti-auto-déclenchement. */
+    private volatile String lastSpokenForEcho = "";
+    private volatile long lastSpokenAt = 0L;
     private volatile String latestQuestion = "";
     private volatile String clarificationAnchor = "";
     private volatile long clarificationUntil = 0L;
@@ -681,6 +684,12 @@ public class FridayService extends Service {
                             boolean dropSpeaker = sawSpeakerFeedback && !controlPhrase &&
                                 !BargeInPolicy.startsWithWake(phrase) &&
                                 SystemClock.elapsedRealtime() - lastSpeechEndedAt < 3000L;
+                            // La queue du haut-parleur peut résonner plus de 2,5 s :
+                            // une longue transcription qui REPRODUIT notre dernier
+                            // bulletin ne constitue jamais une question utilisateur.
+                            boolean selfEcho = VoiceSelfEchoPolicy.resemblesRecentSpeech(
+                                    phrase, lastSpokenForEcho,
+                                    SystemClock.elapsedRealtime(), lastSpokenAt);
                             completed = interim = ""; lastVoice = 0;
                             confidenceSum = 0; confidenceCount = 0;
                             earlyCancelled = false; sawSpeakerFeedback = false;
@@ -690,7 +699,11 @@ public class FridayService extends Service {
                             boolean explicitWake = BargeInPolicy.startsWithWake(phrase);
                             boolean unclear = !controlPhrase && phrase.split("\\s+").length >= 3
                                     && confidence > 0 && confidence < (explicitWake ? 0.35 : 0.55);
-                            if (!dropSpeaker && !phrase.trim().isEmpty()) {
+                            if (selfEcho) {
+                                asrDiagnostic("Écho du haut-parleur JARVIS ignoré : "
+                                        + "la réponse ne sera pas renvoyée au modèle.");
+                                event("barge_diag", "Filtre anti-auto-réponse : voix JARVIS reconnue et ignorée");
+                            } else if (!dropSpeaker && !phrase.trim().isEmpty()) {
                                 if (unclear) {
                                     asrDiagnostic("Phrase reconnue mais confiance Vosk faible ("
                                             + Math.round(confidence * 100) + " %)");
@@ -1093,6 +1106,8 @@ public class FridayService extends Service {
                        : " · recherche Web non aboutie") + ".");
             if (!turn.streamedVoice) {
                 spokenText = speechAnswer;
+                lastSpokenForEcho = speechAnswer;
+                lastSpokenAt = SystemClock.elapsedRealtime();
                 speakingNow = true;
                 event("status", "Réponse vocale en cours. Utilisez le bouton Interrompre pour arrêter ; nouvelle question après la voix.");
             }
@@ -1134,6 +1149,8 @@ public class FridayService extends Service {
                     String notice = "Le moteur sélectionné n'a pas répondu à cette question. "
                             + "Je reste à votre écoute. Dites Friday ou Jarvis pour recommencer.";
                     spokenText = notice;
+                    lastSpokenForEcho = notice;
+                    lastSpokenAt = SystemClock.elapsedRealtime();
                     speakingNow = true;
                     if (!speak(notice, turn)) recoverTtsAsync();
                 }
@@ -1147,6 +1164,7 @@ public class FridayService extends Service {
                 long finishedAt = SystemClock.elapsedRealtime();
                 if (hadSpoken) {
                     lastSpeechEndedAt = finishedAt;
+                    lastSpokenAt = finishedAt;
                     echoBlockUntil = TtsEchoGate.afterVoice(finishedAt);
                     // Le mode continu doit réellement accepter une nouvelle
                     // question après la première réponse, sans second bouton
@@ -1198,6 +1216,11 @@ public class FridayService extends Service {
                         if (end.equals(phrase)) break;
                         if (!live(turn)) break;
                         spokenText = phrase;
+                        // Conserver également les segments précédents pour la
+                        // détection d'une phrase TTS répétée par le microphone.
+                        lastSpokenForEcho = lastSpokenForEcho.length() > 8000
+                                ? phrase : lastSpokenForEcho + " " + phrase;
+                        lastSpokenAt = SystemClock.elapsedRealtime();
                         speakingNow = true;
                         if (!speak(phrase, turn)) {
                             voiceOk.set(false);

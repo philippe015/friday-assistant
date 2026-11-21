@@ -1,3 +1,13 @@
+## FRIDAY/JARVIS v3.14.1 (PRÉVERSION) — RSS mondiaux traduits localement en français
+
+**Nouveau :** 17 flux et éditions RSS internationales, un choix ciblé selon la région demandée, et traduction en français des titres/extraits avec le **modèle Gemma 4 E2B GPU local** (aucun service de traduction cloud). Sources originales, dates RSS et liens conservés. Réglage désactivable dans **Internet Jarvis** et bouton **RSS Monde FR** dans le cockpit.
+
+**Version fonctionnelle validée à conserver :** [FRIDAY/Jarvis Intelligence+ v3.14.0-test](https://github.com/philippe015/friday-assistant/releases/tag/v3.14.0-test). La préversion RSS 3.14.1 utilise une édition Android séparée : **ne pas désinstaller la version 3.14.0**, ses fichiers de modèle et son historique restent privés à cette version.
+
+[Documentation RSS mondiaux : langues, sources, confidentialité et installation](docs/JARVIS_RSS_MONDE_FR_V3141.md)
+
+---
+
 ## FRIDAY v3.11.0 — Gemma 4 .litertlm pris en charge sur Android
 
 FRIDAY prend en charge deux moteurs de langage fonctionnant sur le téléphone :
