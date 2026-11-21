@@ -43,8 +43,8 @@ class WebAccessRegression(unittest.TestCase):
         self.assertIn("private void analyzeWebPage()",ui)
         self.assertIn("private void testHttpsPage()",ui)
         gradle=(ROOT/"app/build.gradle").read_text()
-        self.assertIn("versionCode 93",gradle)
-        self.assertIn("versionName '3.13.8'",gradle)
+        self.assertIn("versionCode 94",gradle)
+        self.assertIn("versionName '3.14.0'",gradle)
         html=(ROOT/"app/src/main/assets/index.html").read_text()
         self.assertIn("v3.13.8",html)
 
