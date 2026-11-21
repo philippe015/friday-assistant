@@ -12,7 +12,8 @@ class RepeatedStopRegression(unittest.TestCase):
         self.assertIn("0,9", policy)
         self.assertIn("stop stop stop", spotter)
         self.assertIn("arrete arrete", spotter)
-        self.assertIn("finalResult || confirmations >= 2 || repeated", spotter)
+        self.assertIn("if (finalResult || repeated", spotter)
+        self.assertIn("BargeInPolicy.startsWithWake(recognized) && confirmations >= 2", spotter)
 
     def test_meter_measures_real_pcm_captured_from_android(self):
         service = (JAVA / "FridayService.java").read_text()
