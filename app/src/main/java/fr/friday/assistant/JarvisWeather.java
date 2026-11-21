@@ -1,5 +1,6 @@
 package fr.friday.assistant;
 
+import android.content.Context;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -20,6 +21,35 @@ import java.util.Locale;
  */
 public final class JarvisWeather {
     private JarvisWeather() {}
+
+    /** Extrait seulement la ville d'une précédente RÉPONSE MÉTÉO publique.
+     * L'historique chiffré reste sur Android, jamais transmis au fournisseur. */
+    public static String followUp(Context context, SecurePrefs prefs, String question) {
+        if (question == null || question.trim().length() > 90) return null;
+        try {
+            JSONArray history = new JSONArray(PrivateConversationHistory.read(context, prefs));
+            int end = history.length();
+            if (end == 0) return null;
+            JSONObject last = history.optJSONObject(end - 1);
+            if (last != null && "user".equals(last.optString("kind"))
+                    && VoiceText.normalize(question).equals(
+                            VoiceText.normalize(last.optString("text"))))
+                end--;
+            if (end < 1) return null;
+            JSONObject prior = history.optJSONObject(end - 1);
+            if (prior == null || !"assistant".equals(prior.optString("kind"))) return null;
+            String query = WeatherFollowUpPolicy.enrich(
+                    question, prior.optString("text", ""));
+            return query == null ? null : answer(query, enabledWeb(prefs));
+        } catch (Exception localHistoryUnavailable) {
+            // Aucun repli vers la recherche en ligne de l'historique personnel.
+            return null;
+        }
+    }
+
+    private static boolean enabledWeb(SecurePrefs prefs) {
+        return JarvisInternet.enabled(prefs);
+    }
 
     /** Retourne null si la question ne porte pas sur la météo. */
     public static String answer(String question, boolean webEnabled) {
