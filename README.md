@@ -39,6 +39,18 @@
 
 ---
 
+## Option expérimentale : RSS Monde FR v3.14.1 (bêta non encore validée sur téléphone)
+
+**[📥 Télécharger FRIDAY-Jarvis-RSS-Monde-FR-v3.14.1-test.apk](https://github.com/philippe015/friday-assistant/releases/download/v3.14.1-rss-monde-beta/FRIDAY-Jarvis-RSS-Monde-FR-v3.14.1-test.apk)**
+
+Cette **préversion facultative** offre un catalogue de 17 flux RSS mondiaux, la traduction française des titres et courts extraits **par Gemma 4 local sur Android**, et le bouton **RSS Monde FR**. Les titres originaux, les dates RSS et les liens sont conservés. Les flux disponibles dépendent des éditeurs et la traduction peut comporter des erreurs.
+
+**À ne pas confondre avec la v3.14.0 fonctionnelle ci-dessus :** la bêta 3.14.1 s'installe à côté (`fr.friday.assistant.rsspreview`) et nécessite d'importer à nouveau le modèle local, car chaque application Android possède son stockage privé. **Ne désinstallez pas votre v3.14.0 validée.**
+
+[Release RSS Monde FR v3.14.1](https://github.com/philippe015/friday-assistant/releases/tag/v3.14.1-rss-monde-beta) · [Code source (PR #91)](https://github.com/philippe015/friday-assistant/pull/91)
+
+---
+
 ## Anciennes versions et documentation historique
 
 ## FRIDAY v3.11.0 — Gemma 4 .litertlm pris en charge sur Android
