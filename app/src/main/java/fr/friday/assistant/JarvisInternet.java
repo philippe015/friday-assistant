@@ -359,9 +359,11 @@ public final class JarvisInternet {
             if (found.size() < MAX_RESULTS && NewsTopicPolicy.isScienceTopic(topic)) {
                 if (cancellation != null) cancellation.check();
                 try {
+                    String specificTopic = "science".equals(topic) ? ""
+                            : topic.substring(0, topic.length() - " science".length());
                     mergeDated(found, parseRss(fetch(
                             "https://www.sciencedaily.com/rss/top/science.xml", true),
-                            hours, now), 3, "");
+                            hours, now), 3, specificTopic);
                 } catch (Exception failure) { trouble = noteFailure(trouble, failure); }
             }
 
