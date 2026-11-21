@@ -44,6 +44,8 @@ jobs:
           grep -Fq "SherpaArchivePolicyTest" scripts/tester_sources.sh
           grep -Fq "HandsFreeQuestionPolicyTest" scripts/tester_sources.sh
           test -f tests/test_jarvis_quick_news_and_dialogue_20261121.py
+          grep -Fq "if (found.size() < 3)" app/src/main/java/fr/friday/assistant/JarvisInternet.java
+          grep -Fq 'self.assertGreaterEqual(WEB.count("if (found.size() < 3)"), 2)' tests/test_voice_web_reliability_patch.py
           grep -Fq "if (RecentNewsPolicy.newsWindowHours(question) > 0)" app/src/main/java/fr/friday/assistant/JarvisInternet.java
           grep -Fq "privateDialogue, new NativeAI.CancelToken()" app/src/main/java/fr/friday/assistant/MainActivity.java
           grep -Fq "Temps recherche Internet :" app/src/main/java/fr/friday/assistant/FridayService.java
