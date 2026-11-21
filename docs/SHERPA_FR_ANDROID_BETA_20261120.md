@@ -25,8 +25,15 @@ La compilation CI ne démontre pas une bonne reconnaissance de la voix.
    L'adresse officielle est :
    https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-fr-2023-04-14.tar.bz2
 4. Attendre le téléchargement complet puis appuyer sur
-   **Importer l'archive française sur le téléphone** et choisir le
+   **Importer l'archive française sur le téléphone**. Si l'écoute est active,
+   accepter **Arrêter et choisir le fichier** pour arrêter le micro.
+   Dans le sélecteur Android, ouvrir **Téléchargements** et choisir le
    fichier téléchargé. **Il est inutile de le décompresser.**
+   L'importation n'est pas automatique après l'ouverture du navigateur :
+   elle commence lorsque vous sélectionnez le document.
+   Les variantes nommées `... (1).tar.bz2`, `...tar.bz2 (1)` et
+   `...tar.bz` sont reconnues si les données sont réellement une archive
+   BZip2 compatible.
 5. Une fois l'importation confirmée, cocher
    **Essayer sherpa-onnx français** puis arrêter et redémarrer l'écoute.
 6. Dites « Jarvis, quelle heure est-il ? », puis trois autres questions.
@@ -36,7 +43,13 @@ La compilation CI ne démontre pas une bonne reconnaissance de la voix.
 
 ## Sécurité de l'importation
 
-- Seule l'archive officielle au nom exact est acceptée.
+- Le nom du fichier peut être renommé par Android (doublon numéroté,
+  suffixe `.tar.bz`) ou absent du fournisseur de documents.
+  **Le nom seul ne garantit pas l'origine officielle** : la validation porte
+  aussi sur l'en-tête BZip2, les noms des quatre fichiers du modèle et leur
+  taille. Télécharger uniquement depuis l'adresse officielle.
+- Les fichiers HTML renvoyés par erreur, les téléchargements tronqués sans
+  en-tête BZip2 et les autres formats sont rejetés avec un diagnostic clair.
 - Seuls quatre fichiers ONNX/int8 et tokens attendus sont copiés.
   Les noms d'entrées de TAR ne sont jamais réutilisés comme chemins
   de destination : protection contre les traversées de répertoires.
