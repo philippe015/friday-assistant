@@ -881,20 +881,25 @@ public class FridayService extends Service {
                 return;
             }
         } else if ((TtsEchoGate.followupAccepts(now, echoBlockUntil, wakeOnlyUntil) ||
+                // Le cockpit ouvert est un consentement explicite à l'écoute :
+                // ne pas ignorer une phrase reconnue après 15/20 secondes.
+                (MainActivity.isCockpitVisible() &&
+                 AutoListenPolicy.enabled(settings.get("jarvis_auto_listen_on_open", "1"))) ||
                 ("1".equals(settings.get("followup_handsfree", "0")) && wakeArmed &&
                 (now - lastReplyAt <= followupMs || now < clarificationUntil))) &&
                 now >= echoBlockUntil) {
-            // Le mode mains libres est desactive par defaut : Vosk peut transcrire
-            // le haut-parleur, une TV ou du bruit en fausse question.
-            // « Écoute ON », le bouton d'interruption ou un mot-clé isolé
-            // autorisent UNE question directe pendant une fenêtre courte.
+            // Hors du cockpit, une question directe n'est acceptée que
+            // pendant la fenêtre post-réponse, pour limiter les faux positifs.
+            // Dans le cockpit, conserver l'écoute même après cette fenêtre.
             if (heard.trim().split("\\s+").length < 2) return;
             question = heard;
         } else {
             // Le PCM est présent, Vosk comprend une phrase, mais aucun mot-clé :
             // ce n'est pas une panne de Jarvis ou du microphone.
             if (heard.trim().split("\\s+").length >= 2)
-                asrDiagnostic("Vosk a transcrit une phrase ; mot-clé Jarvis absent");
+                asrDiagnostic("Question transcrite par Vosk mais non envoyée : "
+                        + "dites Jarvis au début, ou ouvrez le cockpit pour "
+                        + "une question directe.");
             return;
         }
         if (BargeInPolicy.wantsToAddDetails(question)) {
@@ -1113,6 +1118,15 @@ public class FridayService extends Service {
                 String reason = ex.getMessage() == null
                         ? ex.getClass().getSimpleName() : ex.getMessage();
                 event("error", "Réponse indisponible : " + reason);
+                // La question apparaît déjà dans l'historique en tant que
+                // « Vous ». En cas d'échec du moteur, afficher aussi une réponse
+                // explicite dans la boîte de dialogue, au lieu de laisser
+                // l'utilisateur attendre silencieusement.
+                String visibleFailure = "J'ai reçu votre question, mais Jarvis "
+                        + "n'a pas réussi à préparer une réponse. "
+                        + "Diagnostic : " + (reason.length() > 165
+                            ? reason.substring(0, 165) : reason);
+                event("assistant", visibleFailure);
                 // Une panne API ne doit pas donner l'impression d'un assistant
                 // définitivement muet. Dire une courte notification locale
                 // sans inventer une réponse Mistral ni interrompre le micro.
