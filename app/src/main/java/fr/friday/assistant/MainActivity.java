@@ -68,6 +68,37 @@ public class MainActivity extends Activity {
     private long lastAutoListenAttemptAt = 0L;
     private boolean manuallyStoppedListening = false;
     private boolean activityVisible = false;
+    // L'ASR reste dans FridayService ; ce moniteur ne lit jamais le micro.
+    // Il ne redémarre le service que lorsque l'activité est visible.
+    private final android.os.Handler visibleListenHandler = new android.os.Handler(
+            android.os.Looper.getMainLooper());
+    private int visibleListenRetries = 0;
+    private final Runnable visibleListenWatchdog = new Runnable() {
+        @Override public void run() {
+            if (!activityVisible || isFinishing() || isDestroyed() || prefs == null)
+                return;
+            if (FridayService.isActive()) {
+                visibleListenRetries = 0;
+            } else if (AutoListenPolicy.retryWhileVisible(
+                    prefs.get("jarvis_auto_listen_on_open", "1"), activityVisible,
+                    manuallyStoppedListening, FridayService.isActive(),
+                    lastAutoListenAttemptAt,
+                    android.os.SystemClock.elapsedRealtime(), visibleListenRetries)
+                    && ModelInstaller.installed(MainActivity.this)
+                    && checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                            == PackageManager.PERMISSION_GRANTED
+                    && !voskDownloadRunning.get()) {
+                visibleListenRetries++;
+                lastAutoListenAttemptAt = android.os.SystemClock.elapsedRealtime();
+                status.setText("JARVIS : reprise automatique de l'écoute ("
+                        + visibleListenRetries + "/3)…");
+                startListening(true);
+            }
+            // Ne tourne jamais en arrière-plan : le service FGS déjà démarré
+            // peut cependant continuer l'écoute lorsque l'écran se verrouille.
+            visibleListenHandler.postDelayed(this, 4000L);
+        }
+    };
     private LinearLayout config;
     private ScrollView configScroll;
     private WebView hud;
@@ -94,6 +125,14 @@ public class MainActivity extends Activity {
         getWindow().setStatusBarColor(Color.rgb(3, 16, 26));
         getWindow().setNavigationBarColor(Color.rgb(3, 16, 26));
         prefs = new SecurePrefs(this);
+        // Mise à jour demandée : mode assistant vocal permanent tant que
+        // l'utilisateur l'autorise. Une seule migration, réglages modifiables.
+        if (!"1".equals(prefs.get("jarvis_always_listening_v31317", "0"))) {
+            prefs.put("jarvis_auto_listen_on_open", "1");
+            prefs.put("followup_handsfree", "1");
+            prefs.put("listen_once", "0");
+            prefs.put("jarvis_always_listening_v31317", "1");
+        }
         // Profil mains libres demandé : activer une seule fois l'écoute
         // automatique et les questions complètes sans mot-clé. Ces choix
         // restent modifiables par l'utilisateur après cette migration.
@@ -250,7 +289,7 @@ public class MainActivity extends Activity {
         configScroll.setVisibility(View.GONE);
         config.addView(label("DÉMARRAGE DE JARVIS · écoute prête à l'ouverture"));
         autoListenOnOpen = new CheckBox(this);
-        autoListenOnOpen.setText("Démarrer automatiquement l'écoute quand j'ouvre JARVIS");
+        autoListenOnOpen.setText("Écoute automatique permanente à l'ouverture de JARVIS");
         autoListenOnOpen.setTextColor(Color.WHITE);
         autoListenOnOpen.setChecked(AutoListenPolicy.enabled(
                 prefs.get("jarvis_auto_listen_on_open", "1")));
@@ -1570,6 +1609,9 @@ public class MainActivity extends Activity {
 
     /** Invoked only from a visible Activity. Never at boot or in background. */
     private void startListening(boolean automatically) {
+        // Après un Stop explicite, une action manuelle « Relancer » réarme
+        // normalement l'écoute ; aucun réarmement automatique après Stop.
+        if (!automatically) manuallyStoppedListening = false;
         if (!ModelInstaller.installed(this)) {
             status.setText("Micro arrêté : modèle vocal Vosk français manquant.");
             new AlertDialog.Builder(this)
@@ -1724,6 +1766,9 @@ public class MainActivity extends Activity {
         super.onResume();
         activityVisible = true;
         replayVoiceHistory();
+        visibleListenRetries = 0;
+        visibleListenHandler.removeCallbacks(visibleListenWatchdog);
+        visibleListenHandler.postDelayed(visibleListenWatchdog, 4000L);
         if (!startupListenAttempted || AutoListenPolicy.retryOnResume(
                 prefs.get("jarvis_auto_listen_on_open", "1"),
                 manuallyStoppedListening, FridayService.isActive(),
@@ -1766,14 +1811,15 @@ public class MainActivity extends Activity {
             else if (voskDownloadRunning.get())
                 status.setText("Micro arrêté : téléchargement du modèle Vosk en cours.");
             else if (!ModelInstaller.installed(this))
-                status.setText("Micro arrêté : modèle Vosk français manquant. Appuyez sur Écoute pour l'installer.");
+                status.setText("Micro arrêté : modèle Vosk français manquant. Autorisez son installation pour activer l'écoute automatique.");
             else if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED)
-                status.setText("Micro arrêté : autorisation Android du microphone manquante. Appuyez sur Écoute.");
-            else status.setText("Micro arrêté. Appuyez sur Écoute pour démarrer le service vocal.");
+                status.setText("Micro arrêté : autorisez l'accès au microphone pour l'écoute automatique.");
+            else status.setText("Micro arrêté : l'activation automatique sera réessayée à l'ouverture.");
         }
     }
     @Override protected void onPause() {
         activityVisible = false;
+        visibleListenHandler.removeCallbacks(visibleListenWatchdog);
         super.onPause();
     }
 
@@ -1943,6 +1989,7 @@ public class MainActivity extends Activity {
         }
     }
     @Override public void onDestroy() {
+        visibleListenHandler.removeCallbacks(visibleListenWatchdog);
         hudCloneSpeaking.set(false);
         if (events != null) unregisterReceiver(events);
         if (testTts != null) { try { testTts.shutdown(); } catch (Exception ignored) {} testTts = null; }
