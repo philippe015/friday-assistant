@@ -404,9 +404,9 @@ public class FridayService extends Service {
                     long mutedSince = 0;
                     long nextMuteNoticeAt = 0;
                     while (running) {
-                        // Capture maintenue par Android, mais transcription Vosk
-                        // suspendue pendant une réponse : STOP vocal est retiré.
-                        // Seul le bouton explicite peut interrompre le tour actif.
+                        // Capture et transcription Vosk continuent pendant la
+                        // recherche silencieuse. Seuls le TTS et sa queue
+                        // d'anti-écho bloquent la dictée ; STOP reste manuel.
                         if (oneShotTriggered && currentTurn == null) {
                             event("status", "Mode une question : réponse terminée, micro arrêté.");
                             break;
@@ -585,15 +585,14 @@ public class FridayService extends Service {
                             stopRecognizer.close(); stopRecognizer = null; stopSpotter.reset();
                             if (bargeEnabled) interruptDiagnostics = "Micro actif · prêt";
                         }
-                        // En mode interruption PAR BOUTON, ne plus entraîner Vosk
-                        // à transcrire le bruit ambiant ou les répétitions de la
-                        // question pendant qu'une réponse Web est en préparation.
-                        // Les PCM restent lus pour surveiller la politique Android,
-                        // mais ne sont pas transmis au reconnaisseur.
+                        // Une recherche Web en cours peut durer plusieurs secondes.
+                        // Ne jamais suspendre le décodeur Vosk à cause de
+                        // currentTurn : sinon le téléphone semble ne plus écouter.
+                        // Seules la voix réellement jouée et sa queue d'écho
+                        // imposent une suspension, STOP vocal restant désactivé.
                         long asrNow = SystemClock.elapsedRealtime();
-                        boolean blocked = currentTurn != null
-                                || TtsEchoGate.suppressGeneralAsr(
-                                        speakingNow, asrNow, echoBlockUntil);
+                        boolean blocked = TtsEchoGate.suppressGeneralAsr(
+                                speakingNow, asrNow, echoBlockUntil);
                         if (blocked) {
                             if (!generalInputBlocked) {
                                 generalInputBlocked = true;
@@ -601,12 +600,8 @@ public class FridayService extends Service {
                                 completed = interim = ""; lastVoice = 0;
                                 confidenceSum = 0; confidenceCount = 0;
                                 earlyCancelled = false; sawSpeakerFeedback = false;
-                                voiceState(speakingNow
-                                        ? "Lecture TTS / anti-écho : dictée suspendue, interruption uniquement par bouton"
-                                        : "Jarvis prépare sa réponse : transcription temporairement suspendue");
-                                event("barge_diag", speakingNow
-                                        ? "Protection anti-écho : dictée suspendue · STOP vocal désactivé · bouton disponible"
-                                        : "Question reçue · transcription suspendue pendant la préparation · bouton disponible");
+                                voiceState("Lecture TTS / anti-écho : dictée suspendue, interruption uniquement par bouton");
+                                event("barge_diag", "Protection anti-écho : dictée suspendue · STOP vocal désactivé · bouton disponible");
                             }
                             continue;
                         }
@@ -828,7 +823,14 @@ public class FridayService extends Service {
         if (BargeInPolicy.isStopListening(heard)
                 || BargeInPolicy.isStopAnswer(heard)
                 || BargeInPolicy.isBareStopAnswer(heard)) return;
-        if (currentTurn != null) return;
+        if (currentTurn != null) {
+            // La transcription fonctionne toujours pendant une recherche ;
+            // ne pas lancer simultanément une deuxième réponse automatique.
+            // L'interruption reste volontaire, via le bouton uniquement.
+            asrDiagnostic("Question entendue pendant le traitement précédent : "
+                    + "utilisez le bouton Interrompre pour poser une nouvelle question.");
+            return;
+        }
         if (BargeInPolicy.isStopListening(heard)) {
             event("status", "Arrêt complet de l'écoute demandé.");
             shutdown(); return;
@@ -919,7 +921,7 @@ public class FridayService extends Service {
                 + (JarvisInternet.shouldResearch(settings, question)
                     ? " · recherche Web publique possible si disponible"
                     : " · sans recherche Web pour cette question")
-                + " · transcription en pause jusqu'à la fin de la réponse");
+                + " · écoute Vosk active pendant la recherche, STOP par bouton");
         // Protège contre un fournisseur/API bloqué : aucun tour muet ne doit
         // garder l'écoute occupée indéfiniment. Un TTS en lecture n'est pas coupé.
         turn.watchdog = () -> {
