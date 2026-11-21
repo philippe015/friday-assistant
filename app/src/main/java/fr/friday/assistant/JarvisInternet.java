@@ -352,6 +352,20 @@ public final class JarvisInternet {
         return sources;
     }
 
+    /** Deux domaines indépendants minimum avant l'arrêt rapide des recherches.
+     * Un même fournisseur indexé avec plusieurs URL ne compte qu'une fois. */
+    private static boolean sufficientIndependentSources(List<Source> sources) {
+        if (sources.size() < 3) return false;
+        java.util.HashSet<String> hosts = new java.util.HashSet<>();
+        for (Source source : sources) {
+            try {
+                String host = URI.create(source.url).getHost();
+                if (host != null) hosts.add(host.toLowerCase(Locale.ROOT));
+            } catch (Exception ignored) { }
+        }
+        return hosts.size() >= 2;
+    }
+
     private static List<Source> search(String query, NativeAI.CancelToken cancellation)
             throws Exception {
         if (cancellation != null) cancellation.check();
@@ -479,7 +493,8 @@ public final class JarvisInternet {
         // Wikidata et DuckDuckGo uniquement pour remplir cinq références.
         // Les demandes scientifiques, réglementaires ou d'actualité gardent
         // leurs parcours spécialisés et les contrôles de provenance.
-        if (found.size() >= 3 && OfficialSourcePolicy.preferredSites(q).length == 0
+        if (sufficientIndependentSources(found)
+                && OfficialSourcePolicy.preferredSites(q).length == 0
                 && !WebSearch.requiresCurrentEvidence(q)
                 && !WebSearch.scientificResearch(q))
             return found;
