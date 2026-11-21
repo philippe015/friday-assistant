@@ -1,3 +1,31 @@
+# FRIDAY / JARVIS — Intelligence+ v3.14.0
+
+**Dernière version fonctionnelle validée sur téléphone Android : 21 novembre 2026**
+
+### [📥 TÉLÉCHARGER FRIDAY-Jarvis-Intelligence-Plus-v3.14.0-test.apk](https://github.com/philippe015/friday-assistant/releases/download/v3.14.0-test/FRIDAY-Jarvis-Intelligence-Plus-v3.14.0-test.apk)
+
+**[Voir la version testée et les détails d'installation](https://github.com/philippe015/friday-assistant/releases/tag/v3.14.0-test)** · [Code source de cette version (PR #90)](https://github.com/philippe015/friday-assistant/pull/90)
+
+> **VERSION DE TEST VALIDÉE SUR ANDROID**, avec `gemma-4-E2B-it-gpu.litertlm` comme modèle IA local. Le modèle Gemma 4 **n'est pas fourni dans l'APK** : il s'importe séparément dans les réglages de Jarvis. Cette édition conserve le système vocal déjà fonctionnel.
+
+### Ce qui fonctionne dans Intelligence+ v3.14.0
+
+- **Questions et réponses vocales continues**, sans bouton pour chaque question, avec reconnaissance Vosk et synthèse vocale Android.
+- **Mémoire de dialogue locale chiffrée** : récupération de sujets pertinents des anciens échanges pour mieux comprendre les relances.
+- **Météo réelle par ville** (Open-Meteo), avec la possibilité de demander « Et demain ? » après un premier bulletin.
+- **Recherche d'actualités sourcées** : titres, horodatages RSS et extraits lorsque des sources en fournissent.
+- **Moteur IA entièrement local** : modèle Gemma 4 E2B GPU conservé, sans migration automatique vers Qwen.
+
+**Validation :** tests et compilation Android réussis sur le commit [`14ee038`](https://github.com/philippe015/friday-assistant/commit/14ee038898ea9550efbd4537f7056e399478f67c), puis essai utilisateur réussi sur le téléphone. L'APK vérifié est identifié par le SHA-256 `80bb9b467c35e7e198087c981548f68df1da4d8217dcf215f8f56225f6931d64`.
+
+**Installation directe sur téléphone :** télécharger l'APK ci-dessus et l'ouvrir avec le gestionnaire de fichiers Android. Si Android le demande, autoriser l'installation pour l'application utilisée. Importer ensuite le fichier `gemma-4-E2B-it-gpu.litertlm` dans les réglages de Jarvis si le modèle n'est pas déjà présent dans cette édition.
+
+**Attention :** `-test.apk` est une **édition de prévisualisation** (`fr.friday.assistant.smartpreview`) qui peut être installée à côté de la version officielle. Ses fichiers et son historique sont séparés ; ne désinstallez pas votre édition fonctionnelle avant d'avoir sauvegardé vos données. Le code de cette préversion est dans la [PR #90](https://github.com/philippe015/friday-assistant/pull/90), pas encore fusionnée dans `main`.
+
+---
+
+## Anciennes versions et documentation historique
+
 ## FRIDAY v3.11.0 — Gemma 4 .litertlm pris en charge sur Android
 
 FRIDAY prend en charge deux moteurs de langage fonctionnant sur le téléphone :
