@@ -37,8 +37,9 @@ class MicrophoneRecovery(unittest.TestCase):
         self.assertNotIn("shutdown();", block)
         self.assertIn("VoiceStopSpotter.Action.STOP_MIC", block)
         self.assertIn("interruptResponse(", block)
-        self.assertIn('settings.get("barge_in_enabled", "0")', SERVICE)
-        self.assertIn('prefs.get("barge_in_enabled", "0")', UI)
+        self.assertIn('boolean bargeEnabled = false;', SERVICE)
+        self.assertIn('prefs.put("barge_in_enabled", "0")', UI)
+        self.assertNotIn('bargeEnabled = new CheckBox(this)', UI)
 
     def test_version(self):
         gradle=(ROOT/"app/build.gradle").read_text(encoding="utf-8")
