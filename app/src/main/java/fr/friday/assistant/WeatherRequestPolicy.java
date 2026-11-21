@@ -39,7 +39,10 @@ public final class WeatherRequestPolicy {
     private static String validCity(String candidate) {
         if (candidate == null) return "";
         String city = candidate.trim().replaceAll("^[\\s,.:;!?]+|[\\s,.:;!?]+$", "")
-                .replaceAll("\\s+", " ").trim();
+                .replaceAll("\\s+", " ").trim()
+                // Après « météo de demain à Marseille », ne jamais traiter
+                // la préposition « à » comme une partie du nom de ville.
+                .replaceFirst("(?iu)^(?:à|a|pour|sur|dans|de)\\s+", "").trim();
         String folded = fold(city);
         if (city.length() < 2 || city.length() > 72 || city.split(" ").length > 7)
             return "";
