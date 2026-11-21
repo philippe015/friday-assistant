@@ -29,6 +29,16 @@ public final class WeatherForecast {
         }
     }
 
+    /** Le fournisseur a retrouvé plusieurs pays : demander confirmation. */
+    public static final class NeedCountryException extends IOException {
+        public final String city;
+        public NeedCountryException(String city, String countries) {
+            super("Plusieurs lieux portent le nom « " + city + " » : "
+                    + countries + ". Quel pays souhaitez-vous ?");
+            this.city = city;
+        }
+    }
+
     private static JSONObject fetch(String url, NativeAI.CancelToken cancellation)
             throws Exception {
         if (cancellation != null) cancellation.check();
@@ -96,14 +106,52 @@ public final class WeatherForecast {
                                 NativeAI.CancelToken cancellation) throws Exception {
         if (city == null || city.trim().length() < 2 || dayOffset < 0 || dayOffset > 2)
             throw new IOException("Ville ou période météo invalide.");
+        String requestedCity = WeatherPlacePolicy.city(city);
+        String requestedCountry = WeatherPlacePolicy.country(city);
         String q = URLEncoder.encode(city.trim(), "UTF-8");
         JSONObject geocode = fetch(
                 "https://geocoding-api.open-meteo.com/v1/search?name=" + q
-                + "&count=3&language=fr&format=json", cancellation);
+                + "&count=40&language=fr&format=json", cancellation);
         JSONArray places = geocode.optJSONArray("results");
         if (places == null || places.length() == 0)
-            throw new IOException("Ville introuvable. Indiquez une ville et éventuellement son pays.");
-        JSONObject place = places.getJSONObject(0);
+            throw new IOException("Ville introuvable. Précisez la ville et son pays.");
+
+        // Le premier résultat Open-Meteo peut être une ville d'un AUTRE pays.
+        // Ne sélectionner que le nom de ville exact, puis vérifier le pays.
+        // Si plusieurs pays existent et qu'aucun n'a été demandé, ne choisir
+        // ni le premier ni le pays présumé de l'utilisateur : lui demander.
+        JSONObject place = null;
+        java.util.LinkedHashSet<String> countries = new java.util.LinkedHashSet<>();
+        for (int i = 0; i < places.length(); i++) {
+            JSONObject candidate = places.optJSONObject(i);
+            if (candidate == null || !WeatherPlacePolicy.sameCity(
+                    requestedCity, candidate.optString("name", ""))) continue;
+            String country = candidate.optString("country", "");
+            if (!country.isEmpty()) countries.add(country);
+            if (!requestedCountry.isEmpty()
+                    && WeatherPlacePolicy.sameCountry(
+                            requestedCountry, country,
+                            candidate.optString("country_code", ""))) {
+                place = candidate;
+                break;
+            }
+            if (requestedCountry.isEmpty() && place == null)
+                place = candidate;
+        }
+        if (requestedCountry.isEmpty() && countries.size() > 1) {
+            StringBuilder options = new StringBuilder();
+            int shown = 0;
+            for (String country : countries) {
+                if (shown++ >= 4) break;
+                if (options.length() > 0) options.append(", ");
+                options.append(country);
+            }
+            throw new NeedCountryException(requestedCity, options.toString());
+        }
+        if (place == null)
+            throw new IOException("Aucune ville exacte « " + requestedCity
+                    + " » trouvée dans le pays « " + requestedCountry
+                    + " ». Vérifiez la ville et le pays.");
         double lat = place.getDouble("latitude");
         double lon = place.getDouble("longitude");
         if (!Double.isFinite(lat) || !Double.isFinite(lon)
