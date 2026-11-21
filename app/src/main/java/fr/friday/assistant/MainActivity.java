@@ -1558,6 +1558,7 @@ public class MainActivity extends Activity {
         activityVisible = true;
         cockpitVisible = true;
         replayVoiceHistory();
+        boolean autoStartScheduled = false;
         if (!startupListenAttempted) {
             boolean shouldAutoStart = AutoListenPolicy.shouldStart(
                     prefs.get("jarvis_auto_listen_on_open", "1"),
@@ -1565,6 +1566,7 @@ public class MainActivity extends Activity {
                     FridayService.isActive());
             startupListenAttempted = true;
             if (shouldAutoStart) {
+                autoStartScheduled = true;
                 status.setText("JARVIS se prépare : activation automatique du micro…");
                 // L'activité est désormais visible. Un seul démarrage
                 // et aucune relance automatique après un appui sur Stop.
@@ -1584,7 +1586,9 @@ public class MainActivity extends Activity {
                 });
             }
         }
-        if (status != null) {
+        // Ne pas écraser « activation automatique en cours » par
+        // « Micro arrêté » avant l'exécution du startForegroundService.
+        if (status != null && !autoStartScheduled) {
             if (FridayService.isMicSilenced()) status.setText("Microphone momentanément rendu muet par Android : vérifiez les autres applications.");
             else if (FridayService.isActive()) status.setText("Écoute native active · " + FridayVersionGuard.thisVersion(this));
             else if (voskDownloadRunning.get())
