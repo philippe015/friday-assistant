@@ -3,42 +3,55 @@ package fr.friday.assistant;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Commande explicite de lecture de l'article RSS sélectionné, sans LLM distant. */
+/** Identifie UNIQUEMENT les commandes visant un article precis du dernier bulletin. */
 public final class RssArticleIntent {
     private RssArticleIntent() {}
-    private static final Pattern ARTICLE = Pattern.compile("\\b(?:article|articles|page|pages)\\b");
+    private static final Pattern REFERENCE = Pattern.compile(
+            "\\b(?:article|page)\\s+(?:(?:numero|n|no)\\s*)?(\\d{1,2}|premier|premiere|"
+            + "deuxieme|second|seconde|troisieme|quatrieme|cinquieme|sixieme|septieme)\\b");
+    private static final Pattern ORDINAL = Pattern.compile(
+            "\\b(premier|premiere|deuxieme|second|seconde|troisieme|quatrieme|cinquieme|"
+            + "sixieme|septieme)\\s+(?:article|page)\\b");
+    private static final Pattern SINGULAR = Pattern.compile(
+            "\\b(?:l|le|cet|ce|dernier|premier)\\s+article\\b|"
+            + "\\b(?:la|cette|derniere)\\s+page\\b");
     private static final Pattern ACTION = Pattern.compile(
-            "\\b(?:lis|lire|lecture|raconte|raconter|ouvre|ouvrir|detail|details|"
-            + "contenu|integral|integrale|entier|entiere|entierement|complet|complete)\\b");
-    private static final Pattern AFTER = Pattern.compile(
-            "\\b(?:article|page)\\s+(?:(?:numero|n|no)\\s*)?(\\d{1,2}|"
-            + "premier|premiere|deuxieme|second|seconde|troisieme|quatrieme|"
-            + "cinquieme|sixieme|septieme)\\b");
-    private static final Pattern BEFORE = Pattern.compile(
-            "\\b(premier|premiere|deuxieme|second|seconde|troisieme|"
-            + "quatrieme|cinquieme|sixieme|septieme)\\s+article\\b");
+            "\\b(?:lis|lit|lire|lecture|ouvre|ouvrir|raconte|raconter|"
+            + "resume|resumer|synthese|analyse|analyser|analyses|"
+            + "explique|expliquer|exposes?|detaille|details?)\\b");
+    private static final Pattern ANALYSIS = Pattern.compile(
+            "\\b(?:analyse|analyser|analyses|resume|resumer|synthese|"
+            + "explique|expliquer|detaille)\\b");
 
     public static boolean isRequest(String question) {
-        String normalized = VoiceText.normalize(question);
-        return ARTICLE.matcher(normalized).find() && ACTION.matcher(normalized).find()
-                && !normalized.matches(".*\\b(?:code penal|code civil|loi|juridique|"
-                + "legislatif|constitution)\\b.*");
+        String text = VoiceText.normalize(question);
+        boolean specific = REFERENCE.matcher(text).find()
+                || ORDINAL.matcher(text).find() || SINGULAR.matcher(text).find();
+        // "lis les articles en entier" et "ce service lit les articles"
+        // sont des demandes GENERALES, pas l'ordre de lire l'article 1.
+        return specific && ACTION.matcher(text).find()
+                && !text.matches(".*\\b(?:code penal|code civil|loi|juridique|"
+                        + "legislatif|constitution)\\b.*");
+    }
+
+    public static boolean wantsAnalysis(String question) {
+        return ANALYSIS.matcher(VoiceText.normalize(question)).find();
     }
 
     public static int index(String question) {
-        String normalized = VoiceText.normalize(question);
-        Matcher after = AFTER.matcher(normalized);
-        if (after.find()) return number(after.group(1));
-        Matcher before = BEFORE.matcher(normalized);
-        return before.find() ? number(before.group(1)) : 1;
+        String text = VoiceText.normalize(question);
+        Matcher reference = REFERENCE.matcher(text);
+        if (reference.find()) return number(reference.group(1));
+        Matcher ordinal = ORDINAL.matcher(text);
+        return ordinal.find() ? number(ordinal.group(1)) : 1;
     }
 
-    private static int number(String word) {
-        if (word.matches("\\d{1,2}")) {
-            int n = Integer.parseInt(word);
+    private static int number(String value) {
+        if (value.matches("\\d{1,2}")) {
+            int n = Integer.parseInt(value);
             return n >= 1 && n <= 7 ? n : -1;
         }
-        switch (word) {
+        switch (value) {
             case "premier": case "premiere": return 1;
             case "deuxieme": case "second": case "seconde": return 2;
             case "troisieme": return 3;
