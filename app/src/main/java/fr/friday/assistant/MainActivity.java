@@ -65,6 +65,7 @@ public class MainActivity extends Activity {
     private CheckBox bargeEnabled, followupHandsfreeEnabled, autoListenOnOpen;
     /** One automatic start per Activity open; never rearm after manual Stop. */
     private boolean startupListenAttempted = false;
+    private long lastAutoListenAttemptAt = 0L;
     private boolean manuallyStoppedListening = false;
     private boolean activityVisible = false;
     private LinearLayout config;
@@ -93,6 +94,15 @@ public class MainActivity extends Activity {
         getWindow().setStatusBarColor(Color.rgb(3, 16, 26));
         getWindow().setNavigationBarColor(Color.rgb(3, 16, 26));
         prefs = new SecurePrefs(this);
+        // Profil mains libres demandé : activer une seule fois l'écoute
+        // automatique et les questions complètes sans mot-clé. Ces choix
+        // restent modifiables par l'utilisateur après cette migration.
+        if (!"1".equals(prefs.get("voice_assistant_ready_v31314", "0"))) {
+            prefs.put("jarvis_auto_listen_on_open", "1");
+            prefs.put("followup_handsfree", "1");
+            prefs.put("listen_once", "0");
+            prefs.put("voice_assistant_ready_v31314", "1");
+        }
         // Migration unique : supprimer l'ancienne clé API de l'autre fournisseur, sans effacer
         // une éventuelle clé Mistral déjà présente dans les anciens profils.
         if (!"1".equals(prefs.get("mistral_only_v330", "0"))) {
@@ -412,16 +422,18 @@ public class MainActivity extends Activity {
         followupInput.setInputType(InputType.TYPE_CLASS_NUMBER);
         followupInput.setText(prefs.get("followup_sec", "75")); config.addView(followupInput);
         followupHandsfreeEnabled = new CheckBox(this);
-        followupHandsfreeEnabled.setText("Prolonger les relances sans dire Friday "
-                + "(75 secondes par défaut, risque de fausses questions)");
+        followupHandsfreeEnabled.setText("Questions vocales complètes sans mot-clé "
+                + "(mains libres, risque d'activation par une autre voix)");
         followupHandsfreeEnabled.setTextColor(Color.WHITE);
         followupHandsfreeEnabled.setChecked("1".equals(prefs.get("followup_handsfree", "0")));
         config.addView(followupHandsfreeEnabled);
-        config.addView(label("Mode continu : après chaque réponse, FRIDAY ignore 2,5 secondes "
-                + "d'écho du haut-parleur puis accepte une question directe pendant "
-                + "20 secondes. Passé ce délai, dites Friday ou Jarvis. "
-                + "La case ci-dessus permet de prolonger cette période, avec "
-                + "davantage de risque de déclenchements involontaires."));
+        config.addView(label("Mode mains libres : après l'anti-écho, une question claire "
+                + "comme « Quelle heure est-il ? » ou « Cherche les actualités scientifiques » "
+                + "est envoyée à Jarvis à tout moment, même après 20 secondes. "
+                + "Les fragments et paroles incertaines ne sont pas envoyés. "
+                + "Décochez l'option pour imposer Jarvis/Friday après 20 secondes. "
+                + "Une autre personne ou la télévision peut poser une question : "
+                + "utilisez le bouton Stop pour couper complètement le micro."));
         bargeEnabled = new CheckBox(this);
         bargeEnabled.setText("Activer STOP vocal pendant la réponse (« stop », « Friday stop », « j’ai une précision »)");
         bargeEnabled.setTextColor(Color.WHITE);
@@ -1689,12 +1701,16 @@ public class MainActivity extends Activity {
         super.onResume();
         activityVisible = true;
         replayVoiceHistory();
-        if (!startupListenAttempted) {
+        if (!startupListenAttempted || AutoListenPolicy.retryOnResume(
+                prefs.get("jarvis_auto_listen_on_open", "1"),
+                manuallyStoppedListening, FridayService.isActive(),
+                lastAutoListenAttemptAt, android.os.SystemClock.elapsedRealtime())) {
             boolean shouldAutoStart = AutoListenPolicy.shouldStart(
                     prefs.get("jarvis_auto_listen_on_open", "1"),
-                    startupListenAttempted, manuallyStoppedListening,
+                    false, manuallyStoppedListening,
                     FridayService.isActive());
             startupListenAttempted = true;
+            lastAutoListenAttemptAt = android.os.SystemClock.elapsedRealtime();
             if (shouldAutoStart) {
                 status.setText("JARVIS se prépare : activation automatique du micro…");
                 // L'activité est désormais visible. Un seul démarrage
@@ -1716,7 +1732,13 @@ public class MainActivity extends Activity {
             }
         }
         if (status != null) {
-            if (FridayService.isMicSilenced()) status.setText("Microphone momentanément rendu muet par Android : vérifiez les autres applications.");
+            if (AutoListenPolicy.enabled(prefs.get("jarvis_auto_listen_on_open", "1"))
+                    && !manuallyStoppedListening && !FridayService.isActive()
+                    && ModelInstaller.installed(this)
+                    && checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                            == PackageManager.PERMISSION_GRANTED) {
+                status.setText("JARVIS : activation automatique de l'écoute demandée…");
+            } else if (FridayService.isMicSilenced()) status.setText("Microphone momentanément rendu muet par Android : vérifiez les autres applications.");
             else if (FridayService.isActive()) status.setText("Écoute native active · " + FridayVersionGuard.thisVersion(this));
             else if (voskDownloadRunning.get())
                 status.setText("Micro arrêté : téléchargement du modèle Vosk en cours.");
