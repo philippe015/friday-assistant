@@ -28,6 +28,10 @@ public final class JarvisAndroidTools {
         // jamais la position Android ni une localisation déduite.
         String weather = JarvisWeather.answer(utterance, JarvisInternet.enabled(settings));
         if (weather != null) return weather;
+        // « Et demain ? » reprend une ville déjà citée par notre propre
+        // outil météo. Seul le nom de la ville entre dans la requête HTTPS.
+        String weatherFollowUp = JarvisWeather.followUp(context, settings, utterance);
+        if (weatherFollowUp != null) return weatherFollowUp;
         JarvisToolPolicy.Kind kind = JarvisToolPolicy.classify(utterance);
         if (kind == JarvisToolPolicy.Kind.NONE) {
             // Reuse existing deterministic on-device tools before HTTPS or
