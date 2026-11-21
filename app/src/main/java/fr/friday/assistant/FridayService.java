@@ -376,13 +376,14 @@ public class FridayService extends Service {
                     }
                     recognizer = createRecognizer(model);
                     ar.startRecording();
+                    boolean microphoneConfirmed = false;
                     if (firstQuestionOnMicStart) {
                         firstQuestionOnMicStart = false;
                         wakeOnlyUntil = SystemClock.elapsedRealtime() + 15_000L;
                         asrDiagnostic("Micro et Vosk prêts : première question directe pendant 15 secondes");
                     }
                     event("status", PhoneAudioRoute.inputStatus(ar));
-                    voiceState("Micro actif : dites Jarvis pour parler");
+                    voiceState("Micro démarré · vérification de l'accès Android…");
                     interruptDiagnostics = "STOP vocal retiré · utiliser le bouton Interrompre";
                     event("status", "Microphone du téléphone prêt. Réduction du bruit "
                             + (noiseSuppressor != null ? "active" : "non disponible")
@@ -401,6 +402,7 @@ public class FridayService extends Service {
                     boolean sawSpeakerFeedback = false;
                     boolean generalInputBlocked = false;
                     long mutedSince = 0;
+                    long nextMuteNoticeAt = 0;
                     while (running) {
                         // Une question : écoute active PENDANT la réponse pour permettre
                         // « stop » et « j'ai une précision ». Fermeture APRÈS la réponse.
@@ -470,8 +472,10 @@ public class FridayService extends Service {
                                 mutedSince = mutedAt;
                                 micSilenced = true;
                                 voiceState("Android a coupé le micro : contrôle des permissions / autre application");
-                                event("mic_conflict", "Micro muet selon Android. "
-                                        + "FRIDAY essaiera un autre mode de capture si possible.");
+                                event("mic_conflict", "Android fournit un microphone silencieux. "
+                                        + "Fermez les anciennes éditions FRIDAY ou toute autre application qui utilise le micro. "
+                                        + "La capture reprendra automatiquement lorsque Android la libérera.");
+                                nextMuteNoticeAt = mutedAt + 8000L;
                                 if (stopRecognizer != null) {
                                     stopRecognizer.close(); stopRecognizer = null;
                                     stopSpotter.reset();
@@ -481,18 +485,24 @@ public class FridayService extends Service {
                                 confidenceSum = 0; confidenceCount = 0;
                                 earlyCancelled = false; sawSpeakerFeedback = false;
                             }
-                            if (mutedAt - mutedSince >= 8000L) {
-                                mutedMicroReopens++;
-                                event("error", "Android maintient le micro muet depuis 8 secondes : "
-                                        + "tentative de recuperation " + mutedMicroReopens
-                                        + ". Fermez toute autre application utilisant le micro.");
-                                // Ne jamais rester pour toujours dans une boucle muette :
-                                // reconstruire AudioRecord avec temporisation progressive.
-                                throw new IllegalStateException("Microphone rendu muet par Android");
+                            // Une capture que la politique Android rend silencieuse
+                            // peut retrouver automatiquement du son. La détruire toutes
+                            // les 8 secondes crée une boucle de redémarrages inutile.
+                            if (mutedAt >= nextMuteNoticeAt) {
+                                event("mic_conflict", "Android maintient le micro muet. "
+                                        + "Forcez l'arrêt des anciennes éditions FRIDAY dans leurs informations Android, "
+                                        + "ou contrôlez le tableau de bord Microphone.");
+                                nextMuteNoticeAt = mutedAt + 30000L;
                             }
+                            SystemClock.sleep(100L);
                             continue;
                         }
                         consecutiveErrors = 0;
+                        if (!microphoneConfirmed) {
+                            microphoneConfirmed = true;
+                            voiceState("Micro actif : dites Jarvis pour parler");
+                            event("status", "Capture microphone confirmée par Android.");
+                        }
                         if (mutedSince != 0 || micSilenced) {
                             mutedSince = 0;
                             micSilenced = false;
