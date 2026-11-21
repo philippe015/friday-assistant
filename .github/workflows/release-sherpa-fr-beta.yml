@@ -34,8 +34,8 @@ jobs:
           test -n "$KEYSTORE_BASE64" || { echo "::error::Signing keystore secret not configured"; exit 1; }
           test -n "$KEYSTORE_PASSWORD" || { echo "::error::Signing password not configured"; exit 1; }
           test -n "$KEY_PASSWORD" || { echo "::error::Key password not configured"; exit 1; }
-          grep -Fq "versionCode 102" app/build.gradle
-          grep -Fq "versionName '3.13.17'" app/build.gradle
+          grep -Fq "versionCode 103" app/build.gradle
+          grep -Fq "versionName '3.13.18'" app/build.gradle
           grep -Fq "applicationId 'fr.friday.assistant'" app/build.gradle
           grep -Fq "sherpa-onnx:v2.0.2" app/build.gradle
           grep -Fq "SherpaVoiceModels.importOfficialArchive" app/src/main/java/fr/friday/assistant/MainActivity.java
@@ -44,6 +44,11 @@ jobs:
           grep -Fq "SherpaArchivePolicyTest" scripts/tester_sources.sh
           grep -Fq "HandsFreeQuestionPolicyTest" scripts/tester_sources.sh
           test -f tests/test_jarvis_quick_news_and_dialogue_20261121.py
+          test -f tests/test_jarvis_memory_latency_beta11.py
+          grep -Fq "NORMAL_DIALOGUE_MESSAGES = 6" app/src/main/java/fr/friday/assistant/DialogueContext.java
+          grep -Fq "MAX_DIALOGUE_MESSAGES = 14" app/src/main/java/fr/friday/assistant/DialogueContext.java
+          grep -Fq "sufficientIndependentSources(found)" app/src/main/java/fr/friday/assistant/JarvisInternet.java
+          grep -Fq "int pagesToRead" app/src/main/java/fr/friday/assistant/JarvisInternet.java
           test -f tests/test_weather_dialogue_20261121.py
           grep -Fq "WeatherRequestPolicyTest" scripts/tester_sources.sh
           grep -Fq "WeatherPlacePolicyTest" scripts/tester_sources.sh
@@ -85,7 +90,7 @@ jobs:
           test "$(grep -Fc 'int level = MicSignalMeter.level(buffer, count);' app/src/main/java/fr/friday/assistant/FridayService.java)" -eq 1
           grep -Fq 'SherpaVoiceDecoder.shutdown()' app/src/main/java/fr/friday/assistant/FridayService.java
           test -f docs/SHERPA_FR_ANDROID_BETA_20261120.md
-          if gh release view v3.13.17-sherpa-fr-beta.10 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v3.13.18-sherpa-fr-beta.11 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "::error::The prerelease already exists. Refusing to replace assets."
             exit 1
           fi
@@ -146,14 +151,14 @@ jobs:
           set -euo pipefail
           mkdir -p dist previous
           SRC="app/build/outputs/apk/release/app-release.apk"
-          APK="dist/JARVIS-v3.13.17-Meteo-France-Ecoute-Auto-beta10-release.apk"
+          APK="dist/JARVIS-v3.13.18-Memoire-Web-Rapide-beta11-release.apk"
           test -s "$SRC"
           cp "$SRC" "$APK"
           unzip -tq "$APK"
           SDK="$ANDROID_HOME/build-tools/35.0.0"
           "$SDK/apksigner" verify --print-certs "$APK"
           BADGING="$("$SDK/aapt2" dump badging "$APK")"
-          echo "$BADGING" | grep -F "name='fr.friday.assistant' versionCode='102' versionName='3.13.17'"
+          echo "$BADGING" | grep -F "name='fr.friday.assistant' versionCode='103' versionName='3.13.18'"
           if echo "$BADGING" | grep -q 'application-debuggable'; then
             echo "::error::Refusing to release an APK with android:debuggable."
             exit 1
@@ -170,11 +175,11 @@ jobs:
       - name: Publish pre-release with direct APK asset
         run: |
           set -euo pipefail
-          APK="dist/JARVIS-v3.13.17-Meteo-France-Ecoute-Auto-beta10-release.apk"
+          APK="dist/JARVIS-v3.13.18-Memoire-Web-Rapide-beta11-release.apk"
           cat > "$RUNNER_TEMP/sherpa-fr-beta-notes.md" <<'RELEASE_NOTES'
-          ## JARVIS Android — Pays météo vérifié et écoute continue bêta 10
+          ## JARVIS Android — Mémoire contextuelle et recherches plus rapides bêta 11
 
-          **APK Android signé, même certificat que JARVIS v3.13.8**, mise à jour sans effacer l'application ni ses réglages. Version interne Android 3.13.17 (versionCode 102) ; version GitHub bêta distincte. Cette publication est expérimentale et non une version stable.
+          **APK Android signé, même certificat que JARVIS v3.13.8**, mise à jour sans effacer l'application ni ses réglages. Version interne Android 3.13.18 (versionCode 103) ; version GitHub bêta distincte. Cette publication est expérimentale et non une version stable.
 
           - Reconnaissance française **sherpa-onnx v2.0.2** facultative dans les réglages.
           - **Correctif du mot-clé** : Jarvis et Friday sont acceptés en début de phrase ; variantes de dictée « Jar vis », « Jarvice », « Jervis », « Fridai ».
@@ -194,6 +199,14 @@ jobs:
           - **Réponse vocale sans bouton** : en mode mains libres, les questions françaises clairement formulées sont envoyées directement à JARVIS, même après expiration des 20 secondes ; aucun mot-clé obligatoire pour ces demandes.
           - **Dialogue météo interactif** : « Jarvis, la météo » provoque « Pour quelle ville souhaitez-vous la météo aujourd'hui ? ». Répondez simplement « Paris », « Lyon » ou « Paris, France ». L'écoute continue permet la réponse à un seul mot sans bouton ni nouveau mot-clé.
           - **Pays météo toujours confirmé avant un bulletin** : si une ville est demandée sans pays, JARVIS demande « Quel pays souhaitez-vous ? » au lieu d'utiliser le premier résultat de géocodage. « Paris, France », « Paris France » (dictée sans virgule) ou « Paris en France » sont pris en charge.
+          - **Mémoire de suivi plus pertinente** : les questions de relance (« explique davantage », « et lui ? ») disposent d'un contexte chiffré plus étendu, avec rappel de la dernière question et de la dernière réponse, sans inventer de souvenirs.
+          - **Réponses indépendantes plus rapides** : contexte local plus compact quand une nouvelle question n'a pas besoin de reprendre la discussion ; aucun effacement d'historique ni envoi au cloud.
+          - **Recherche Internet allégée** : pour les sujets généraux non temporels, trois sources pertinentes réparties sur deux domaines indépendants suffisent à éviter des requêtes additionnelles.
+          - **Sources sensibles conservées** : les sujets scientifiques, médicaux, juridiques et les actualités gardent leur recherche spécifique ; les résultats de pages HTTPS restent identifiés comme documents non fiables et cités dans la réponse.
+          - **Moins de lectures de pages inutiles** : une seule lecture intégrale facultative pour les sujets généraux, tout en conservant les extraits indexés et les URL des sources.
+          - **Stabilité bêta 10** : aucun changement au microphone, aux restrictions Android sur l'écoute, à Stop, au GPS ni au choix du pays dans les bulletins météo.
+          - Les gains de temps et la qualité des relances sont à vérifier sur le téléphone ; l'APK est une bêta de test.
+
           - **Aucune météo d'un autre pays par défaut** : le nom exact de la ville et le pays désigné sont tous les deux contrôlés sur les résultats Open-Meteo. Un pays incompatible bloque les prévisions plutôt que de substituer une autre ville.
           - **Écoute automatique sans bouton** : l'écoute est réactivée lors de la mise à jour, démarre à l'ouverture avec la permission microphone et reste active via une notification de service premier plan, y compris écran verrouillé tant qu'Android le permet.
           - **Surveillance de continuité** : tant que JARVIS est visible, un contrôle léger et limité peut relancer un service microphone arrêté ; jamais après Stop manuel, sans boucle de redémarrage et sans démarrage automatique caché au boot.
@@ -231,13 +244,13 @@ jobs:
 
           Sources : https://github.com/k2-fsa/sherpa-onnx et https://github.com/open-jarvis/OpenJarvis
           RELEASE_NOTES
-          gh release create v3.13.17-sherpa-fr-beta.10 "$APK" "dist/SHA256SUMS.txt" \
+          gh release create v3.13.18-sherpa-fr-beta.11 "$APK" "dist/SHA256SUMS.txt" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --prerelease \
-            --title "JARVIS v3.13.17 — Pays météo exact et écoute automatique (bêta 10)" \
+            --title "JARVIS v3.13.18 — Mémoire locale et recherches plus rapides (bêta 11)" \
             --notes-file "$RUNNER_TEMP/sherpa-fr-beta-notes.md"
-          gh release view v3.13.17-sherpa-fr-beta.10 --repo "$GITHUB_REPOSITORY" --json url,isPrerelease,assets
+          gh release view v3.13.18-sherpa-fr-beta.11 --repo "$GITHUB_REPOSITORY" --json url,isPrerelease,assets
 
       - name: Remove temporary signing key
         if: always()
