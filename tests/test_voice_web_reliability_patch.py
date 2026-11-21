@@ -62,7 +62,9 @@ class VoiceAndWebRegression(unittest.TestCase):
 
     def test_two_provider_fallback_deduplicates(self):
         self.assertIn("private static void mergeUnique(", WEB)
-        self.assertGreaterEqual(WEB.count("if (found.size() < MAX_RESULTS)"), 2)
+        # Trois articles datés suffisent pour éviter des recherches de secours lentes.
+        self.assertGreaterEqual(WEB.count("if (found.size() < 3)"), 2)
+        self.assertIn("if (found.size() < MAX_RESULTS)", WEB)
         self.assertIn("previous.url.equals(candidate.url)", WEB)
         self.assertIn("parseRss(", WEB)
         self.assertIn("parseDuckDuckGo(", WEB)
