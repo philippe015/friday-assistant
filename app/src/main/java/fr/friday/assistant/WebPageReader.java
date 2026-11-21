@@ -28,9 +28,14 @@ public final class WebPageReader {
         public final String title;
         public final String text;
         public final boolean truncated;
+        /** True only if an article-specific HTML body was located. */
+        public final boolean articleBody;
         Page(String url, String title, String text, boolean truncated) {
+            this(url, title, text, truncated, false);
+        }
+        Page(String url, String title, String text, boolean truncated, boolean articleBody) {
             this.url = url; this.title = title; this.text = text;
-            this.truncated = truncated;
+            this.truncated = truncated; this.articleBody = articleBody;
         }
     }
 
@@ -113,6 +118,16 @@ public final class WebPageReader {
 
     /** Content fetched directly from a PUBLIC HTTPS website, never a user's local app. */
     public static Page read(String url) throws Exception {
+        return readInternal(url, false);
+    }
+
+    /** Lecture d'un article public derrière un lien RSS : contenu lisible,
+     * sans contourner les paywalls, sans exécution JavaScript. */
+    public static Page readArticle(String url) throws Exception {
+        return readInternal(url, true);
+    }
+
+    private static Page readInternal(String url, boolean articleMode) throws Exception {
         URI target = checkedUri(url);
         for (int redirect = 0; redirect <= 3; redirect++) {
             checkPublicDns(target);
@@ -168,12 +183,19 @@ public final class WebPageReader {
                 String title = "";
                 Matcher titleMatch = Pattern.compile("(?is)<title[^>]*>(.*?)</title>").matcher(body);
                 if (titleMatch.find()) title = plainText(titleMatch.group(1));
-                String text = type.startsWith("text/plain") ? body : plainText(body);
+                RssArticleText.Extracted extracted = articleMode
+                        && !type.startsWith("text/plain")
+                        ? RssArticleText.extract(body)
+                        : null;
+                String text = extracted == null
+                        ? (type.startsWith("text/plain") ? body : plainText(body))
+                        : extracted.text;
                 if (text.length() < 45)
                     throw new IllegalArgumentException("Page vide ou chargée uniquement en JavaScript.");
                 boolean trimmed = text.length() > MAX_TEXT;
                 if (trimmed) text = text.substring(0, MAX_TEXT);
-                return new Page(target.toString(), title, text, capped || trimmed);
+                return new Page(target.toString(), title, text,
+                        capped || trimmed, extracted != null && extracted.detected);
             } finally {
                 conn.disconnect();
             }
