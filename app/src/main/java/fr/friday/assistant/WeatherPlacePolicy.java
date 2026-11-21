@@ -17,11 +17,26 @@ public final class WeatherPlacePolicy {
                 .replaceAll("[^a-z0-9 ]+", " ").replaceAll("\\s+", " ").trim();
     }
 
+    // La dictée Android supprime souvent les virgules : « Paris France » doit
+    // être reconnu comme ville + pays, jamais comme ville « Paris France ».
+    private static final java.util.regex.Pattern COUNTRY_SUFFIX =
+            java.util.regex.Pattern.compile(
+                "(?iu)^(.*?)\\s+(?:(?:en|au|aux)\\s+)?"
+                + "(france|fr|états[ -]unis|etats[ -]unis|usa|"
+                + "canada|belgique|suisse|allemagne|espagne|italie|portugal|"
+                + "royaume[ -]uni|angleterre|maroc|algérie|algerie|tunisie|"
+                + "japon|chine|brésil|bresil|australie|mexique|inde|"
+                + "turquie|grèce|grece|norvège|norvege|suède|suede|"
+                + "pays[ -]bas|autriche|pologne|sénégal|senegal|"
+                + "côte[ -]d['’]ivoire|cote[ -]d['’]ivoire)$");
+
     public static String city(String userPlace) {
         String text = userPlace == null ? "" : userPlace.trim();
         int comma = text.lastIndexOf(',');
         if (comma >= 0 && comma < text.length() - 2)
             return text.substring(0, comma).trim();
+        java.util.regex.Matcher match = COUNTRY_SUFFIX.matcher(text);
+        if (match.matches()) return match.group(1).trim();
         return text;
     }
 
@@ -30,6 +45,8 @@ public final class WeatherPlacePolicy {
         int comma = text.lastIndexOf(',');
         if (comma >= 0 && comma < text.length() - 2)
             return text.substring(comma + 1).trim();
+        java.util.regex.Matcher match = COUNTRY_SUFFIX.matcher(text);
+        if (match.matches()) return match.group(2).trim();
         return "";
     }
 
