@@ -34,8 +34,8 @@ jobs:
           test -n "$KEYSTORE_BASE64" || { echo "::error::Signing keystore secret not configured"; exit 1; }
           test -n "$KEYSTORE_PASSWORD" || { echo "::error::Signing password not configured"; exit 1; }
           test -n "$KEY_PASSWORD" || { echo "::error::Key password not configured"; exit 1; }
-          grep -Fq "versionCode 101" app/build.gradle
-          grep -Fq "versionName '3.13.16'" app/build.gradle
+          grep -Fq "versionCode 102" app/build.gradle
+          grep -Fq "versionName '3.13.17'" app/build.gradle
           grep -Fq "applicationId 'fr.friday.assistant'" app/build.gradle
           grep -Fq "sherpa-onnx:v2.0.2" app/build.gradle
           grep -Fq "SherpaVoiceModels.importOfficialArchive" app/src/main/java/fr/friday/assistant/MainActivity.java
@@ -46,6 +46,13 @@ jobs:
           test -f tests/test_jarvis_quick_news_and_dialogue_20261121.py
           test -f tests/test_weather_dialogue_20261121.py
           grep -Fq "WeatherRequestPolicyTest" scripts/tester_sources.sh
+          grep -Fq "WeatherPlacePolicyTest" scripts/tester_sources.sh
+          grep -Fq "WeatherPlacePolicy.sameCountry(" app/src/main/java/fr/friday/assistant/WeatherForecast.java
+          grep -Fq "if (requestedCountry.isEmpty())" app/src/main/java/fr/friday/assistant/WeatherForecast.java
+          grep -Fq "catch (WeatherForecast.NeedCountryException ambiguous)" app/src/main/java/fr/friday/assistant/WeatherDialogue.java
+          grep -Fq "AutoListenPolicy.retryWhileVisible(" app/src/main/java/fr/friday/assistant/MainActivity.java
+          grep -Fq 'prefs.put("jarvis_always_listening_v31317", "1")' app/src/main/java/fr/friday/assistant/MainActivity.java
+          grep -Fq "visibleListenHandler.removeCallbacks(visibleListenWatchdog)" app/src/main/java/fr/friday/assistant/MainActivity.java
           grep -Fq "WeatherDialogue.cityFollowup(settings, heard)" app/src/main/java/fr/friday/assistant/FridayService.java
           grep -Fq "WeatherDialogue.answer(" app/src/main/java/fr/friday/assistant/MainActivity.java
           grep -Fq "https://geocoding-api.open-meteo.com/v1/search" app/src/main/java/fr/friday/assistant/WeatherForecast.java
@@ -78,7 +85,7 @@ jobs:
           test "$(grep -Fc 'int level = MicSignalMeter.level(buffer, count);' app/src/main/java/fr/friday/assistant/FridayService.java)" -eq 1
           grep -Fq 'SherpaVoiceDecoder.shutdown()' app/src/main/java/fr/friday/assistant/FridayService.java
           test -f docs/SHERPA_FR_ANDROID_BETA_20261120.md
-          if gh release view v3.13.16-sherpa-fr-beta.9 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view v3.13.17-sherpa-fr-beta.10 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "::error::The prerelease already exists. Refusing to replace assets."
             exit 1
           fi
@@ -139,14 +146,14 @@ jobs:
           set -euo pipefail
           mkdir -p dist previous
           SRC="app/build/outputs/apk/release/app-release.apk"
-          APK="dist/JARVIS-v3.13.16-Meteo-Dialogue-beta9-release.apk"
+          APK="dist/JARVIS-v3.13.17-Meteo-France-Ecoute-Auto-beta10-release.apk"
           test -s "$SRC"
           cp "$SRC" "$APK"
           unzip -tq "$APK"
           SDK="$ANDROID_HOME/build-tools/35.0.0"
           "$SDK/apksigner" verify --print-certs "$APK"
           BADGING="$("$SDK/aapt2" dump badging "$APK")"
-          echo "$BADGING" | grep -F "name='fr.friday.assistant' versionCode='101' versionName='3.13.16'"
+          echo "$BADGING" | grep -F "name='fr.friday.assistant' versionCode='102' versionName='3.13.17'"
           if echo "$BADGING" | grep -q 'application-debuggable'; then
             echo "::error::Refusing to release an APK with android:debuggable."
             exit 1
@@ -163,11 +170,11 @@ jobs:
       - name: Publish pre-release with direct APK asset
         run: |
           set -euo pipefail
-          APK="dist/JARVIS-v3.13.16-Meteo-Dialogue-beta9-release.apk"
+          APK="dist/JARVIS-v3.13.17-Meteo-France-Ecoute-Auto-beta10-release.apk"
           cat > "$RUNNER_TEMP/sherpa-fr-beta-notes.md" <<'RELEASE_NOTES'
-          ## JARVIS Android — Dialogue météo par ville bêta 9
+          ## JARVIS Android — Pays météo vérifié et écoute continue bêta 10
 
-          **APK Android signé, même certificat que JARVIS v3.13.8**, mise à jour sans effacer l'application ni ses réglages. Version interne Android 3.13.16 (versionCode 101) ; version GitHub bêta distincte. Cette publication est expérimentale et non une version stable.
+          **APK Android signé, même certificat que JARVIS v3.13.8**, mise à jour sans effacer l'application ni ses réglages. Version interne Android 3.13.17 (versionCode 102) ; version GitHub bêta distincte. Cette publication est expérimentale et non une version stable.
 
           - Reconnaissance française **sherpa-onnx v2.0.2** facultative dans les réglages.
           - **Correctif du mot-clé** : Jarvis et Friday sont acceptés en début de phrase ; variantes de dictée « Jar vis », « Jarvice », « Jervis », « Fridai ».
@@ -186,6 +193,12 @@ jobs:
           - **Import Sherpa corrigé** : le sélecteur Android reconnaît les téléchargements renommés par le navigateur avec « (1) » et une extension `.tar.bz`, mais vérifie toujours l'en-tête BZip2 et les quatre composants ONNX attendus.
           - **Réponse vocale sans bouton** : en mode mains libres, les questions françaises clairement formulées sont envoyées directement à JARVIS, même après expiration des 20 secondes ; aucun mot-clé obligatoire pour ces demandes.
           - **Dialogue météo interactif** : « Jarvis, la météo » provoque « Pour quelle ville souhaitez-vous la météo aujourd'hui ? ». Répondez simplement « Paris », « Lyon » ou « Paris, France ». L'écoute continue permet la réponse à un seul mot sans bouton ni nouveau mot-clé.
+          - **Pays météo toujours confirmé avant un bulletin** : si une ville est demandée sans pays, JARVIS demande « Quel pays souhaitez-vous ? » au lieu d'utiliser le premier résultat de géocodage. « Paris, France », « Paris France » (dictée sans virgule) ou « Paris en France » sont pris en charge.
+          - **Aucune météo d'un autre pays par défaut** : le nom exact de la ville et le pays désigné sont tous les deux contrôlés sur les résultats Open-Meteo. Un pays incompatible bloque les prévisions plutôt que de substituer une autre ville.
+          - **Écoute automatique sans bouton** : l'écoute est réactivée lors de la mise à jour, démarre à l'ouverture avec la permission microphone et reste active via une notification de service premier plan, y compris écran verrouillé tant qu'Android le permet.
+          - **Surveillance de continuité** : tant que JARVIS est visible, un contrôle léger et limité peut relancer un service microphone arrêté ; jamais après Stop manuel, sans boucle de redémarrage et sans démarrage automatique caché au boot.
+          - **Bouton renommé** : « Relancer écoute (dépannage) » est facultatif et sert uniquement si Android empêche la première activation. La mise à jour doit encore être testée sur téléphone.
+
           - **Prévision avec date** : « Quel temps fera-t-il demain ? » demande la ville, conserve « demain » pendant le dialogue et fournit minimum, maximum, conditions et risque de pluie ; après-demain est également pris en charge.
           - **Source météorologique réelle** : géocodage de la ville et prévisions sur Open-Meteo par HTTPS, agrégeant des modèles météorologiques dont Météo-France selon les lieux. Les prévisions sont présentées comme des estimations et la source est affichée.
           - **Sans GPS imposé ni clé API** : seules les villes indiquées par l'utilisateur sont transmises au fournisseur météo ; aucune conversation, clé secrète ni position GPS n'est envoyée.
@@ -218,13 +231,13 @@ jobs:
 
           Sources : https://github.com/k2-fsa/sherpa-onnx et https://github.com/open-jarvis/OpenJarvis
           RELEASE_NOTES
-          gh release create v3.13.16-sherpa-fr-beta.9 "$APK" "dist/SHA256SUMS.txt" \
+          gh release create v3.13.17-sherpa-fr-beta.10 "$APK" "dist/SHA256SUMS.txt" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --prerelease \
-            --title "JARVIS v3.13.16 — Dialogue météo par ville (bêta 9)" \
+            --title "JARVIS v3.13.17 — Pays météo exact et écoute automatique (bêta 10)" \
             --notes-file "$RUNNER_TEMP/sherpa-fr-beta-notes.md"
-          gh release view v3.13.16-sherpa-fr-beta.9 --repo "$GITHUB_REPOSITORY" --json url,isPrerelease,assets
+          gh release view v3.13.17-sherpa-fr-beta.10 --repo "$GITHUB_REPOSITORY" --json url,isPrerelease,assets
 
       - name: Remove temporary signing key
         if: always()
