@@ -13,8 +13,13 @@ import java.util.ArrayDeque;
 public final class DialogueContext {
     private DialogueContext() { }
 
-    private static final int MAX_DIALOGUE_MESSAGES = 10;
-    private static final int MAX_DIALOGUE_CHARACTERS = 2800;
+    // Une nouvelle question ne doit pas ralentir le modèle 0,6 B en lui
+    // donnant tout l'historique. Pour une vraie relance, récupérer davantage
+    // de tours chiffrés mais respecter la fenêtre courte du modèle local.
+    private static final int MAX_DIALOGUE_MESSAGES = 14;
+    private static final int MAX_DIALOGUE_CHARACTERS = 2600;
+    private static final int NORMAL_DIALOGUE_MESSAGES = 6;
+    private static final int NORMAL_DIALOGUE_CHARACTERS = 1250;
 
     /** Évite d'utiliser deux fois la question que le service vient d'enregistrer. */
     private static int previousEnd(JSONArray events, String currentQuestion) {
@@ -48,9 +53,14 @@ public final class DialogueContext {
             throws Exception {
         JSONArray events = new JSONArray(PrivateConversationHistory.read(context, prefs));
         int end = previousEnd(events, currentQuestion);
+        boolean followup = DialogueMemoryPolicy.isContextualFollowUp(currentQuestion)
+                || DialogueMemoryPolicy.isPrivateDialogue(currentQuestion);
+        int maxMessages = followup ? MAX_DIALOGUE_MESSAGES : NORMAL_DIALOGUE_MESSAGES;
+        int maxCharacters = followup ? MAX_DIALOGUE_CHARACTERS
+                : NORMAL_DIALOGUE_CHARACTERS;
         ArrayDeque<String> chosen = new ArrayDeque<>();
         int chars = 0;
-        for (int i = end - 1; i >= 0 && chosen.size() < MAX_DIALOGUE_MESSAGES; i--) {
+        for (int i = end - 1; i >= 0 && chosen.size() < maxMessages; i--) {
             JSONObject obj = events.optJSONObject(i);
             if (obj == null) continue;
             String kind = obj.optString("kind", "");
@@ -59,7 +69,14 @@ public final class DialogueContext {
             if (text.isEmpty()) continue;
             String line = ("user".equals(kind) ? "Utilisateur : " : "Jarvis : ")
                     + text;
-            if (chars + line.length() + 1 > MAX_DIALOGUE_CHARACTERS) break;
+            if (chars + line.length() + 1 > maxCharacters) {
+                if (!chosen.isEmpty()) break;
+                // Une seule réponse très longue ne doit pas effacer la
+                // dernière intervention : clipper seulement cet extrait.
+                int available = maxCharacters - chars - 6;
+                if (available <= 15) break;
+                line = line.substring(0, Math.min(available, line.length())) + "…";
+            }
             chosen.addFirst(line);
             chars += line.length() + 1;
         }
