@@ -16,8 +16,19 @@ public final class RssFreshness {
         try {
             return ZonedDateTime.parse(rssDate.trim(),
                     DateTimeFormatter.RFC_1123_DATE_TIME).toInstant().toEpochMilli();
-        } catch (DateTimeParseException invalid) {
-            return 0;
+        } catch (DateTimeParseException notRfc1123) {
+            // Flux RDF/Atom internationaux : <dc:date> et <updated>
+            // publient couramment des horodatages ISO-8601.
+            try {
+                return Instant.parse(rssDate.trim()).toEpochMilli();
+            } catch (DateTimeParseException notInstant) {
+                try {
+                    return java.time.OffsetDateTime.parse(rssDate.trim())
+                            .toInstant().toEpochMilli();
+                } catch (DateTimeParseException invalid) {
+                    return 0;
+                }
+            }
         }
     }
 
