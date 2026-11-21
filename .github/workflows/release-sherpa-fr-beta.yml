@@ -129,7 +129,7 @@ jobs:
           SDK="$ANDROID_HOME/build-tools/35.0.0"
           "$SDK/apksigner" verify --print-certs "$APK"
           BADGING="$("$SDK/aapt2" dump badging "$APK")"
-          echo "$BADGING" | grep -F "name='fr.friday.assistant' versionCode='97' versionName='3.13.12'"
+          echo "$BADGING" | grep -F "name='fr.friday.assistant' versionCode='98' versionName='3.13.13'"
           if echo "$BADGING" | grep -q 'application-debuggable'; then
             echo "::error::Refusing to release an APK with android:debuggable."
             exit 1
