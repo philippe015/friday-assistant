@@ -1293,6 +1293,20 @@ public class MainActivity extends Activity {
             String fault = null;
             boolean persisted = false;
             try {
+                // Le texte écrit doit accéder au même historique chiffré
+                // que la voix. Ce contenu n'est transmis qu'au modèle local,
+                // jamais aux moteurs de recherche HTTPS.
+                String privateDialogue = "";
+                if (MemoryIntent.kind(request) == MemoryIntent.NONE
+                        && !LocationIntent.nearby(request)) {
+                    try {
+                        privateDialogue = DialogueContext.recent(
+                                getApplicationContext(), prefs, request);
+                    } catch (Exception inaccessibleHistory) {
+                        android.util.Log.w("FRIDAY_PRIVACY",
+                                "Contexte local chiffré indisponible ; poursuite sans historique");
+                    }
+                }
                 if (MemoryIntent.kind(request) != MemoryIntent.NONE)
                     answer = PersonalMemory.command(prefs, request);
                 if (answer == null && DialogueMemoryPolicy.asksMemoryStatus(request))
@@ -1312,12 +1326,13 @@ public class MainActivity extends Activity {
                 if (answer == null) {
                     if (JarvisInternet.shouldResearch(prefs, request)) {
                         JarvisInternet.Result researched = JarvisInternet.answer(
-                                getApplicationContext(), prefs, request, new NativeAI.CancelToken());
+                                getApplicationContext(), prefs, request, privateDialogue,
+                                new NativeAI.CancelToken());
                         answer = researched.text;
                         speechAnswer = researched.speech;
                     } else {
                         answer = LocalJarvisEngine.answer(getApplicationContext(), prefs, request,
-                                new NativeAI.CancelToken());
+                                privateDialogue, new NativeAI.CancelToken());
                     }
                 }
                 if (answer == null || answer.trim().isEmpty())
