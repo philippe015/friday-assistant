@@ -54,7 +54,7 @@ class WeatherDialogueAndroid(unittest.TestCase):
         self.assertIn("TtsEchoGate.suppressGeneralAsr(", VOICE)
         self.assertIn("BargeInPolicy.isStopListening(heard)", VOICE)
         self.assertIn("voice_state", VOICE)
-        self.assertIn("WeatherRequestPolicy.isWeatherRequest", REQUEST)
+        self.assertIn("public static boolean isWeatherRequest(String question)", REQUEST)
 
 
 if __name__ == "__main__":
