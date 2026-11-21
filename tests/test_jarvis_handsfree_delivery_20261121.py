@@ -28,7 +28,8 @@ class HandsfreeDelivery(unittest.TestCase):
     def test_keep_text_and_voice_distinct(self):
         self.assertIn('private void sendQuestion(String question)', ACTIVITY)
         self.assertIn('Transcription non envoyée à JARVIS', HTML)
-        self.assertIn("plausibleDirectQuestion(heard", VOICE)
+        self.assertIn("VoiceQuestionPolicy.plausibleDirectQuestion(", VOICE)
+        self.assertIn("heard, !latestQuestion.isEmpty()", VOICE)
         self.assertIn('!speakingNow && now >= echoBlockUntil', VOICE)
 
 if __name__ == "__main__":
