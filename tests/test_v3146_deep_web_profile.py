@@ -49,7 +49,7 @@ class JarvisDeepWebRegression(unittest.TestCase):
         self.assertNotIn("api.mistral.ai", internet)
         self.assertNotIn("PersonalMemory.search(", internet)
         self.assertNotIn("FridayLocation.", internet)
-        self.assertIn("privateDialogue, cancellation", model)
+        self.assertIn("buildLocalPrompt(cfg, cleaned, privateDialogue)", model)
         self.assertIn("WebPageReader.checkedUri", internet)
 
     def test_version_and_voice_not_rewritten(self):
