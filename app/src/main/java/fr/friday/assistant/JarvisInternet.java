@@ -404,7 +404,7 @@ public final class JarvisInternet {
         }
 
         boolean foreign = !("fr".equalsIgnoreCase(lang));
-        boolean translate = foreign
+        boolean translate = foreign && !RssArticleIntent.wantsAnalysis(question)
                 && "1".equals(settings.get("jarvis_world_rss_translate_fr", "1"));
         String readText = original;
         boolean translationOk = false;
