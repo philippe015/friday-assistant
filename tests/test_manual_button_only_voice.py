@@ -29,7 +29,7 @@ class ManualButtonOnlyVoiceTest(unittest.TestCase):
         self.assertLess(stop_guard, old_stop_handler)
         self.assertIn("|| BargeInPolicy.isStopAnswer(heard)", handler)
         self.assertIn("|| BargeInPolicy.isBareStopAnswer(heard)) return;", handler)
-        self.assertIn("if (currentTurn != null) return;", handler)
+        self.assertIn("if (currentTurn != null) {", handler)
 
     def test_button_interrupts_and_auto_listening_remains(self):
         self.assertIn('setAction(FridayService.ACTION_INTERRUPT)', ACTIVITY)
