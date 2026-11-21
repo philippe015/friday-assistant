@@ -30,6 +30,9 @@ public final class RecentNewsPolicy {
     private static final Pattern REPORTS_STRIKE = Pattern.compile(
             "\\b(?:frappes?|attaques?|bombardements?|missiles?|drones?|explosions?|raids?|offensives?|"
             + "bombarde|bombardee|attaquee|visee|interceptee|interception)\\b");
+    private static final Pattern ATTACK_ACTION = Pattern.compile(
+            "\\b(?:frappes?|attaques?|bombardements?|explosions?|raids?|offensives?|"
+            + "bombarde|bombardee|attaquee|visee|interceptee|interception)\\b");
     private static final Pattern NEWS_BRIEF = Pattern.compile(
             "\\b(?:actualites?|actus?|nouvelles?|news|flash|journal)\\b"
             + "|\\b(?:dernieres?|recents?|recentes?|nouveautes?)\\s+"
@@ -112,7 +115,13 @@ public final class RecentNewsPolicy {
         if (!CONFLICT_EVENTS.matcher(fold(topic)).find()) return true;
         String result = fold((title == null ? "" : title) + " "
                 + (summary == null ? "" : summary));
-        if (!REPORTS_STRIKE.matcher(result).find()) return false;
+        // « La Russie équipe ses drones » ne décrit pas une frappe. Pour une
+        // demande de frappes, une action offensive doit figurer dans la source.
+        if (fold(topic).matches(".*\\b(?:frappes?|attaques?|bombardements?)\\b.*")) {
+            if (!ATTACK_ACTION.matcher(result).find()) return false;
+        } else if (!REPORTS_STRIKE.matcher(result).find()) {
+            return false;
+        }
         String normalizedTopic = fold(topic);
         if (normalizedTopic.matches(".*\\brussi(?:e|es|en|enne|ens|ennes)?\\b.*")) {
             return result.contains("russ") || result.contains("moscou")
