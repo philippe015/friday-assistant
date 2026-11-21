@@ -17,7 +17,7 @@ class JarvisMemoryReleaseRegression(unittest.TestCase):
         version_name = re.search(r"versionName\s+'([^']+)'", BUILD).group(1)
         package = re.search(r"applicationId\s+'([^']+)'", BUILD).group(1)
         self.assertEqual((package, version_code, version_name),
-                         ("fr.friday.assistant", "99", "3.13.14"))
+                         ("fr.friday.assistant", "100", "3.13.15"))
         self.assertIn(
             "name='" + package + "' versionCode='" + version_code
             + "' versionName='" + version_name + "'", BETA_FLOW
@@ -25,7 +25,7 @@ class JarvisMemoryReleaseRegression(unittest.TestCase):
         self.assertIn("versionCode='92' versionName='3.13.7'", PREVIOUS_FLOW)
         self.assertNotIn("versionCode='92' versionName='3.13.7'", FLOW)
         self.assertIn("name='fr.friday.assistant' versionCode='93' versionName='3.13.8'", FLOW)
-        self.assertIn("v3.13.14-sherpa-fr-beta.7", BETA_FLOW)
+        self.assertIn("v3.13.15-sherpa-fr-beta.8", BETA_FLOW)
 
     def test_update_never_publishes_without_matching_release_certificate(self):
         self.assertIn('if gh release view "$TAG"', FLOW)
