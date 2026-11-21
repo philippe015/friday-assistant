@@ -39,15 +39,17 @@
 
 ---
 
-## Option expérimentale : RSS Monde FR v3.14.1 (bêta non encore validée sur téléphone)
+## Bêta corrective v3.14.2 — RSS Monde FR + anti-écho vocal
 
-**[📥 Télécharger FRIDAY-Jarvis-RSS-Monde-FR-v3.14.1-test.apk](https://github.com/philippe015/friday-assistant/releases/download/v3.14.1-rss-monde-beta/FRIDAY-Jarvis-RSS-Monde-FR-v3.14.1-test.apk)**
+**[📥 Télécharger FRIDAY-Jarvis-RSS-Monde-FR-v3.14.2-Anti-Echo-test.apk](https://github.com/philippe015/friday-assistant/releases/download/v3.14.2-rss-anti-echo-beta/FRIDAY-Jarvis-RSS-Monde-FR-v3.14.2-Anti-Echo-test.apk)**
 
-Cette **préversion facultative** offre un catalogue de 17 flux RSS mondiaux, la traduction française des titres et courts extraits **par Gemma 4 local sur Android**, et le bouton **RSS Monde FR**. Les titres originaux, les dates RSS et les liens sont conservés. Les flux disponibles dépendent des éditeurs et la traduction peut comporter des erreurs.
+Ce correctif répond au journal Android où **Vosk a retranscrit la voix de JARVIS comme une nouvelle question**. Il ajoute un contrôle de similarité avec la dernière phrase lue et évite les bulletins RSS de « zéro titre » fondés sur des résultats sans date vérifiable. Les **17 flux RSS mondiaux**, le bouton **RSS Monde FR**, les dates et sources restent présents. La traduction utilise **Gemma 4 E2B GPU localement**.
 
-**À ne pas confondre avec la v3.14.0 fonctionnelle ci-dessus :** la bêta 3.14.1 s'installe à côté (`fr.friday.assistant.rsspreview`) et nécessite d'importer à nouveau le modèle local, car chaque application Android possède son stockage privé. **Ne désinstallez pas votre v3.14.0 validée.**
+**Statut :** compilation Android et tests automatisés réussis ; **réparation acoustique non encore confirmée sur téléphone**. Il s'agit d'une bêta, pas de la version fonctionnelle validée.
 
-[Release RSS Monde FR v3.14.1](https://github.com/philippe015/friday-assistant/releases/tag/v3.14.1-rss-monde-beta) · [Code source (PR #91)](https://github.com/philippe015/friday-assistant/pull/91)
+**Conserver la v3.14.0 fonctionnelle ci-dessus.** La bêta v3.14.2 utilise le package `fr.friday.assistant.rsspreview`, distinct du package fonctionnel `fr.friday.assistant.smartpreview`. Les modèles personnels ne sont pas partagés. Réimporter `gemma-4-E2B-it-gpu.litertlm` dans l'édition RSS si nécessaire. En cas de signature debug incompatible avec l'ancienne bêta 3.14.1, sauvegarder les données de test avant toute désinstallation.
+
+[Voir la Release bêta v3.14.2](https://github.com/philippe015/friday-assistant/releases/tag/v3.14.2-rss-anti-echo-beta) · [Code source et correctifs (PR #91)](https://github.com/philippe015/friday-assistant/pull/91) · [Ancienne bêta v3.14.1](https://github.com/philippe015/friday-assistant/releases/tag/v3.14.1-rss-monde-beta)
 
 ---
 
