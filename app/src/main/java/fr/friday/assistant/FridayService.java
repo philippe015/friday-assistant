@@ -118,6 +118,8 @@ public class FridayService extends Service {
         volatile boolean cancelled;
         final long startedAt = SystemClock.elapsedRealtime();
         final AtomicLong firstVoiceAt = new AtomicLong();
+        /** Ne vider la file TTS qu'au premier segment de ce tour. */
+        final AtomicBoolean ttsQueueStarted = new AtomicBoolean(false);
         void cancel() {
             cancelled = true;
             api.cancel();
@@ -1365,7 +1367,13 @@ public class FridayService extends Service {
                     // Protège contre la course entre tts.stop() du micro et
                     // un nouveau tts.speak() lancé depuis le thread streaming.
                     if (!live(turn) || tts == null) return false;
-                    code = tts.speak(part, TextToSpeech.QUEUE_FLUSH, new Bundle(), utterance);
+                    // QUEUE_FLUSH pour le premier segment seulement : vider la
+                    // file à chaque phrase peut tronquer une lecture en cours
+                    // avec certains moteurs TTS Android.
+                    int queueMode = turn.ttsQueueStarted.get()
+                            ? TextToSpeech.QUEUE_ADD : TextToSpeech.QUEUE_FLUSH;
+                    code = tts.speak(part, queueMode, new Bundle(), utterance);
+                    if (code == TextToSpeech.SUCCESS) turn.ttsQueueStarted.set(true);
                 }
                 if (code != TextToSpeech.SUCCESS) {
                     event("error", "Synthèse refusée (code " + code + "). Vérifiez la sortie média et le moteur TTS.");
