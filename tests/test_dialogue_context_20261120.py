@@ -44,7 +44,7 @@ class EncryptedDialogueMemory(unittest.TestCase):
         self.assertIn("Ni mémoire personnelle, ni conversation complète, ni position GPS",WEB)
 
     def test_context_is_bounded_and_current_question_not_duplicated(self):
-        self.assertIn("MAX_DIALOGUE_MESSAGES = 10",DIALOG)
+        self.assertIn("MAX_DIALOGUE_MESSAGES = 6",DIALOG)
         self.assertIn("MAX_DIALOGUE_CHARACTERS = 2800",DIALOG)
         self.assertIn("previousEnd(events, currentQuestion)",DIALOG)
         self.assertIn("chosen.addFirst(line)",DIALOG)
