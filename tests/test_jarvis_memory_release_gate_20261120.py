@@ -16,7 +16,7 @@ class JarvisMemoryReleaseRegression(unittest.TestCase):
         version_name = re.search(r"versionName\s+'([^']+)'", BUILD).group(1)
         package = re.search(r"applicationId\s+'([^']+)'", BUILD).group(1)
         self.assertEqual((package, version_code, version_name),
-                         ("fr.friday.assistant", "93", "3.13.8"))
+                         ("fr.friday.assistant", "94", "3.14.0"))
         self.assertIn(
             "name='" + package + "' versionCode='" + version_code
             + "' versionName='" + version_name + "'", FLOW
