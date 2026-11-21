@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
 public final class SherpaArchivePolicy {
     private static final String STEM = "sherpa-onnx-streaming-zipformer-fr-2023-04-14";
     private static final Pattern FILE_NAME = Pattern.compile(
-            Pattern.quote(STEM) + "(?: \\([1-9][0-9]?\\))?\\.tar\\.bz2?");
+            Pattern.quote(STEM) + "(?: \\([1-9][0-9]?\\))?\\.tar\\.bz2?(?: \\([1-9][0-9]?\\))?");
     private SherpaArchivePolicy() { }
 
     public static boolean acceptedDisplayName(String displayed) {
