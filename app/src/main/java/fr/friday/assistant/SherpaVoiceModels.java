@@ -154,9 +154,11 @@ public final class SherpaVoiceModels {
             throws IOException {
         if (uri == null || !"content".equals(uri.getScheme()))
             throw new IOException("Sélectionnez le fichier officiel .tar.bz2 via Android.");
-        String sourceName = fileName(ctx, uri).toLowerCase(Locale.ROOT);
-        if (!sourceName.equals("sherpa-onnx-streaming-zipformer-fr-2023-04-14.tar.bz2"))
-            throw new IOException("Archive inattendue : utilisez le modèle français officiel sherpa-onnx.");
+        String sourceName = fileName(ctx, uri);
+        if (!SherpaArchivePolicy.acceptedDisplayName(sourceName))
+            throw new IOException("Nom d'archive non reconnu : " + sourceName
+                    + ". Choisissez le modèle officiel Zipformer français "
+                    + "(extension .tar.bz2, éventuellement renommé par Android).");
         File root = ctx.getFilesDir();
         File target = directory(ctx);
         File staging = new File(root, TMP);
@@ -172,7 +174,8 @@ public final class SherpaVoiceModels {
             try (InputStream input = ctx.getContentResolver().openInputStream(uri)) {
                 if (input == null) throw new IOException("Archive inaccessible.");
                 try (TarArchiveInputStream tar = new TarArchiveInputStream(
-                        new BZip2CompressorInputStream(input))) {
+                        new BZip2CompressorInputStream(
+                                SherpaArchivePolicy.checkedBzip2(input)))) {
                     TarArchiveEntry entry;
                     while ((entry = tar.getNextTarEntry()) != null) {
                         if (!entry.isFile()) continue;
