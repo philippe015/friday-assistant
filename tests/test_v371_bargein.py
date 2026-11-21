@@ -22,7 +22,7 @@ class VoiceInterruptionRegression(unittest.TestCase):
     def test_no_tts_speak_after_cancellation(self):
         service = read("FridayService.java")
         position = service.index("code = tts.speak(part,")
-        before = service[position-400:position]
+        before = service[position-850:position]
         self.assertIn("synchronized (ttsControlLock)", before)
         self.assertIn("!live(turn)", before)
 

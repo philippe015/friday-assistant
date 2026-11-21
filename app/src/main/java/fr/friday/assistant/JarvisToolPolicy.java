@@ -9,7 +9,7 @@ import java.util.Locale;
  * execution. Restrict matching to questions explicitly about JARVIS/the phone.
  */
 public final class JarvisToolPolicy {
-    public enum Kind { NONE, CAPABILITIES, MICROPHONE, MODEL, DEVICE, PRIVACY, SYSTEM }
+    public enum Kind { NONE, CAPABILITIES, MAPS, MICROPHONE, MODEL, DEVICE, PRIVACY, SYSTEM }
     private JarvisToolPolicy() { }
 
     public static String fold(String utterance) {
@@ -30,6 +30,17 @@ public final class JarvisToolPolicy {
                 + "capacites de jarvis|outils de jarvis|"
                 + "comment fonctionne ton assistant)$"))
             return Kind.CAPABILITIES;
+        // Demandes sur l'accès de JARVIS à Google Maps : réponse locale
+        // vérifiable sur les permissions et outils réellement intégrés.
+        // Ne pas traiter « map » seul : c'est ambigu dans une recherche générale.
+        if (q.matches("^(?:as tu|est ce que tu as|tu as|avez vous|est ce que vous avez)"
+                + " (?:un |l )?acces (?:a |au |aux )?(?:google )?(?:map|maps|google maps|carte|cartes)"
+                + "(?: du telephone)?$")
+                || q.matches("^(?:peux tu|est ce que tu peux|pouvez vous|sais tu)"
+                + " (?:utiliser|ouvrir|consulter|acceder a|lire)"
+                + " (?:google )?(?:map|maps|google maps|la carte|les cartes)$")) {
+            return Kind.MAPS;
+        }
         if (q.matches("^(?:diagnostic|diagnostic complet|bilan|etat|statut|"
                 + "diagnostic du systeme|diagnostic de jarvis|"
                 + "etat du systeme|etat de jarvis|statut de jarvis|"

@@ -59,7 +59,7 @@ public class MainActivity extends Activity {
     private boolean recordAfterMicPermission = false;
     private EditText memoryEditor, memorySearchInput;
     private EditText silenceInput, followupInput, ttsInput, voskHintsEditor;
-    private CheckBox bargeEnabled, followupHandsfreeEnabled, autoListenOnOpen;
+    private CheckBox followupHandsfreeEnabled, autoListenOnOpen;
     /** One automatic start per Activity open; never rearm after manual Stop. */
     private boolean startupListenAttempted = false;
     private boolean manuallyStoppedListening = false;
@@ -382,13 +382,7 @@ public class MainActivity extends Activity {
                 + "20 secondes. Passé ce délai, dites Friday ou Jarvis. "
                 + "La case ci-dessus permet de prolonger cette période, avec "
                 + "davantage de risque de déclenchements involontaires."));
-        bargeEnabled = new CheckBox(this);
-        bargeEnabled.setText("Activer STOP vocal pendant la réponse (« stop », « Friday stop », « j’ai une précision »)");
-        bargeEnabled.setTextColor(Color.WHITE);
-        bargeEnabled.setChecked("1".equals(prefs.get("barge_in_enabled", "0")));
-        config.addView(bargeEnabled);
-        config.addView(label("Stabilite v3.11.2 : STOP vocal desactive par defaut pour eviter les interruptions dues a l'echo du haut-parleur. Le bouton Interrompre reste disponible. Re-activez cette case uniquement apres avoir verifie le comportement avec un casque."));
-        config.addView(label("Anti-écho v3.8.9 : Vosk reste actif pendant les recherches Web en attente. Il se suspend uniquement quand FRIDAY parle et pendant 2,5 secondes après. Le micro reste disponible pour les commandes STOP et précision grâce au décodeur séparé. Posez une nouvelle question après cette courte pause. Si Android bloque le micro, utilisez le bouton Interrompre."));
+        config.addView(label("STOP vocal retiré : pendant que Jarvis parle, il ne peut être interrompu que par le bouton « Interrompre la réponse et écouter ». Le micro reprend automatiquement après la fin réelle de la lecture et la protection anti-écho de 2,5 secondes."));
         config.addView(label("AUDIO · microphone et haut-parleur intégrés du téléphone"));
         config.addView(label("FRIDAY n'utilise plus le micro ni le mode mains libres Bluetooth. "
                 + "Les réponses Jarvis sortent par le haut-parleur du téléphone. "
@@ -532,7 +526,7 @@ public class MainActivity extends Activity {
             prefs.put("silence_ms", bounded(silenceInput, 2100, 900, 6000));
             prefs.put("followup_sec", bounded(followupInput, 75, 15, 180));
             prefs.put("followup_handsfree", followupHandsfreeEnabled.isChecked() ? "1" : "0");
-            prefs.put("barge_in_enabled", bargeEnabled.isChecked() ? "1" : "0");
+            prefs.put("barge_in_enabled", "0");
             prefs.put("bluetooth_mic_enabled", "0");
             prefs.put("tts_speed", bounded(ttsInput, 100, 70, 150));
             prefs.put("voice_enabled", voiceEnabled.isChecked() ? "1" : "0");
@@ -1744,8 +1738,7 @@ public class MainActivity extends Activity {
         @JavascriptInterface public boolean isMicSilenced() { return FridayService.isMicSilenced(); }
         @JavascriptInterface public String voiceReadiness() { return FridayService.voiceReadiness(); }
         @JavascriptInterface public String voiceInterruptTelemetry() {
-            if (!"1".equals(prefs.get("barge_in_enabled", "1"))) return "Désactivé dans Réglages";
-            return FridayService.interruptionDiagnostics();
+            return "STOP vocal retiré · interruption uniquement avec le bouton";
         }
         @JavascriptInterface public String currentVersion() { return FridayVersionGuard.thisVersion(MainActivity.this); }
         @JavascriptInterface public int otherVersionsCount() { return FridayVersionGuard.installed(MainActivity.this).size(); }
