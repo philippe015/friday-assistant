@@ -50,7 +50,7 @@ class ConflictIntegrationTest(unittest.TestCase):
         self.assertIsNotNone(m, 'versionName introuvable dans app/build.gradle')
         version = tuple(int(x) for x in m.groups())
         self.assertGreaterEqual(version, (2, 2, 0))
-        self.assertIn("applicationIdSuffix '.rsspreview'", build)
+        self.assertIn("applicationIdSuffix '.profilepreview'", build)
         main = (JAVA / 'MainActivity.java').read_text()
         self.assertIn('import android.app.AlertDialog;', main)
 
