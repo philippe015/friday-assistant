@@ -36,6 +36,11 @@ class OpenJarvisAndroidTools(unittest.TestCase):
                     expect("Jarvis, quel est ton modèle IA ?", JarvisToolPolicy.Kind.MODEL);
                     expect("Jarvis, niveau de batterie", JarvisToolPolicy.Kind.DEVICE);
                     expect("Jarvis, confidentialité de Jarvis", JarvisToolPolicy.Kind.PRIVACY);
+                    expect("as-tu accès à map", JarvisToolPolicy.Kind.MAPS);
+                    expect("Jarvis, tu as accès à Google Maps ?", JarvisToolPolicy.Kind.MAPS);
+                    expect("peux-tu utiliser Google Maps", JarvisToolPolicy.Kind.MAPS);
+                    expect("est-ce que tu as accès à maps", JarvisToolPolicy.Kind.MAPS);
+                    expect("la carte du monde en 1492", N);
                     expect("quelle heure est-il à Tokyo ?", N);
                     expect("explique le système politique français", N);
                     expect("batterie de voiture électrique", N);
