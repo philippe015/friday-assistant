@@ -290,9 +290,11 @@ public class MainActivity extends Activity {
                 this::openSherpaFrenchModel));
         config.addView(button("2. Importer l'archive française sur le téléphone",
                 this::chooseSherpaFrenchArchive));
-        config.addView(label("L'importation conserve l'ancien modèle en cas d'échec. "
-                + "L'archive peut être volumineuse ; prévoir 450 Mo libres. "
-                + "N'activez ce mode que pour des essais sur votre appareil."));
+        config.addView(label("Le téléchargement ouvre votre navigateur, mais n'installe pas le modèle. "
+                + "Pour l'importer, choisissez ensuite le fichier dans Téléchargements Android. "
+                + "Ne décompressez pas l'archive. Les noms renommés (1) et .tar.bz sont acceptés "
+                + "si le contenu est bien une archive BZip2 officielle compatible. "
+                + "Prévoyez au moins 450 Mo libres ; Vosk reste disponible."));
         config.addView(label("MOTEUR UNIQUE · Jarvis IA installé sur le téléphone. "
                 + "Aucun fournisseur Mistral, aucune requête Web vers un LLM. "
                 + "Téléchargez et importez un modèle compatible pour générer vos réponses. "
@@ -761,9 +763,27 @@ public class MainActivity extends Activity {
 
     private void chooseSherpaFrenchArchive() {
         if (FridayService.isActive()) {
-            sherpaVoiceStatus.setText("Appuyez sur Stop avant d'importer un moteur vocal.");
+            // Ne pas laisser un libellé muet donner l'impression que le fichier
+            // est incompatible. Proposer l'arrêt du micro puis ouvrir le sélecteur.
+            new AlertDialog.Builder(this)
+                    .setTitle("JARVIS · importer le modèle français")
+                    .setMessage("L'écoute est encore active. L'importation nécessite "
+                            + "son arrêt temporaire. Votre modèle Vosk et vos "
+                            + "conversations seront conservés.\n\n"
+                            + "Choisissez ensuite le fichier téléchargé dans "
+                            + "Téléchargements, sans le décompresser.")
+                    .setPositiveButton("Arrêter et choisir le fichier", (dialog, which) -> {
+                        stopListening();
+                        launchSherpaFrenchArchivePicker();
+                    })
+                    .setNegativeButton("Annuler", null)
+                    .show();
             return;
         }
+        launchSherpaFrenchArchivePicker();
+    }
+
+    private void launchSherpaFrenchArchivePicker() {
         if (!sherpaVoiceImporting.compareAndSet(false, true)) {
             sherpaVoiceStatus.setText("Importation déjà en cours.");
             return;
@@ -771,17 +791,25 @@ public class MainActivity extends Activity {
         try {
             Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT);
             picker.addCategory(Intent.CATEGORY_OPENABLE);
+            // Les fournisseurs de téléchargements utilisent des MIME variés :
+            // application/x-bzip2, octet-stream, voire type inconnu.
             picker.setType("*/*");
+            picker.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            sherpaVoiceStatus.setText("Sélectionnez dans Téléchargements l'archive "
+                    + "sherpa-onnx française (.tar.bz2, sans la décompresser).");
             startActivityForResult(picker, REQ_SHERPA_FR_MODEL);
         } catch (Exception error) {
             sherpaVoiceImporting.set(false);
-            sherpaVoiceStatus.setText("Sélecteur de documents Android indisponible.");
+            sherpaVoiceStatus.setText("Sélecteur Android indisponible : "
+                    + error.getClass().getSimpleName());
         }
     }
 
     private void finishSherpaFrenchArchive(int resultCode, Intent data) {
         if (resultCode != RESULT_OK || data == null || data.getData() == null) {
             sherpaVoiceImporting.set(false);
+            sherpaVoiceStatus.setText("Aucune archive sélectionnée : importation annulée. "
+                    + "Ouvrez Téléchargements et sélectionnez le fichier .tar.bz2.");
             return;
         }
         final Uri selected = data.getData();
