@@ -353,6 +353,18 @@ public final class JarvisInternet {
                 mergeDated(found, parseRss(fetch(feed), hours, now), 3, "");
             } catch (Exception failure) { trouble = noteFailure(trouble, failure); }
 
+            // Flux spécialisé officiellement annoncé par ScienceDaily : une
+            // recherche scientifique ne doit pas échouer uniquement parce
+            // qu'un agrégateur généraliste a ignoré un mot du sujet.
+            if (found.size() < MAX_RESULTS && NewsTopicPolicy.isScienceTopic(topic)) {
+                if (cancellation != null) cancellation.check();
+                try {
+                    mergeDated(found, parseRss(fetch(
+                            "https://www.sciencedaily.com/rss/top/science.xml", true),
+                            hours, now), 3, "");
+                } catch (Exception failure) { trouble = noteFailure(trouble, failure); }
+            }
+
             // Un autre éditeur de titres francophones permet de ne pas
             // dépendre uniquement de Google. Il peut refuser le robot ;
             // dans ce cas on poursuit sans contourner le refus.
@@ -517,6 +529,7 @@ public final class JarvisInternet {
                     || host.equals("news.google.com") || host.equals("fr.wikipedia.org")
                     || host.equals("www.wikidata.org") || host.equals("api.crossref.org")
                     || host.equals("www.francetvinfo.fr")
+                    || host.equals("www.sciencedaily.com")
                     || host.equals("www.service-public.gouv.fr")))
                 throw new IOException("Hôte de recherche non autorisé.");
             HttpURLConnection conn = (HttpURLConnection) uri.toURL().openConnection();
