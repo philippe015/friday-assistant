@@ -98,6 +98,9 @@ object LiteRtJarvisEngine {
                 val response = infer(engine, prompt)
                 cancellation?.check()
                 return response
+            } catch (cancelled: java.util.concurrent.CancellationException) {
+                // Annulation de l'utilisateur : ne pas démarrer de nouveau backend.
+                throw cancelled
             } catch (memory: OutOfMemoryError) {
                 throw memory
             } catch (linkage: LinkageError) {
@@ -171,6 +174,10 @@ object LiteRtJarvisEngine {
                 "Bibliothèques natives LiteRT-LM indisponibles sur ce téléphone : " +
                     native.javaClass.simpleName, native
             )
+        } catch (cancelled: java.util.concurrent.CancellationException) {
+            // Le STOP bouton annule le tour sans transformer l'annulation en
+            // panne native et sans déclencher de réinitialisation intempestive.
+            throw cancelled
         } catch (failure: IOException) {
             throw failure
         } catch (failure: Exception) {
