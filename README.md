@@ -1,3 +1,34 @@
+## JARVIS v3.14.11 — lecture RSS et titre différent chez l'éditeur (bêta)
+
+Rapport Android du **22 novembre 2026 à 16 h 34** : Vosk reconnaît
+« lis l'article numéro deux en entier », puis Google Actualités fournit
+un lien indirect vers une brève du Figaro qu'aucun index consulté n'a
+permis de confirmer chez l'éditeur.
+
+- JARVIS valide désormais une page publique du **même domaine éditeur**
+  en vérifiant le titre ou, si le titre du site est différent, un
+  **passage de texte qui correspond fortement aux mots spécifiques**
+  du titre RSS.
+- L'inspection d'un candidat public reste bornée : trois pages HTTPS
+  au plus et une section de 1 900 caractères au maximum. Les candidats
+  mentionnant seulement le pays, les drones ou un autre navire sont
+  rejetés par les tests de régression.
+- Lorsqu'une correspondance est trouvée uniquement dans le texte,
+  JARVIS précise que la lecture est **partielle**, jamais le texte
+  intégral certifié du Figaro.
+- Si aucune page correspondante n'est trouvable, le message indique
+  clairement « pas encore indexée, introuvable ou inaccessible »,
+  sans inventer de texte ni confondre un article ordinaire avec un DIRECT.
+- Permissions Android, GPS, profil, IA locale et données chiffrées
+  demeurent inchangés.
+
+Cette recherche ne résout pas systématiquement les URL Google News
+encodées. Certains articles ne sont pas indexés ou nécessitent un accès
+abonné ou JavaScript, que JARVIS ne contournera pas. Un essai réel
+sur Android reste nécessaire.
+
+---
+
 ## JARVIS v3.14.9 — limite d'entrée LiteRT-LM et sélection RSS (bêta)
 
 Le journal du **22 novembre 2026, 15 h 05** identifie la cause exacte :
