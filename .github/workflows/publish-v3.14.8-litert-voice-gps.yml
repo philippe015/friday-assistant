@@ -3,7 +3,7 @@ name: Publish JARVIS v3.14.8 LiteRT voice GPS beta
 on:
   push:
     branches:
-      - fix/rss-source-url-echo-v3148-20261122
+      - fix/litert-voice-gps-v3148-20261122
     paths:
       - .github/workflows/publish-v3.14.8-litert-voice-gps.yml
       - 'app/**'
