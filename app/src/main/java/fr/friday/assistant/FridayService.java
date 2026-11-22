@@ -46,6 +46,28 @@ public class FridayService extends Service {
     private static volatile String recognitionDiagnostic = "Aucune phrase Vosk finalisée";
     private static volatile String lastTtsStatus = "Voix non initialisée";
     private static volatile boolean foregroundLocationEnabled = false;
+    /** Le lecteur TTS de l'écran écrit doit lui aussi bloquer Vosk. */
+    private static volatile boolean externalSpeechActive = false;
+    private static volatile long externalSpeechUntil = 0L;
+    private static volatile FridayService currentService;
+
+    public static void externalSpeechStarted(String speech) {
+        externalSpeechActive = true;
+        externalSpeechUntil = 0L;
+        FridayService service = currentService;
+        if (service != null) {
+            service.lastSpokenForEcho = speech == null ? "" : speech;
+            service.lastSpokenAt = SystemClock.elapsedRealtime();
+            DiagnosticLog.record(service, "TTS_UI_BLOCK_START");
+        }
+    }
+
+    public static void externalSpeechFinished() {
+        externalSpeechActive = false;
+        externalSpeechUntil = TtsEchoGate.afterVoice(SystemClock.elapsedRealtime());
+        FridayService service = currentService;
+        if (service != null) DiagnosticLog.record(service, "TTS_UI_BLOCK_END");
+    }
     private static final long MAX_PENDING_WEB_MS = 150000L;
     private final Handler requestWatchdog = new Handler(Looper.getMainLooper());
     private volatile boolean running = false;
@@ -135,6 +157,7 @@ public class FridayService extends Service {
     private boolean live(ResponseTurn turn) { return running && currentTurn == turn && !turn.cancelled; }
     public void onCreate() {
         super.onCreate();
+        currentService = this;
         settings = new SecurePrefs(this);
         DiagnosticLog.record(this, "SERVICE_CREATED");
         NotificationChannel ch = new NotificationChannel(CHANNEL, "JARVIS · écoute vocale", NotificationManager.IMPORTANCE_LOW);
@@ -599,7 +622,8 @@ public class FridayService extends Service {
                         // imposent une suspension, STOP vocal restant désactivé.
                         long asrNow = SystemClock.elapsedRealtime();
                         boolean blocked = TtsEchoGate.suppressGeneralAsr(
-                                speakingNow, asrNow, echoBlockUntil);
+                                speakingNow || externalSpeechActive, asrNow,
+                                Math.max(echoBlockUntil, externalSpeechUntil));
                         if (blocked) {
                             if (!generalInputBlocked) {
                                 generalInputBlocked = true;
@@ -1037,6 +1061,7 @@ public class FridayService extends Service {
             // Toutes les autres questions passent par le modèle Jarvis installé.
             String locationForApi = null;
             if (local == null && LocationIntent.nearby(question)) {
+                DiagnosticLog.record(this, "GPS_VOICE_REQUEST");
                 if (!"1".equals(settings.get("location_enabled", "0"))) {
                     local = "La localisation de FRIDAY est désactivée. Dans Réglages, "
                             + "activez Localisation et autorisez Android.";
@@ -1087,11 +1112,15 @@ public class FridayService extends Service {
                                     + "les coordonnées GPS restent uniquement sur cet appareil. "
                                     + "Pour l'activer, choisissez « Configurer le GPS pour "
                                     + "les réponses locales » dans les réglages.";
+                        } else if ("1".equals(settings.get("nearby_online_enabled", "0"))
+                                && JarvisInternet.enabled(settings)) {
+                            local = NearbyPlaceSearch.search(this, fix);
                         } else {
-                            local = "J'ai trouvé votre position sur le téléphone, mais "
-                                    + "les recherches en ligne sont désactivées. "
-                                    + "Autorisez le partage ponctuel GPS dans les réglages "
-                                    + "pour rechercher des informations autour de vous.";
+                            local = "Position Android trouvée (précision estimée : "
+                                    + Math.round(fix.accuracy) + " mètres). "
+                                    + "Pour rechercher les services voisins, activez Internet JARVIS "
+                                    + "et le consentement distinct OpenStreetMap dans Réglages. "
+                                    + "Aucune coordonnée envoyée automatiquement.";
                         }
                     }
                 }
@@ -1562,6 +1591,11 @@ public class FridayService extends Service {
         if (wakeLock != null && wakeLock.isHeld()) { wakeLock.release(); }
         event("status", "Écoute native désactivée.");
     }
-    @Override public void onDestroy() { shutdown(); super.onDestroy(); }
+    @Override public void onDestroy() {
+        shutdown();
+        if (currentService == this) currentService = null;
+        externalSpeechActive = false;
+        super.onDestroy();
+    }
     @Override public android.os.IBinder onBind(Intent intent) { return null; }
 }

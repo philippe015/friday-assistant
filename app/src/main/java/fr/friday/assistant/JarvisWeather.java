@@ -62,24 +62,47 @@ public final class JarvisWeather {
             return "La recherche météo nécessite Internet. "
                     + "Activez « Autoriser Jarvis à rechercher sur Internet » dans les réglages.";
         try {
+            boolean department94 = WeatherQueryPolicy.department94(question);
+            String lookup = department94 && !city.contains(",")
+                    ? city + ", France" : city;
             JSONObject places = readJson("https://geocoding-api.open-meteo.com/v1/search"
-                    + "?name=" + URLEncoder.encode(city, "UTF-8")
-                    + "&count=5&language=fr&format=json");
+                    + "?name=" + URLEncoder.encode(lookup, "UTF-8")
+                    + (department94 ? "&countryCode=FR" : "")
+                    + "&count=10&language=fr&format=json");
             JSONArray results = places.optJSONArray("results");
             if (results == null || results.length() == 0)
-                return "Aucune ville correspondant à « " + city
-                        + " » n'a été trouvée par le service de géocodage. "
-                        + "Précisez son pays ou sa région.";
-            JSONObject place = results.getJSONObject(0);
+                return "Aucune commune correspondant à « " + city
+                        + " » n'a été trouvée par le géocodeur Open-Meteo. "
+                        + "Vérifiez l'orthographe ou précisez son pays.";
+            String expected = normalizedCity(city.split(",")[0]);
+            JSONObject place = null;
+            // On refuse de remplacer Joinville-le-Pont par « Joinville »
+            // simplement parce que le géocodeur classe ce dernier en tête.
+            for (int i = 0; i < results.length(); i++) {
+                JSONObject candidate = results.optJSONObject(i);
+                if (candidate == null || !normalizedCity(candidate.optString("name", ""))
+                        .equals(expected)) continue;
+                if (department94 && (!"FR".equalsIgnoreCase(candidate.optString("country_code", ""))
+                        || !normalizedCity(candidate.optString("admin2", ""))
+                        .equals("valdemarne"))) continue;
+                place = candidate;
+                break;
+            }
+            if (place == null) return department94
+                    ? "La commune « " + city + " » n'a pas pu être vérifiée "
+                      + "dans le Val-de-Marne (94). Je ne vais pas choisir une autre ville."
+                    : "Les résultats Open-Meteo ne correspondent pas exactement à « "
+                      + city + " ». Précisez la commune ou le pays.";
             String name = place.optString("name", city);
             String country = place.optString("country", "pays non précisé");
-            // La même ville peut exister dans plusieurs pays : ne pas supposer
-            // que le premier résultat correspond à l'intention de l'utilisateur.
-            if (!city.contains(",")) {
-                for (int i = 1; i < results.length(); i++) {
+            // Hors précision départementale, demander le pays pour les
+            // homonymes de pays différents au lieu d'inventer un choix.
+            if (!city.contains(",") && !department94) {
+                for (int i = 0; i < results.length(); i++) {
                     JSONObject alternative = results.optJSONObject(i);
                     if (alternative != null
-                            && name.equalsIgnoreCase(alternative.optString("name"))
+                            && normalizedCity(name).equals(
+                                normalizedCity(alternative.optString("name", "")))
                             && !country.equalsIgnoreCase(alternative.optString("country"))) {
                         return "Plusieurs villes portent ce nom. Précisez le pays, par exemple "
                                 + "« météo pour " + name + ", " + country + " ».";
@@ -137,6 +160,11 @@ public final class JarvisWeather {
                     + "Le service Open-Meteo ou la connexion HTTPS est indisponible. "
                     + "Je ne vais pas inventer de température.";
         }
+    }
+
+    /** Correspondance stricte des noms sans espaces, tirets ou accents. */
+    private static String normalizedCity(String input) {
+        return WeatherQueryPolicy.fold(input).replaceAll("[^a-z0-9]", "");
     }
 
     private static String description(int code) {

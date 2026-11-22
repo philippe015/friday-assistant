@@ -15,7 +15,7 @@ class FullVoiceAuditV389(unittest.TestCase):
     def test_network_wait_keeps_vosk_listening_tts_blocks_echo_only(self):
         service = code("FridayService.java")
         gate = code("TtsEchoGate.java")
-        self.assertIn("boolean blocked = TtsEchoGate.suppressGeneralAsr(\n                                speakingNow, asrNow, echoBlockUntil)", service)
+        self.assertIn("boolean blocked = TtsEchoGate.suppressGeneralAsr(\n                                speakingNow || externalSpeechActive, asrNow,\n                                Math.max(echoBlockUntil, externalSpeechUntil))", service)
         self.assertNotIn("boolean blocked = currentTurn != null", service)
         self.assertIn("if (blocked) {", service)
         self.assertIn("recognizer.close(); recognizer = createRecognizer(model);", service)
@@ -76,8 +76,8 @@ class FullVoiceAuditV389(unittest.TestCase):
 
     def test_version_manifest_permissions_and_no_new_external_provider(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 111", gradle)
-        self.assertIn("versionName '3.14.17'", gradle)
+        self.assertIn("versionCode 112", gradle)
+        self.assertIn("versionName '3.14.18'", gradle)
         manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
         for name in ("android.permission.INTERNET", "android.permission.RECORD_AUDIO",
                      "android.permission.FOREGROUND_SERVICE_MICROPHONE"):
