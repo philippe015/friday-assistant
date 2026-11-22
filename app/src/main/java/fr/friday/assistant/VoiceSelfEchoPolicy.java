@@ -69,6 +69,39 @@ public final class VoiceSelfEchoPolicy {
                 || (exact4 >= 1 && heard.size() >= 16 && ratio >= 0.77);
     }
 
+    /**
+     * Masque les transcriptions Vosk PROVISOIRES déjà identifiées comme voix
+     * JARVIS. Le traitement de la phrase finale reste distinct : une vraie
+     * question ne doit jamais être abandonnée en raison de ce seul filtre UI.
+     */
+    public static boolean suppressEchoPartial(String candidate, String spoken,
+                                              long nowMs, long lastSpokenAtMs) {
+        if (candidate == null || spoken == null || lastSpokenAtMs <= 0L
+                || nowMs < lastSpokenAtMs || nowMs - lastSpokenAtMs > MEMORY_MS)
+            return false;
+        List<String> heard = words(candidate);
+        List<String> said = words(spoken);
+        if (heard.size() < 4 || said.size() < 8) return false;
+        if (resemblesRecentSpeech(candidate, spoken, nowMs, lastSpokenAtMs))
+            return true;
+        Set<String> patterns = new HashSet<>();
+        for (int i = 0; i + 3 < said.size(); i++)
+            patterns.add(gram(said, i));
+        boolean overlap4 = false;
+        for (int i = 0; i + 3 < heard.size(); i++) {
+            if (patterns.contains(gram(heard, i))) {
+                overlap4 = true;
+                break;
+            }
+        }
+        if (!overlap4) return false;
+        Set<String> sourceWords = new HashSet<>(said);
+        int matches = 0;
+        for (String word : heard)
+            if (sourceWords.contains(word)) matches++;
+        return matches >= 4 && matches / (double) heard.size() >= 0.72;
+    }
+
     private static String gram(List<String> input, int i) {
         return input.get(i) + " " + input.get(i + 1) + " "
                 + input.get(i + 2) + " " + input.get(i + 3);

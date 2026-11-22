@@ -20,6 +20,40 @@ public final class RssPublisherArticlePolicy {
         } catch (Exception malformed) { return false; }
     }
 
+    /**
+     * Google News RSS donne habituellement l'adresse d'origine dans
+     * <source url="https://editeur.example">. Cette métadonnée fiable comme
+     * piste ne constitue PAS la preuve d'un article : le résultat de recherche
+     * doit encore appartenir à ce domaine et correspondre au titre.
+     *
+     * Ne transforme jamais cette URL en requête HTTP. Le navigateur HTTPS
+     * vérifie séparément l'hôte public, les redirections et le contenu.
+     */
+    public static String domainFromRssSource(String itemXml) {
+        if (itemXml == null || itemXml.isEmpty()) return "";
+        java.util.regex.Matcher source = java.util.regex.Pattern.compile(
+                "(?is)<source\\b[^>]*?\\burl\\s*=\\s*([\"'])(.*?)\\1")
+                .matcher(itemXml);
+        if (!source.find()) return "";
+        String raw = source.group(2).trim().replace("&amp;", "&");
+        try {
+            URI uri = URI.create(raw);
+            String scheme = uri.getScheme();
+            if (scheme == null || (!scheme.equalsIgnoreCase("https")
+                    && !scheme.equalsIgnoreCase("http"))
+                    || uri.getUserInfo() != null || uri.getPort() != -1)
+                return "";
+            String host = uri.getHost();
+            if (host == null) return "";
+            // Normalise seulement un nom de domaine, pas un chemin du flux RSS.
+            String safe = WebPageReader.checkedUri("https://" + host + "/")
+                    .getHost().toLowerCase(Locale.ROOT);
+            return safe.startsWith("www.") ? safe.substring(4) : safe;
+        } catch (Exception invalid) {
+            return "";
+        }
+    }
+
     public static String publisherDomain(String publisher, String title) {
         // Pour ne pas inventer de lien, le domaine doit correspondre a une marque
         // nommee explicitement par le flux ou dans le titre.

@@ -1,3 +1,25 @@
+## JARVIS v3.14.7 — Éditeur RSS et anti-écho (bêta)
+
+La lecture d'articles de Google Actualités utilise désormais la métadonnée
+`<source url="…">` pour reconnaître un média absent de la liste des domaines
+préprogrammés. L'URL de l'article n'est acceptée qu'après validation du
+domaine de l'éditeur **et** concordance du titre. Quand le texte complet
+n'est pas accessible, JARVIS le signale sans inventer l'article.
+
+Les transcriptions provisoires Vosk ressemblant à la propre voix de
+JARVIS sont masquées dans la télémétrie ; le filtre final anti-écho et
+le bouton STOP restent en place.
+
+**Après installation, redemander un bulletin d'actualité RSS avant de dire
+« Jarvis, lis l'article 1 en entier » : les anciens articles enregistrés
+ne possèdent pas la nouvelle métadonnée d'éditeur.**
+La lecture reste limitée aux pages publiques accessibles, sans contournement
+des paywalls, comptes ni interfaces JavaScript.
+
+[Pull request et vérifications v3.14.7](https://github.com/philippe015/friday-assistant/pull/96)
+
+---
+
 ## J.A.R.V.I.S. v3.14.6 — profil permanent et lecture Web approfondie (bêta)
 
 Cette branche de développement ajoute l'analyse HTTPS publique jusqu'à 36 000

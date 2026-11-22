@@ -66,6 +66,7 @@ public final class JarvisInternet {
         String feedName = "";
         String publisher = "";
         String originalLanguage = "fr";
+        String publisherDomain = "";
         Source(String url, String title, String summary) {
             this.url = url; this.title = title; this.summary = summary;
         }
@@ -452,6 +453,9 @@ public final class JarvisInternet {
                 article.put("feed", clip(item.feedName.isEmpty()
                         ? item.publisher : item.feedName, 80));
                 article.put("publisher", clip(item.publisher, 100));
+                article.put("publisher_domain", item.publisherDomain);
+                article.put("rss_excerpt", NewsEvidencePolicy.distinctRssExcerpt(
+                        item.title, item.summary, item.url));
                 article.put("lang", clip(item.originalLanguage, 12));
                 article.put("published", item.publishedAt);
                 entries.put(article);
@@ -503,6 +507,8 @@ public final class JarvisInternet {
         String title = item.optString("title", "Article RSS");
         String source = item.optString("feed", "Média RSS");
         String publisher = item.optString("publisher", "");
+        String publisherDomain = item.optString("publisher_domain", "");
+        String rssExcerpt = item.optString("rss_excerpt", "");
         String lang = item.optString("lang", "fr");
         long published = item.optLong("published", 0);
         if (cancellation != null) cancellation.check();
@@ -511,7 +517,8 @@ public final class JarvisInternet {
             // Ne jamais lire la page technique Google News comme un article.
             // Résoudre une piste d'URL de l'éditeur puis vérifier titre+site.
             String publisherUrl = RssPublisherArticlePolicy.googleRssUrl(url)
-                    ? resolvePublisherLink(url, title, source + " " + publisher, cancellation)
+                    ? resolvePublisherLink(url, title, source + " " + publisher,
+                            publisherDomain, cancellation)
                     : url;
             if (cancellation != null) cancellation.check();
             page = (RssArticleIntent.wantsAnalysis(question)
@@ -521,10 +528,14 @@ public final class JarvisInternet {
         } catch (java.util.concurrent.CancellationException cancelled) {
             throw cancelled;
         } catch (Exception inaccessible) {
-            String notice = "Le flux RSS contient bien l'article " + index + " : "
-                    + clip(title, 160) + ". Mais le site ne permet pas de lire "
-                    + "sa page : " + clip(inaccessible.getMessage(), 220)
-                    + " Je ne vais ni inventer son texte intégral, ni contourner son accès.";
+            String notice = "Article RSS " + index + " : " + clip(title, 150)
+                    + ". Le texte complet n'est pas accessible : "
+                    + clip(inaccessible.getMessage(), 160) + ". "
+                    + (rssExcerpt.isEmpty()
+                            ? "Aucun extrait éditorial vérifiable disponible dans le flux. "
+                            : "Extrait du flux RSS (non vérifié indépendamment) : "
+                              + clip(rssExcerpt, 190) + ". ")
+                    + "Un lien direct HTTPS du média peut être lu si vous le fournissez.";
             return new Result(notice + "\nSource RSS : " + url,
                     notice, false, "Source RSS : " + url);
         }
@@ -611,8 +622,18 @@ public final class JarvisInternet {
      */
     private static String resolvePublisherLink(
             String googleUrl, String title, String publisher,
-            NativeAI.CancelToken cancellation) throws Exception {
+            String rssDomain, NativeAI.CancelToken cancellation) throws Exception {
         String domain = RssPublisherArticlePolicy.publisherDomain(publisher, title);
+        // Le domaine dans <source url="..."> est plus précis que la liste
+        // manuelle de huit éditeurs et fonctionne pour les médias inconnus.
+        if (rssDomain != null && !rssDomain.isEmpty()) {
+            try {
+                domain = WebPageReader.checkedUri("https://" + rssDomain + "/")
+                        .getHost().toLowerCase(Locale.ROOT);
+            } catch (Exception invalidMetadata) {
+                Log.i("FRIDAY_RSS_ARTICLE", "Domaine RSS non public ignoré");
+            }
+        }
         if (domain.isEmpty())
             throw new IOException("Le lien Google Actualités ne fournit pas de page "
                     + "d'éditeur identifiable. Aucun texte intégral n'a été trouvé.");
@@ -1503,6 +1524,7 @@ public final class JarvisInternet {
                 Source source = sources.get(sources.size() - 1);
                 source.publishedAt = published;
                 source.publisher = publisher;
+                source.publisherDomain = RssPublisherArticlePolicy.domainFromRssSource(item);
             }
         }
         return sources;
