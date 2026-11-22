@@ -49,8 +49,9 @@ public final class WeatherLogSmoke {
             subprocess.run(["javac","-encoding","UTF-8","-d",tmp,
                  str(JAVA/"WeatherQueryPolicy.java"),str(p/"WeatherLogSmoke.java")],
                  check=True, capture_output=True,text=True)
-            subprocess.run(["java","-cp",tmp,"WeatherLogSmoke"],
-                 check=True,capture_output=True,text=True)
+            result = subprocess.run(["java","-cp",tmp,"WeatherLogSmoke"],
+                 check=False,capture_output=True,text=True)
+            self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
 
     def test_geocoder_never_blindly_selects_a_different_town(self):
         java=(JAVA/"JarvisWeather.java").read_text()
