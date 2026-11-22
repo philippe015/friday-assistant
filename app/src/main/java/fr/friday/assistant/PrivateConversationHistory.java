@@ -60,6 +60,17 @@ public final class PrivateConversationHistory {
      * Older messages remain intact but without an invented timestamp. */
     public static synchronized long append(Context ctx, SecurePrefs prefs,
             String kind, String text, String channel) throws Exception {
+        return append(ctx, prefs, kind, text, channel,
+                System.currentTimeMillis());
+    }
+
+    /** A typed question can be timestamped on SUBMISSION even if its encrypted
+     * history write must wait until after the model has answered. */
+    public static synchronized long append(Context ctx, SecurePrefs prefs,
+            String kind, String text, String channel, long occurredAtMs)
+            throws Exception {
+        if (occurredAtMs <= 0)
+            throw new IllegalArgumentException("Horodatage invalide");
         if (!("user".equals(kind) || "assistant".equals(kind)))
             throw new IllegalArgumentException("Type d'événement invalide");
         if (!("voice".equals(channel) || "text".equals(channel)
@@ -77,7 +88,7 @@ public final class PrivateConversationHistory {
         seq++;
         clean.put(new JSONObject().put("seq", seq)
                 .put("kind", kind).put("text", text == null ? "" : text)
-                .put("time_ms", System.currentTimeMillis())
+                .put("time_ms", occurredAtMs)
                 .put("channel", channel));
         prefs.putPrivateSecret(KEY, clean.toString());
         return seq;
