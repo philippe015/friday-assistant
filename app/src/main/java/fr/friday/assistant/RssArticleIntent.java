@@ -9,6 +9,11 @@ public final class RssArticleIntent {
     private static final Pattern REFERENCE = Pattern.compile(
             "\\b(?:article|page)\\s+(?:rss\\s+)?(?:(?:numero|n|no)\\s*)?(\\d{1,2}|un|deux|trois|quatre|cinq|six|sept|premier|premiere|"
             + "deuxieme|second|seconde|troisieme|quatrieme|cinquieme|sixieme|septieme)\\b");
+    // Une sélection peut également être demandée par « actualités 2 en entier ».
+    private static final Pattern NEWS_NUMBER = Pattern.compile(
+            "\\b(?:articles?|actualites?|titres?|pages?)\\s+(?:(?:numero|n|no)\\s*)?"
+            + "(\\d{1,2}|un|deux|trois|quatre|cinq|six|sept|premier|premiere|"
+            + "deuxieme|second|seconde|troisieme|quatrieme|cinquieme|sixieme|septieme)\\b");
     private static final Pattern ORDINAL = Pattern.compile(
             "\\b(premier|premiere|deuxieme|second|seconde|troisieme|quatrieme|cinquieme|"
             + "sixieme|septieme)\\s+(?:article|page)\\b");
@@ -31,7 +36,7 @@ public final class RssArticleIntent {
     public static boolean isRequest(String question) {
         String text = VoiceText.normalize(question);
         boolean numbered = REFERENCE.matcher(text).find()
-                || ORDINAL.matcher(text).find();
+                || NEWS_NUMBER.matcher(text).find() || ORDINAL.matcher(text).find();
         boolean specific = numbered || SINGULAR.matcher(text).find();
         // « lily l'article numéro deux en entier » : l'article et le
         // caractère intégral sont clairs, malgré le verbe mal transcrit.
@@ -56,7 +61,7 @@ public final class RssArticleIntent {
         boolean bare = q.matches("^(?:(?:jarvis|jarvise|jervis|friday)\\s+)?"
                 + "(?:(?:dix|dis)\\s+)?"
                 + "(?:(?:l|le|la|cet|cette|ce)\\s+)?"
-                + "(?:article|page)\\s+(?:rss\\s+)?"
+                + "(?:articles?|actualites?|titres?|pages?)\\s+(?:rss\\s+)?"
                 + "(?:(?:numero|n|no)\\s+)?"
                 + "(?:[1-7]|un|deux|trois|quatre|cinq|six|sept|"
                 + "premier|premiere|deuxieme|second|seconde|troisieme|"
@@ -73,7 +78,7 @@ public final class RssArticleIntent {
      * Requiert un numéro explicite : aucun choix inventé. */
     public static boolean wantsFullText(String question) {
         String q = VoiceText.normalize(question);
-        return (REFERENCE.matcher(q).find() || ORDINAL.matcher(q).find())
+        return (REFERENCE.matcher(q).find() || NEWS_NUMBER.matcher(q).find() || ORDINAL.matcher(q).find())
                 && COMPLETE_READING.matcher(q).find()
                 && !wantsAnalysis(question);
     }
@@ -103,6 +108,8 @@ public final class RssArticleIntent {
         String text = VoiceText.normalize(question);
         Matcher reference = REFERENCE.matcher(text);
         if (reference.find()) return number(reference.group(1));
+        Matcher news = NEWS_NUMBER.matcher(text);
+        if (news.find()) return number(news.group(1));
         Matcher ordinal = ORDINAL.matcher(text);
         return ordinal.find() ? number(ordinal.group(1)) : 1;
     }
