@@ -49,8 +49,8 @@ class JarvisV3148RecoveryTests(unittest.TestCase):
         self.assertIn("ACCESS_FINE_LOCATION", manifest)
         self.assertIn("FOREGROUND_SERVICE_LOCATION", manifest)
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 111", gradle)
-        self.assertIn("versionName '3.14.17'", gradle)
+        self.assertIn("versionCode 112", gradle)
+        self.assertIn("versionName '3.14.18'", gradle)
         self.assertIn("applicationIdSuffix '.readerfixpreview'", gradle)
 
 
