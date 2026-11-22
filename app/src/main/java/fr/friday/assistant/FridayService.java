@@ -1020,10 +1020,13 @@ public class FridayService extends Service {
                         ? "Le numéro de l'article n'a pas été compris. "
                           + "J'ai entendu « numéro de » mais je ne vais pas "
                           + "deviner votre choix. Dites simplement "
-                          + "« article un », « article deux » ou « article trois »."
+                          + "« article un », « article deux » ou "
+                          + "« article numéro deux ». "
+                          + "Cette précision est traitée localement."
                         : "La demande de lecture RSS reste ambiguë. "
                           + "Dites par exemple « lis l'article deux en entier » "
-                          + "ou « analyse l'article deux ».";
+                          + "ou « analyse l'article deux ». "
+                          + "Cette précision est traitée localement.";
             }
             if (local == null)
                 local = WebSearch.assistantAnswer(question, JarvisInternet.enabled(settings));
