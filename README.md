@@ -1,3 +1,55 @@
+## JARVIS v3.14.14 — Export conversation + journal technique (bêta)
+
+**Objectif :** obtenir un véritable rapport permettant de comprendre
+*quelle question a déclenché quelle réponse et quelle anomalie*, plutôt
+qu'une liste de codes sans contexte.
+
+### Export directement sur Android
+
+Dans **Cockpit > Journal d'anomalies > Exporter rapport / conversation**
+(ou Réglages > Sauvegarder les logs), JARVIS ouvre une confirmation avec
+une case **« Inclure la conversation : questions et réponses »**.
+
+- **Case non cochée par défaut :** rapport JSON avec seulement les
+  codes techniques et les durées, comme en v3.14.13.
+- **Case cochée explicitement :** le rapport ajoute `conversation[]`
+  avec les questions et les réponses déjà conservées dans l'historique
+  chiffré Android, les canaux `voice` / `text` et une chronologie
+  `timeline[]` de références aux échanges datés et aux codes
+  techniques.
+- L'historique conserve **les 80 derniers messages** (et non tous les
+  échanges depuis l'installation). Chaque nouveau message à compter
+  de la v3.14.14 porte `time_ms` et `time_utc` dans le rapport.
+  Les anciennes conversations restent accessibles mais sont marquées
+  `time_unknown` au lieu d'inventer une date.
+- Le message écrit est horodaté à la **soumission de la question**,
+  et non à la fin de la recherche Web, même si l'écriture dans
+  l'historique chiffré se produit après la réponse.
+- Le journal technique `events[]` reste chiffré au repos et **ne
+  reçoit jamais** de contenu de conversation. L'export ne lit les
+  messages que lorsque la case est cochée.
+- **Attention :** le fichier JSON choisi via Android
+  `ACTION_CREATE_DOCUMENT` est non chiffré et contient le texte
+  réel, potentiellement privé, des échanges ; relisez-le avant de
+  l'envoyer. JARVIS n'envoie rien automatiquement sur le réseau.
+- Si Android Keystore ne peut pas déchiffrer l'historique, le rapport
+  incluant la conversation échoue explicitement. Pas de repli en clair.
+
+### Structure du JSON
+
+`schema: 2`, `events[]` (codes techniques), `conversation_included`
+(booléen), `conversation[]` (seulement avec consentement : `seq`,
+`role`, `channel`, `text`, `time_ms`, `time_utc` quand connu),
+`timeline[]` (entrée technique ou référence à une question/réponse
+horodatée ; la conversation n'est pas répétée en texte dans la
+chronologie).
+
+Les fonctionnalités vocales, LiteRT, RSS et les sauvegardes existantes
+restent inchangées. Tests Java/Python/JS/Rust et compilation Android
+sur GitHub Actions ; un essai sur téléphone reste nécessaire.
+
+---
+
 ## JARVIS v3.14.11 — lecture RSS et titre différent chez l'éditeur (bêta)
 
 Rapport Android du **22 novembre 2026 à 16 h 34** : Vosk reconnaît
