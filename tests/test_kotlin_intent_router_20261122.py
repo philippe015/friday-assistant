@@ -84,7 +84,8 @@ fun main() {
                            check=False,text=True,capture_output=True,timeout=90)
             self.assertEqual(compiler.returncode, 0, compiler.stderr + compiler.stdout)
             done=subprocess.run(["java","-jar",str(jar)],
-                                check=True,text=True,capture_output=True,timeout=30)
+                                check=False,text=True,capture_output=True,timeout=30)
+            self.assertEqual(done.returncode, 0, done.stderr + done.stdout)
             self.assertIn("KotlinBrainSmoke OK",done.stdout)
 
 if __name__=="__main__": unittest.main()
