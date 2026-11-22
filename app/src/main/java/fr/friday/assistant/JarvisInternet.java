@@ -734,8 +734,8 @@ public final class JarvisInternet {
                     || !inspectedUrls.add(item.url)) continue;
             if (RssPublisherArticlePolicy.matchingTitle(headline, item.title))
                 return item.url;
-            if (publicPageInspections[0] >= 3) continue;
-            publicPageInspections[0]++;
+            if (liveInspections[0] >= 3) continue;
+            liveInspections[0]++;
             try {
                 WebPageReader.Page page = WebPageReader.readDeep(item.url);
                 if (!RssPublisherArticlePolicy.publisherHost(page.url, domain))
