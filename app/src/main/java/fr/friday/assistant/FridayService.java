@@ -1013,12 +1013,18 @@ public class FridayService extends Service {
                 local = JarvisInternet.liveConnectionDiagnostic(settings, turn.api);
             }
             // Les capacités intrinsèques de FRIDAY restent connues localement.
-            if (local == null && RssArticleIntent.ambiguousVoiceReading(question))
-                local = "J'ai reconnu une demande d'article RSS, mais pas son "
-                        + "numéro ou l'action souhaitée. Répétez clairement : "
-                        + "« Jarvis, lis l'article numéro un en entier », ou "
-                        + "« Jarvis, analyse l'article numéro un ». "
-                        + "Cette précision est traitée localement.";
+            if (local == null && RssArticleIntent.ambiguousVoiceReading(question)) {
+                DiagnosticLog.record(this, RssArticleIntent.missingNumber(question)
+                        ? "RSS_VOSK_NUMBER_MISSING" : "RSS_VOSK_AMBIGUOUS");
+                local = RssArticleIntent.missingNumber(question)
+                        ? "Le numéro de l'article n'a pas été compris. "
+                          + "J'ai entendu « numéro de » mais je ne vais pas "
+                          + "deviner votre choix. Dites simplement "
+                          + "« article un », « article deux » ou « article trois »."
+                        : "La demande de lecture RSS reste ambiguë. "
+                          + "Dites par exemple « lis l'article deux en entier » "
+                          + "ou « analyse l'article deux ».";
+            }
             if (local == null)
                 local = WebSearch.assistantAnswer(question, JarvisInternet.enabled(settings));
             // Les commandes strictement locales conservent leur fonctionnement.
