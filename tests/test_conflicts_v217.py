@@ -14,7 +14,9 @@ class ConflictIntegrationTest(unittest.TestCase):
         names = {x.attrib[ns+'name'] for x in manifest.findall('./queries/package')}
         self.assertEqual(names, {
             'fr.friday.assistant', 'fr.friday.assistant.preview',
-            'fr.friday.assistant.smartpreview'})
+            'fr.friday.assistant.smartpreview',
+            'fr.friday.assistant.readerfixpreview',
+            'fr.friday.assistant.v31418preview'})
         self.assertNotIn('QUERY_ALL_PACKAGES', (ROOT / 'app/src/main/AndroidManifest.xml').read_text())
 
     def test_warn_before_launch_without_auto_stopping_other_app(self):
@@ -50,7 +52,7 @@ class ConflictIntegrationTest(unittest.TestCase):
         self.assertIsNotNone(m, 'versionName introuvable dans app/build.gradle')
         version = tuple(int(x) for x in m.groups())
         self.assertGreaterEqual(version, (2, 2, 0))
-        self.assertIn("applicationIdSuffix '.readerfixpreview'", build)
+        self.assertIn("applicationIdSuffix '.v31418preview'", build)
         main = (JAVA / 'MainActivity.java').read_text()
         self.assertIn('import android.app.AlertDialog;', main)
 
