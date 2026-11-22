@@ -43,7 +43,7 @@ public final class DiagnosticLog {
         int ms = DiagnosticLogPolicy.safeMetricMs(kind, message);
         append(context, code, ms);
         // The latency status is derived from an already verified local result.
-        if ("latency".equals(kind)) {
+        if ("RESPONSE_PREPARED".equals(code)) {
             String text = message == null ? "" : message.toLowerCase(Locale.ROOT);
             append(context, text.contains("recherche web non aboutie")
                     ? "WEB_RESULT_UNAVAILABLE"
