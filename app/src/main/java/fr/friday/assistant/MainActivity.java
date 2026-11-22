@@ -1216,6 +1216,7 @@ public class MainActivity extends Activity {
         if (manualAnswerLabel != null)
             manualAnswerLabel.setText("Traitement de la question écrite par " + engineName + "…");
         final String request = cleaned;
+        final long questionSubmittedAt = System.currentTimeMillis();
         new Thread(() -> {
             String answer = null;
             String speechAnswer = null;
@@ -1252,7 +1253,8 @@ public class MainActivity extends Activity {
                 if (answer == null || answer.trim().isEmpty())
                     throw new IOException("Le moteur sélectionné a renvoyé une réponse vide.");
                 try {
-                    PrivateConversationHistory.append(getApplicationContext(), prefs, "user", request, "text");
+                    PrivateConversationHistory.append(getApplicationContext(), prefs,
+                            "user", request, "text", questionSubmittedAt);
                     PrivateConversationHistory.append(getApplicationContext(), prefs, "assistant", answer, "text");
                     persisted = true;
                 } catch (Exception privateStorage) {
