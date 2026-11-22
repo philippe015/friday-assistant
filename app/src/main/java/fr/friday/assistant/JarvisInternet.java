@@ -524,9 +524,23 @@ public final class JarvisInternet {
                     : url;
             if (cancellation != null) cancellation.check();
             page = (RssArticleIntent.wantsAnalysis(question)
-                    || WebAnalysisPolicy.verbatimRequested(question))
+                    || WebAnalysisPolicy.verbatimRequested(question)
+                    || RssPublisherArticlePolicy.isLiveHeadline(title))
                     ? WebPageReader.readDeep(publisherUrl)
                     : WebPageReader.readArticle(publisherUrl);
+            // Un article de type « DIRECT » peut n'être qu'un encart dans une
+            // page en continu : ne lire QUE l'extrait correspondant au titre,
+            // jamais présenter le fil complet comme l'article demandé.
+            if (RssPublisherArticlePolicy.googleRssUrl(url)
+                    && RssPublisherArticlePolicy.isLiveHeadline(title)) {
+                String passage = RssPublisherArticlePolicy.relevantLivePassage(
+                        title, page.text);
+                if (passage.isEmpty())
+                    throw new IOException("Le site de l'éditeur a été trouvé, "
+                            + "mais la mise à jour correspondant au titre RSS "
+                            + "n'est pas identifiable dans son texte public.");
+                page = new WebPageReader.Page(page.url, page.title, passage, true, false);
+            }
         } catch (java.util.concurrent.CancellationException cancelled) {
             throw cancelled;
         } catch (Exception inaccessible) {
@@ -577,7 +591,11 @@ public final class JarvisInternet {
         if (!page.articleBody)
             head.append("Le site ne distingue pas clairement le corps de l'article : "
                     + "je lis le texte public disponible de la page. ");
-        if (page.truncated)
+        if (RssPublisherArticlePolicy.googleRssUrl(url)
+                && RssPublisherArticlePolicy.isLiveHeadline(title))
+            head.append("Ceci est un extrait vérifié d'une mise à jour de DIRECT, "
+                    + "pas l'intégralité de la page d'actualités en continu. ");
+        else if (page.truncated)
             head.append("Attention : contenu partiel, limite de lecture "
                     + "atteinte ; je ne peux pas garantir l'intégralité du site. ");
         if (foreign && !translationOk)
@@ -640,40 +658,79 @@ public final class JarvisInternet {
             throw new IOException("Le lien Google Actualités ne fournit pas de page "
                     + "d'éditeur identifiable. Aucun texte intégral n'a été trouvé.");
         String headline = RssPublisherArticlePolicy.strippedTitle(title);
-        String query = "\"" + clip(headline, 140) + "\" site:" + domain;
-        String encoded = URLEncoder.encode(query, "UTF-8");
-        ArrayList<Source> candidates = new ArrayList<>();
-        if (cancellation != null) cancellation.check();
-        try {
-            candidates.addAll(parseRss(fetch(
-                    "https://www.bing.com/search?q=" + encoded
-                            + "&format=rss", true), 0, System.currentTimeMillis()));
-        } catch (Exception unavailable) {
-            Log.i("FRIDAY_RSS_ARTICLE", "Index RSS de l'éditeur indisponible");
-        }
-        for (Source candidate : candidates) {
+        // Le titre RSS « DIRECT. » correspond souvent à une brève dans une
+        // page en continu : sa recherche exacte peut ne jamais correspondre
+        // au titre général de la page publiée chez le média.
+        String[] queries = {
+            "\"" + clip(headline, 140) + "\" site:" + domain,
+            RssPublisherArticlePolicy.shortPublisherQuery(headline, domain)
+        };
+        Set<String> inspectedUrls = new HashSet<>();
+        int[] liveInspections = {0};
+        for (String query : queries) {
             if (cancellation != null) cancellation.check();
-            if (RssPublisherArticlePolicy.publisherHost(candidate.url, domain)
-                    && RssPublisherArticlePolicy.matchingTitle(headline, candidate.title))
-                return candidate.url;
-        }
-        // Secondary public HTML index, if its response is readable.
-        if (cancellation != null) cancellation.check();
-        try {
-            candidates = new ArrayList<>(parseDuckDuckGo(fetch(
-                    "https://html.duckduckgo.com/html/?q=" + encoded, true)));
-            for (Source candidate : candidates) {
-                if (cancellation != null) cancellation.check();
-                if (RssPublisherArticlePolicy.publisherHost(candidate.url, domain)
-                        && RssPublisherArticlePolicy.matchingTitle(headline, candidate.title))
-                    return candidate.url;
+            String encoded = URLEncoder.encode(query, "UTF-8");
+            try {
+                List<Source> bing = parseRss(fetch(
+                        "https://www.bing.com/search?q=" + encoded
+                                + "&format=rss", true), 0, System.currentTimeMillis());
+                String validated = verifiedPublisherCandidate(bing, domain, headline,
+                        inspectedUrls, liveInspections, cancellation);
+                if (!validated.isEmpty()) return validated;
+            } catch (java.util.concurrent.CancellationException cancelled) {
+                throw cancelled;
+            } catch (Exception unavailable) {
+                Log.i("FRIDAY_RSS_ARTICLE", "Bing RSS : recherche d'éditeur indisponible");
             }
-        } catch (Exception unavailable) {
-            Log.i("FRIDAY_RSS_ARTICLE", "Second index d'article indisponible");
+            if (cancellation != null) cancellation.check();
+            try {
+                List<Source> ddg = parseDuckDuckGo(fetch(
+                        "https://html.duckduckgo.com/html/?q=" + encoded, true));
+                String validated = verifiedPublisherCandidate(ddg, domain, headline,
+                        inspectedUrls, liveInspections, cancellation);
+                if (!validated.isEmpty()) return validated;
+            } catch (java.util.concurrent.CancellationException cancelled) {
+                throw cancelled;
+            } catch (Exception unavailable) {
+                Log.i("FRIDAY_RSS_ARTICLE", "DuckDuckGo : recherche d'éditeur indisponible");
+            }
         }
-        throw new IOException("Le lien Google Actualités renvoie une interface technique. "
-                + "Impossible de confirmer le lien public du média "
-                + publisher + " pour ce titre. Le code JavaScript ne sera pas lu.");
+        throw new IOException("Aucune page publique correspondant à ce titre n'a "
+                + "été confirmée sur le domaine de l'éditeur " + domain
+                + ". Il peut s'agir d'une brève dans un fil DIRECT, d'un "
+                + "article supprimé ou d'une page non indexée. "
+                + "Un lien Google Actualités ne donne pas le texte intégral.");
+    }
+
+    /** Une URL de résultat n'est jamais une preuve : domaine et titre doivent
+     * correspondre, ou le corps public du direct doit contenir un passage
+     * dont les termes spécifiques correspondent à la brève RSS. */
+    private static String verifiedPublisherCandidate(
+            List<Source> candidates, String domain, String headline,
+            Set<String> inspectedUrls, int[] liveInspections,
+            NativeAI.CancelToken cancellation) throws Exception {
+        for (Source item : candidates) {
+            if (cancellation != null) cancellation.check();
+            if (!RssPublisherArticlePolicy.publisherHost(item.url, domain)
+                    || !inspectedUrls.add(item.url)) continue;
+            if (RssPublisherArticlePolicy.matchingTitle(headline, item.title))
+                return item.url;
+            if (!RssPublisherArticlePolicy.isLiveHeadline(headline)
+                    || liveInspections[0] >= 3) continue;
+            liveInspections[0]++;
+            try {
+                WebPageReader.Page page = WebPageReader.readDeep(item.url);
+                if (RssPublisherArticlePolicy.publisherHost(page.url, domain)
+                        && !RssPublisherArticlePolicy.relevantLivePassage(
+                                headline, page.text).isEmpty())
+                    return page.url;
+            } catch (java.util.concurrent.CancellationException cancelled) {
+                throw cancelled;
+            } catch (Exception inaccessible) {
+                // Site inaccessible / authentification / JS: pas de contournement.
+            }
+        }
+        return "";
     }
 
     /** Analyse la totalité du texte extrait (jusqu'à 36 000 caractères), avec
