@@ -1240,8 +1240,8 @@ public class MainActivity extends Activity {
                 if (answer == null || answer.trim().isEmpty())
                     throw new IOException("Le moteur sélectionné a renvoyé une réponse vide.");
                 try {
-                    PrivateConversationHistory.append(getApplicationContext(), prefs, "user", request);
-                    PrivateConversationHistory.append(getApplicationContext(), prefs, "assistant", answer);
+                    PrivateConversationHistory.append(getApplicationContext(), prefs, "user", request, "text");
+                    PrivateConversationHistory.append(getApplicationContext(), prefs, "assistant", answer, "text");
                     persisted = true;
                 } catch (Exception privateStorage) {
                     android.util.Log.w("FRIDAY_PRIVACY",
