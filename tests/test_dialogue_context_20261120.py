@@ -24,7 +24,7 @@ class EncryptedDialogueMemory(unittest.TestCase):
 
     def test_saved_history_is_keystore_only(self):
         self.assertIn("PrivateConversationHistory.read(context, prefs)", DIALOG)
-        self.assertIn('private static final int MAX_EVENTS = 80', STORAGE)
+        self.assertIn('public static final int MAX_EVENTS = 240', STORAGE)
         self.assertIn('prefs.putPrivateSecret(KEY, clean.toString())', STORAGE)
         self.assertNotIn("http://", DIALOG)
         self.assertNotIn("https://", DIALOG)
@@ -44,8 +44,8 @@ class EncryptedDialogueMemory(unittest.TestCase):
         self.assertIn("Ni mémoire personnelle, ni conversation complète, ni position GPS",WEB)
 
     def test_context_is_bounded_and_current_question_not_duplicated(self):
-        self.assertIn("MAX_DIALOGUE_MESSAGES = 6",DIALOG)
-        self.assertIn("MAX_DIALOGUE_CHARACTERS = 2800",DIALOG)
+        self.assertIn("MAX_DIALOGUE_MESSAGES = 10",DIALOG)
+        self.assertIn("MAX_DIALOGUE_CHARACTERS = 3600",DIALOG)
         self.assertIn("previousEnd(events, currentQuestion)",DIALOG)
         self.assertIn("chosen.addFirst(line)",DIALOG)
         self.assertIn("hasWebSources ? 800 : 2200",LOCAL)

@@ -1029,6 +1029,9 @@ public class FridayService extends Service {
                           + "Cette précision est traitée localement.";
             }
             if (local == null)
+                local = ConversationClarificationPolicy.missingContextQuestion(
+                        question, privateDialogue);
+            if (local == null)
                 local = WebSearch.assistantAnswer(question, JarvisInternet.enabled(settings));
             // Les commandes strictement locales conservent leur fonctionnement.
             // Toutes les autres questions passent par le modèle Jarvis installé.

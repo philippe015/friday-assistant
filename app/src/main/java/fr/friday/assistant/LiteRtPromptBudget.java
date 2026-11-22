@@ -45,7 +45,9 @@ public final class LiteRtPromptBudget {
 
         int headerBudget = maxBytes <= 1800 ? 215 : 365;
         int profileBudget = maxBytes <= 1800 ? 225 : 640;
-        int contextBudget = maxBytes <= 1800 ? 0 : 270;
+        // Keep a short usable dialogue even during the strict JNI retry:
+        // context previously disappeared entirely and lost the antecedent.
+        int contextBudget = maxBytes <= 1800 ? 135 : 500;
 
         String header = firstBytes(before, headerBudget);
         String profile = "";
@@ -61,9 +63,20 @@ public final class LiteRtPromptBudget {
 
         String dialogue = "";
         int dialogueAt = before.lastIndexOf("[CONTEXTE DE DIALOGUE PRIVÉ");
-        if (contextBudget > 0 && dialogueAt >= 0)
+        if (contextBudget > 0 && dialogueAt >= 0) {
+            String privatePart = before.substring(dialogueAt);
+            // Strip trailing boilerplate BEFORE retaining context, otherwise
+            // the 270-byte previous budget mostly preserved instructions
+            // and omitted what the user or assistant actually said.
+            int end = privatePart.indexOf("[FIN DU CONTEXTE PRIVÉ]");
+            if (end >= 0) privatePart = privatePart.substring(0, end);
+            int recent = privatePart.lastIndexOf("[ÉCHANGES LES PLUS RÉCENTS]");
+            if (recent >= 0) privatePart = privatePart.substring(
+                    recent + "[ÉCHANGES LES PLUS RÉCENTS]".length());
+            privatePart = privatePart.replace("[FIN CONTEXTE PRIVÉ]", "").trim();
             dialogue = "\n[CONTEXTE PRIVÉ RÉDUIT]\n"
-                    + lastBytes(before.substring(dialogueAt), contextBudget);
+                    + lastBytes(privatePart, contextBudget);
+        }
 
         String marker = "\n[CONTEXTE RÉDUIT POUR LITERT-LM]\n"
                 + questionMarker;

@@ -19,7 +19,7 @@ class IntelligencePlusV314(unittest.TestCase):
         recall=read("ConversationRecallPolicy.java")
         self.assertIn("PrivateConversationHistory.read(context, prefs)",history)
         self.assertIn("ConversationRecallPolicy.score(",history)
-        self.assertIn("MAX_RECALLED_TOPICS = 2",history)
+        self.assertIn("MAX_RECALLED_TOPICS = 4",history)
         self.assertIn("RAPPEL THÉMATIQUE ANCIEN",history)
         self.assertNotIn("https:",recall)
         self.assertNotIn("HttpURLConnection",recall)

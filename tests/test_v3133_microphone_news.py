@@ -62,7 +62,7 @@ class MicAndFreshNews(unittest.TestCase):
         self.assertIn("Aucune mémoire privée n'a été envoyée",WEB)
 
     def test_version(self):
-        self.assertIn("versionCode 110",GRADLE)
-        self.assertIn("versionName '3.14.16'",GRADLE)
+        self.assertIn("versionCode 111",GRADLE)
+        self.assertIn("versionName '3.14.17'",GRADLE)
 
 if __name__=="__main__": unittest.main()

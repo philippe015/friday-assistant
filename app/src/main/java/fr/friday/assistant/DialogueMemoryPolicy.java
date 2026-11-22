@@ -49,13 +49,20 @@ public final class DialogueMemoryPolicy {
         if (q.length() > 125 || q.isEmpty()) return false;
         if (q.matches(".*\\b(?:internet|web|actualites?|news|meteo|aujourd hui|maintenant|"
                 + "recherche|cherche|verifie|verifier|source|sources|en ligne)\\b.*")) return false;
+        // « le deuxième », « le suivant » : références sans sujet propre.
+        if (q.matches("^(?:et )?(?:le|la|les|l|celui|celle) "
+                + "(?:premier|deuxieme|troisieme|second|suivant|autre)\\b.*"))
+            return true;
+        if (q.matches("^(?:et )?(?:lui|elle|eux|celui ci|celle ci)\\b.*"))
+            return true;
         if (q.matches("^(?:pourquoi|pourquoi ca|pourquoi donc|et pourquoi|"
                 + "et pourquoi ca|comment ca|et ensuite|et apres|continue|"
                 + "poursuis|reprends|precise|et la suite)$")) return true;
         return q.matches("^(?:developpe|developpe davantage|approfondis|"
                 + "approfondis davantage|explique davantage|explique moi davantage|"
                 + "explique un peu plus|donne des exemples|donne moi des exemples|"
-                + "donne plus de details|peux tu detailler|peux tu approfondir|"
+                + "donne plus de details|donne moi plus de details|"
+                + "peux tu detailler|peux tu approfondir|"
                 + "peux tu developper|sois plus precis|"
                 + "qu est ce que tu veux dire|qu est ce que tu voulais dire|"
                 + "de quoi parlais tu|que veux tu dire|"
