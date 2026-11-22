@@ -16,7 +16,7 @@ class JarvisMemoryReleaseRegression(unittest.TestCase):
         version_name = re.search(r"versionName\s+'([^']+)'", BUILD).group(1)
         package = re.search(r"applicationId\s+'([^']+)'", BUILD).group(1)
         self.assertEqual((package, version_code, version_name),
-                         ("fr.friday.assistant", "109", "3.14.15"))
+                         ("fr.friday.assistant", "110", "3.14.16"))
         # Le workflow v3.13.8 est une publication HISTORIQUE figée :
         # il ne doit pas être réécrit pour simuler une release 3.14.
         self.assertIn(
