@@ -31,7 +31,7 @@ class DiagnosticLogPrivacyTest(unittest.TestCase):
     def test_manual_export_document_and_delete(self):
         self.assertIn("Intent.ACTION_CREATE_DOCUMENT", MAIN)
         self.assertIn("REQ_DIAGNOSTIC_EXPORT", MAIN)
-        self.assertIn("DiagnosticLog.exportJson(this)", MAIN)
+        self.assertIn("DiagnosticLog.exportJson(this, includeConversation)", MAIN)
         self.assertIn("DiagnosticLog.clear(this)", MAIN)
         self.assertIn("setTitle(\"Sauvegarde des logs de diagnostic\")", MAIN)
         self.assertIn("exportDiagnosticLogs", MAIN)
