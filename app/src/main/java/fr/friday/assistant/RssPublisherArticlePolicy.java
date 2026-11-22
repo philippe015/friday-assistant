@@ -130,6 +130,32 @@ public final class RssPublisherArticlePolicy {
         return "";
     }
 
+    /**
+     * A publisher's article title can differ from Google's RSS headline.
+     * Accept only a bounded passage from the SAME publisher's public page
+     * when it repeats a strong majority of the distinctive headline tokens.
+     * An unrelated article about the same country/subject is not sufficient.
+     * Does not perform HTTP and never invents or retrieves protected text.
+     */
+    public static String verifiedArticlePassage(String rssTitle, String publicText) {
+        if (rssTitle == null || publicText == null
+                || rssTitle.isEmpty() || publicText.isEmpty()
+                || isLiveHeadline(rssTitle)) return "";
+        Set<String> expected = significant(strippedTitle(rssTitle));
+        if (expected.size() < 6) return "";
+        String text = publicText.length() > 36000
+                ? publicText.substring(0, 36000) : publicText;
+        int needed = Math.max(6, (int) Math.ceil(0.74 * expected.size()));
+        for (int start = 0; start < text.length(); start += 350) {
+            String passage = text.substring(start, Math.min(text.length(), start + 1900));
+            Set<String> found = significant(passage);
+            int common = 0;
+            for (String token : expected) if (found.contains(token)) common++;
+            if (common >= needed) return passage.trim();
+        }
+        return "";
+    }
+
     public static String strippedTitle(String title) {
         if (title == null) return "";
         String clean = title.trim();
