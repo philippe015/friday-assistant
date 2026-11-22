@@ -1,3 +1,76 @@
+## JARVIS v3.14.12 — Journal d'anomalies chiffré et sauvegarde JSON (bêta)
+
+### Objectif
+
+Retrouver les anomalies de JARVIS **après redémarrage** sans copier de longs
+journaux de conversations : les étapes techniques sont enregistrées
+automatiquement sous forme de codes prédéfinis.
+
+- **Microphone/Vosk** : démarrage de l'écoute, fin de dictée reconnue,
+  mot isolé ignoré, interruption, reprise après l'anti-écho.
+- **LiteRT-LM** : initialisation GPU/CPU, erreur JNI, dépassement de
+  tokens, réduction du contexte et reprise, repli GPU vers CPU.
+- **RSS/Internet** : demande d'article, résolution de l'éditeur,
+  texte HTML public récupéré, analyse locale démarrée/réussie/échouée.
+- **GPS** : acquisition et disponibilité de la position, **jamais**
+  les coordonnées, adresses ou lieux.
+- **Durées** : temps de préparation des réponses en millisecondes.
+
+### Confidentialité et capacité
+
+Le journal est conservé **uniquement sur l'appareil**, sous la clé
+`jarvis_diagnostics_v31412`, via `SecurePrefs.putPrivateSecret`
+(AES-GCM / Android Keystore). Il n'existe **aucun repli non chiffré** :
+en cas d'échec du coffre, le journal ne peut pas être enregistré.
+
+Conservation : **14 jours maximum, 420 événements et 68 000 caractères
+JSON au maximum**, les plus anciens étant supprimés. Les opérations
+sont sérialisées sur un thread dédié afin de ne pas bloquer Vosk ni TTS.
+
+Le journal **exclut** les transcriptions, questions, réponses, prompts
+de personnalité, mémoire, clés API, GPS précis, URL, titres d'articles
+et identifiants. Aucune télémétrie ni sauvegarde n'est transmise
+automatiquement à GitHub ou à un serveur. Les autres conversations
+restent indépendantes et chiffrées.
+
+### Sauvegarde directement sur Android, sans PC
+
+1. Ouvrir le **Cockpit** ou les **Réglages** de l'APK.
+2. Cliquer **« Consulter les logs »** pour voir les 45 derniers
+   événements, ou **« Sauvegarder JSON »** pour une copie.
+3. Lire l'avertissement puis choisir un emplacement dans le
+   sélecteur de documents Android : `JARVIS-diagnostics-AAAAMMJJ-HHMMSS.json`.
+4. Vérifier le fichier avant de le transmettre volontairement pour
+   une analyse. **L'export JSON est non chiffré**, contrairement au
+   journal conservé en interne. Aucun partage automatique.
+5. Le bouton **« Effacer logs »** demande confirmation et n'efface
+   ni la mémoire, ni les conversations, ni les modèles.
+
+Le JSON contient `format`, `schema`, `generated_utc`, `app_version`,
+`android_sdk`, `retention_days` et une liste `events` de
+`time_ms`, `code` et éventuellement `duration_ms`.
+
+Exemple (fictif) :
+
+```json
+{
+  "format": "jarvis-diagnostics",
+  "schema": 1,
+  "events": [
+    {"time_ms": 1795360000000, "code": "RSS_OPEN_ATTEMPT"},
+    {"time_ms": 1795360000500, "code": "RSS_PUBLISHER_NOT_FOUND"},
+    {"time_ms": 1795360000850, "code": "RESPONSE_PREPARED", "duration_ms": 2230}
+  ]
+}
+```
+
+Les tests Java et Python vérifient que les codes ne reprennent pas les
+données saisies, et que les trois commandes Android sont réellement reliées
+au coffre chiffré. Les journaux antérieurs à cette version ne peuvent pas
+être reconstitués. Les essais matériels sur téléphone restent nécessaires.
+
+---
+
 ## JARVIS v3.14.11 — lecture RSS et titre différent chez l'éditeur (bêta)
 
 Rapport Android du **22 novembre 2026 à 16 h 34** : Vosk reconnaît

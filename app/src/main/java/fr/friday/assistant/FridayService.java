@@ -136,6 +136,7 @@ public class FridayService extends Service {
     public void onCreate() {
         super.onCreate();
         settings = new SecurePrefs(this);
+        DiagnosticLog.record(this, "SERVICE_CREATED");
         NotificationChannel ch = new NotificationChannel(CHANNEL, "JARVIS · écoute vocale", NotificationManager.IMPORTANCE_LOW);
         ch.setDescription("Microphone actif tant que vous avez démarré le mode écran éteint");
         getSystemService(NotificationManager.class).createNotificationChannel(ch);
@@ -257,6 +258,9 @@ public class FridayService extends Service {
                 .build();
     }
     private void event(String kind, String value) {
+        // Encrypted diagnostic codes only; never persist value itself.
+        // The voice thread is not blocked by Android Keystore.
+        DiagnosticLog.fromEvent(this, kind, value);
         Intent msg = new Intent(ACTION_EVENT).setPackage(getPackageName());
         msg.putExtra("kind", kind);
         msg.putExtra("text", value);
@@ -1097,6 +1101,12 @@ public class FridayService extends Service {
             if (local != null) {
                 answer = local;
             } else if (JarvisInternet.shouldResearch(settings, question)) {
+                DiagnosticLog.record(this,
+                        RssArticleIntent.isRequest(question)
+                                ? (RssArticleIntent.wantsAnalysis(question)
+                                        ? "RSS_ANALYSIS_REQUEST" : "RSS_READ_REQUEST")
+                                : RssArticleIntent.isBareReference(question)
+                                        ? "RSS_READ_REQUEST" : "WEB_QUERY_REQUEST");
                 event("status", "Jarvis recherche sur plusieurs sources HTTPS publiques "
                         + "(Bing, DuckDuckGo, Wikipédia, Wikidata, Crossref ou Google Actualités), "
                         + "puis répond avec son modèle local.");

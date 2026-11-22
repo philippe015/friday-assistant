@@ -514,7 +514,9 @@ public final class JarvisInternet {
         String lang = item.optString("lang", "fr");
         long published = item.optLong("published", 0);
         if (cancellation != null) cancellation.check();
+        DiagnosticLog.record(context, "RSS_OPEN_ATTEMPT");
         WebPageReader.Page page;
+        boolean publisherResolved = false;
         try {
             // Ne jamais lire la page technique Google News comme un article.
             // Résoudre une piste d'URL de l'éditeur puis vérifier titre+site.
@@ -522,6 +524,8 @@ public final class JarvisInternet {
                     ? resolvePublisherLink(url, title, source + " " + publisher,
                             publisherDomain, cancellation)
                     : url;
+            publisherResolved = true;
+            DiagnosticLog.record(context, "RSS_PUBLISHER_RESOLVED");
             if (cancellation != null) cancellation.check();
             page = (RssArticleIntent.wantsAnalysis(question)
                     || WebAnalysisPolicy.verbatimRequested(question)
@@ -555,8 +559,11 @@ public final class JarvisInternet {
                 }
             }
         } catch (java.util.concurrent.CancellationException cancelled) {
+            DiagnosticLog.record(context, "RSS_OPEN_CANCELLED");
             throw cancelled;
         } catch (Exception inaccessible) {
+            DiagnosticLog.record(context, publisherResolved
+                    ? "RSS_CONTENT_UNAVAILABLE" : "RSS_PUBLISHER_NOT_FOUND");
             String notice = "Article RSS " + index + " : " + clip(title, 150)
                     + ". Le texte complet n'est pas accessible : "
                     + clip(inaccessible.getMessage(), 160) + ". "
@@ -569,6 +576,7 @@ public final class JarvisInternet {
                     notice, false, "Source RSS : " + url);
         }
         if (cancellation != null) cancellation.check();
+        DiagnosticLog.record(context, "RSS_TEXT_EXTRACTED");
         String original = page.text.trim();
         if (original.length() < 100) {
             String notice = "La page RSS ne contient pas assez de texte public "
@@ -627,8 +635,10 @@ public final class JarvisInternet {
                 + "utilisez le bouton Interrompre.";
         if (RssArticleIntent.wantsAnalysis(question)) {
             try {
+                DiagnosticLog.record(context, "RSS_LOCAL_ANALYSIS_START");
                 String analysis = analysePublicArticleWithProfile(
                         context, settings, original, title, cancellation);
+                DiagnosticLog.record(context, "RSS_LOCAL_ANALYSIS_OK");
                 String prefix = "Analyse de l'article " + index
                         + " avec le profil actif "
                         + PersonalityProfiles.activeName(settings) + ". ";
@@ -638,6 +648,7 @@ public final class JarvisInternet {
             } catch (java.util.concurrent.CancellationException cancelled) {
                 throw cancelled;
             } catch (Exception unavailable) {
+                DiagnosticLog.record(context, "RSS_LOCAL_ANALYSIS_FAILED");
                 String notice = "Analyse locale avec le profil actif indisponible : "
                         + clip(unavailable.getMessage(), 170)
                         + ". Le texte public a été extrait, mais aucune analyse "

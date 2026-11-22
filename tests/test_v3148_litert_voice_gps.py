@@ -17,7 +17,8 @@ class JarvisV3148RecoveryTests(unittest.TestCase):
         self.assertIn("val failedOnGpu = activeGpu", kotlin)
         self.assertIn("if (failedOnGpu)", kotlin)
         self.assertIn("backend = Backend.CPU()", kotlin)
-        self.assertIn("val cpuResponse = infer(cpuEngine, prompt)", kotlin)
+        self.assertIn("val cpuResponse = infer(cpuEngine,", kotlin)
+        self.assertIn("LiteRtPromptBudget.INITIAL_UTF8_BYTES", kotlin)
         self.assertIn('SecurePrefs(context).put("local_jarvis_gpu", "0")', kotlin)
         self.assertIn("private fun closeLocked()", kotlin)
         self.assertIn("private fun shortReason(failure: Throwable)", kotlin)
@@ -49,8 +50,8 @@ class JarvisV3148RecoveryTests(unittest.TestCase):
         self.assertIn("ACCESS_FINE_LOCATION", manifest)
         self.assertIn("FOREGROUND_SERVICE_LOCATION", manifest)
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 105", gradle)
-        self.assertIn("versionName '3.14.11'", gradle)
+        self.assertIn("versionCode 106", gradle)
+        self.assertIn("versionName '3.14.12'", gradle)
         self.assertIn("applicationIdSuffix '.readerfixpreview'", gradle)
 
 
