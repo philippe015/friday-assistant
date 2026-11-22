@@ -17,7 +17,7 @@ import fr.friday.assistant.WeatherQueryPolicy;
 public final class WeatherLogSmoke {
   private static void expect(String request, String wanted) {
     String result = WeatherQueryPolicy.city(request);
-    if (!wanted.equals(result))
+    if (!java.util.Objects.equals(wanted, result))
       throw new AssertionError(request+" => "+result+" (attendu "+wanted+")");
   }
   public static void main(String[] args) {
