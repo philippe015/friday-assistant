@@ -66,8 +66,8 @@ class LiteRTDualEngineV311(unittest.TestCase):
 
     def test_version(self):
         app=(ROOT/"app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 103", app)
-        self.assertIn("versionName '3.14.9'", app)
+        self.assertIn("versionCode 104", app)
+        self.assertIn("versionName '3.14.10'", app)
 
 if __name__ == "__main__":
     unittest.main()
