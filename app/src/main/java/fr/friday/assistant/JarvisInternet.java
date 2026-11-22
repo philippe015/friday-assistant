@@ -521,7 +521,7 @@ public final class JarvisInternet {
             // Ne jamais lire la page technique Google News comme un article.
             // Résoudre une piste d'URL de l'éditeur puis vérifier titre+site.
             String publisherUrl = RssPublisherArticlePolicy.googleRssUrl(url)
-                    ? resolvePublisherLink(url, title, source + " " + publisher,
+                    ? resolvePublisherLink(context, url, title, source + " " + publisher,
                             publisherDomain, cancellation)
                     : url;
             publisherResolved = true;
@@ -670,7 +670,7 @@ public final class JarvisInternet {
      * undocumented Google URLs or bypass access restrictions.
      */
     private static String resolvePublisherLink(
-            String googleUrl, String title, String publisher,
+            Context context, String googleUrl, String title, String publisher,
             String rssDomain, NativeAI.CancelToken cancellation) throws Exception {
         String domain = RssPublisherArticlePolicy.publisherDomain(publisher, title);
         // Le domaine dans <source url="..."> est plus précis que la liste
@@ -683,9 +683,11 @@ public final class JarvisInternet {
                 Log.i("FRIDAY_RSS_ARTICLE", "Domaine RSS non public ignoré");
             }
         }
-        if (domain.isEmpty())
+        if (domain.isEmpty()) {
+            DiagnosticLog.record(context, "RSS_PUBLISHER_DOMAIN_UNKNOWN");
             throw new IOException("Le lien Google Actualités ne fournit pas de page "
                     + "d'éditeur identifiable. Aucun texte intégral n'a été trouvé.");
+        }
         String headline = RssPublisherArticlePolicy.strippedTitle(title);
         // Le titre RSS « DIRECT. » correspond souvent à une brève dans une
         // page en continu : sa recherche exacte peut ne jamais correspondre
@@ -697,6 +699,9 @@ public final class JarvisInternet {
         Set<String> inspectedUrls = new HashSet<>();
         // Limiter les ouvertures de pages publiques non indexées.
         int[] publicPageInspections = {0};
+        // Stats : résultat du domaine cible / page publique bloquée / texte
+        // insuffisamment concordant. Ni URL ni titre dans les logs.
+        int[] diagnostic = {0, 0, 0};
         for (String query : queries) {
             if (cancellation != null) cancellation.check();
             String encoded = URLEncoder.encode(query, "UTF-8");
@@ -704,27 +709,41 @@ public final class JarvisInternet {
                 List<Source> bing = parseRss(fetch(
                         "https://www.bing.com/search?q=" + encoded
                                 + "&format=rss", true), 0, System.currentTimeMillis());
-                String validated = verifiedPublisherCandidate(bing, domain, headline,
-                        inspectedUrls, publicPageInspections, cancellation);
+                if (bing.isEmpty())
+                    DiagnosticLog.record(context, "RSS_BING_NO_RESULTS");
+                String validated = verifiedPublisherCandidate(context, bing, domain, headline,
+                        inspectedUrls, publicPageInspections, diagnostic, cancellation);
                 if (!validated.isEmpty()) return validated;
             } catch (java.util.concurrent.CancellationException cancelled) {
                 throw cancelled;
             } catch (Exception unavailable) {
+                DiagnosticLog.record(context, "RSS_BING_UNAVAILABLE");
                 Log.i("FRIDAY_RSS_ARTICLE", "Bing RSS : recherche d'éditeur indisponible");
             }
             if (cancellation != null) cancellation.check();
             try {
                 List<Source> ddg = parseDuckDuckGo(fetch(
                         "https://html.duckduckgo.com/html/?q=" + encoded, true));
-                String validated = verifiedPublisherCandidate(ddg, domain, headline,
-                        inspectedUrls, publicPageInspections, cancellation);
+                if (ddg.isEmpty())
+                    DiagnosticLog.record(context, "RSS_DDG_NO_RESULTS");
+                String validated = verifiedPublisherCandidate(context, ddg, domain, headline,
+                        inspectedUrls, publicPageInspections, diagnostic, cancellation);
                 if (!validated.isEmpty()) return validated;
             } catch (java.util.concurrent.CancellationException cancelled) {
                 throw cancelled;
             } catch (Exception unavailable) {
+                DiagnosticLog.record(context, "RSS_DDG_UNAVAILABLE");
                 Log.i("FRIDAY_RSS_ARTICLE", "DuckDuckGo : recherche d'éditeur indisponible");
             }
         }
+        if (diagnostic[0] == 0)
+            DiagnosticLog.record(context, "RSS_NO_PUBLISHER_CANDIDATE");
+        else if (diagnostic[1] > 0)
+            DiagnosticLog.record(context, "RSS_PUBLIC_PAGE_ACCESS_FAILED");
+        else if (diagnostic[2] > 0)
+            DiagnosticLog.record(context, "RSS_PUBLISHER_CONTENT_MISMATCH");
+        else
+            DiagnosticLog.record(context, "RSS_PUBLISHER_TITLE_MISMATCH");
         throw new IOException("Aucun lien exact vers l'article du média "
                 + domain + " n'a pu être vérifié. "
                 + (RssPublisherArticlePolicy.isLiveHeadline(headline)
@@ -736,13 +755,14 @@ public final class JarvisInternet {
      * correspondre, ou le corps public du direct doit contenir un passage
      * dont les termes spécifiques correspondent à la brève RSS. */
     private static String verifiedPublisherCandidate(
-            List<Source> candidates, String domain, String headline,
-            Set<String> inspectedUrls, int[] liveInspections,
+            Context context, List<Source> candidates, String domain, String headline,
+            Set<String> inspectedUrls, int[] liveInspections, int[] diagnostic,
             NativeAI.CancelToken cancellation) throws Exception {
         for (Source item : candidates) {
             if (cancellation != null) cancellation.check();
             if (!RssPublisherArticlePolicy.publisherHost(item.url, domain)
                     || !inspectedUrls.add(item.url)) continue;
+            diagnostic[0]++;
             if (RssPublisherArticlePolicy.matchingTitle(headline, item.title))
                 return item.url;
             if (liveInspections[0] >= 3) continue;
@@ -757,10 +777,12 @@ public final class JarvisInternet {
                         : RssPublisherArticlePolicy.verifiedArticlePassage(
                                 headline, page.text);
                 if (!passage.isEmpty()) return page.url;
+                diagnostic[2]++;
             } catch (java.util.concurrent.CancellationException cancelled) {
                 throw cancelled;
             } catch (Exception inaccessible) {
                 // Site inaccessible / authentification / JS: pas de contournement.
+                diagnostic[1]++;
             }
         }
         return "";
