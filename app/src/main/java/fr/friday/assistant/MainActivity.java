@@ -37,7 +37,7 @@ public class MainActivity extends Activity {
     private TextView mistralKeyState;
     private EditText mistralModel, mistralKey, webPageUrl;
     private CheckBox voiceEnabled, streamingEnabled, oneShotEnabled, voskHintsEnabled,
-            locationEnabled, locationShare, placeNameEnabled;
+            locationEnabled, locationShare, placeNameEnabled, nearbyOnlineEnabled;
     private CheckBox memoryEnabled, memoryShareMistral;
     private CheckBox webEnabled, webAlways;
     private TextView webDiagnosticLabel;
@@ -456,7 +456,7 @@ public class MainActivity extends Activity {
         config.addView(voskHintsEditor);
                 config.addView(label("LOCALISATION · permission Android facultative"));
         locationEnabled = new CheckBox(this);
-        locationEnabled.setText("Activer la position uniquement sur demande vocale");
+        locationEnabled.setText("Activer la position pour les questions vocales et écrites");
         locationEnabled.setTextColor(Color.WHITE);
         locationEnabled.setChecked("1".equals(prefs.get("location_enabled", "0")));
         config.addView(locationEnabled);
@@ -471,6 +471,14 @@ public class MainActivity extends Activity {
         placeNameEnabled.setChecked("1".equals(prefs.get("address_lookup", "0")));
         config.addView(placeNameEnabled);
         config.addView(label("Aucune clé Google : ce géocodeur est une fonction d'Android, dont le fournisseur peut accéder à Internet. Désactivé par défaut."));
+        nearbyOnlineEnabled = new CheckBox(this);
+        nearbyOnlineEnabled.setText("Rechercher les services à proximité avec OpenStreetMap (Internet)");
+        nearbyOnlineEnabled.setTextColor(Color.WHITE);
+        nearbyOnlineEnabled.setChecked("1".equals(prefs.get("nearby_online_enabled", "0")));
+        config.addView(nearbyOnlineEnabled);
+        config.addView(label("Consentement indépendant : uniquement lors d'une demande sur les alentours, "+
+                "le serveur Overpass reçoit latitude/longitude arrondies à 3 décimales (~100 m). "+
+                "Pas de transmission des conversations ni du relevé GPS exact. Désactivé par défaut."));
         config.addView(label("Aucun suivi GPS permanent : mesure à la demande "
                 + "(objectif 3 m non garanti). La précision effectivement obtenue est affichée."));
         config.addView(button("◎ Tester précision GPS · cible 3 m", this::showGpsAccuracy));
@@ -574,6 +582,7 @@ public class MainActivity extends Activity {
             prefs.setSecret("vosk_hints", hints);
             prefs.put("location_enabled", locationEnabled.isChecked() ? "1" : "0");
             prefs.put("address_lookup", locationEnabled.isChecked() && placeNameEnabled.isChecked() ? "1" : "0");
+            prefs.put("nearby_online_enabled", locationEnabled.isChecked() && nearbyOnlineEnabled.isChecked() ? "1" : "0");
             status.setText("Jarvis local exclusif. Réglages enregistrés. "
                     + LocalJarvisEngine.status(this, prefs)
                     + ". Redémarrez l'écoute après modification des permissions.");
@@ -1250,6 +1259,8 @@ public class MainActivity extends Activity {
                 if (answer == null && WebSearch.requestsLiveConnectivityCheck(request))
                     answer = JarvisInternet.liveConnectionDiagnostic(
                             prefs, new NativeAI.CancelToken());
+                if (answer == null && LocationIntent.nearby(request))
+                    answer = JarvisLocationReply.answer(getApplicationContext(), prefs, request);
                 if (answer == null)
                     answer = ConversationClarificationPolicy.missingContextQuestion(
                             request, privateDialogue);
@@ -1271,10 +1282,13 @@ public class MainActivity extends Activity {
                 if (answer == null || answer.trim().isEmpty())
                     throw new IOException("Le moteur sélectionné a renvoyé une réponse vide.");
                 try {
-                    PrivateConversationHistory.append(getApplicationContext(), prefs,
-                            "user", request, "text", questionSubmittedAt);
-                    PrivateConversationHistory.append(getApplicationContext(), prefs, "assistant", answer, "text");
-                    persisted = true;
+                    // Ne pas historiser par défaut les demandes contenant une position GPS.
+                    if (!LocationIntent.nearby(request)) {
+                        PrivateConversationHistory.append(getApplicationContext(), prefs,
+                                "user", request, "text", questionSubmittedAt);
+                        PrivateConversationHistory.append(getApplicationContext(), prefs, "assistant", answer, "text");
+                        persisted = true;
+                    }
                 } catch (Exception privateStorage) {
                     android.util.Log.w("FRIDAY_PRIVACY",
                             "Historique chiffré indisponible pour la question écrite",
@@ -1563,28 +1577,36 @@ public class MainActivity extends Activity {
             });
         }, "friday-model-download").start();
     }
-    /** Le partage de coordonnées avec Mistral requiert un consentement distinct. */
+    /** Autorisation distincte pour les recherches OSM, jamais de partage avec une IA distante. */
     private void configureGpsForAssistant() {
         new AlertDialog.Builder(this)
-                .setTitle("Localisation de F.R.I.D.A.Y.")
-                .setMessage("Le GPS peut répondre localement à « Où suis-je ? ». "
-                        + "Voulez-vous aussi transmettre ponctuellement les coordonnées à Mistral "
-                        + "uniquement lorsque vous posez une question sur les alentours ?")
-                .setPositiveButton("Autoriser le partage ponctuel", (dialog, which) -> {
+                .setTitle("Localisation JARVIS")
+                .setMessage("Le GPS répond localement à « Où suis-je ? ». "
+                        + "Pour lister les services voisins, souhaitez-vous autoriser "
+                        + "des recherches OpenStreetMap lors de vos seules demandes "
+                        + "de proximité ? Une position arrondie (~100 m) sera "
+                        + "transmise au serveur public Overpass.")
+                .setPositiveButton("GPS + recherche OpenStreetMap", (dialog, which) -> {
                     prefs.put("location_enabled", "1");
-                    prefs.put("location_share", "1");
+                    prefs.put("location_share", "0");
+                    prefs.put("nearby_online_enabled", "1");
                     locationEnabled.setChecked(true);
-                    locationShare.setChecked(true);
-                    status.setText("GPS et partage ponctuel avec Mistral autorisés. "
-                            + (FridayService.isActive() ? "Arrêtez puis redémarrez l'écoute pour appliquer les permissions GPS." : "Prêt pour une question sur votre position."));
+                    locationShare.setChecked(false);
+                    nearbyOnlineEnabled.setChecked(true);
+                    status.setText("GPS local et recherches OpenStreetMap sur demande autorisés. "
+                            + (FridayService.isActive()
+                            ? "Redémarrez l'écoute après autorisation Android."
+                            : "Prêt pour une demande à proximité."));
                     showGpsAccuracy();
                 })
                 .setNeutralButton("GPS local uniquement", (dialog, which) -> {
                     prefs.put("location_enabled", "1");
                     prefs.put("location_share", "0");
+                    prefs.put("nearby_online_enabled", "0");
                     locationEnabled.setChecked(true);
                     locationShare.setChecked(false);
-                    status.setText("GPS local autorisé, aucune coordonnée envoyée à Mistral.");
+                    nearbyOnlineEnabled.setChecked(false);
+                    status.setText("GPS local autorisé. Aucune recherche de proximité externe.");
                     showGpsAccuracy();
                 })
                 .setNegativeButton("Annuler", (dialog, which) -> {})
@@ -1879,17 +1901,20 @@ public class MainActivity extends Activity {
             int rate = Integer.parseInt(prefs.get("tts_speed", "100"));
             webVoice.setSpeechRate(Math.max(0.7f, Math.min(1.5f, rate / 100f)));
             java.util.List<String> parts = VoiceText.ttsChunks(spoken, 280);
+            FridayService.externalSpeechStarted(spoken);
             for (int i=0; i<parts.size(); i++) {
                 int result = webVoice.speak(parts.get(i),
                         i == 0 ? TextToSpeech.QUEUE_FLUSH : TextToSpeech.QUEUE_ADD,
                         new Bundle(), "friday_jarvis_ui_" + System.nanoTime() + "_" + i);
                 if (result != TextToSpeech.SUCCESS) {
+                    FridayService.externalSpeechFinished();
                     status.setText("Échec synthèse vocale Android (code " + result + "). "
                             + "Vérifiez la voix française et la sortie du casque.");
                     break;
                 }
             }
         } catch (Exception ex) {
+            FridayService.externalSpeechFinished();
             status.setText("Voix Android indisponible : " + ex.getClass().getSimpleName());
         }
     }
@@ -1901,11 +1926,19 @@ public class MainActivity extends Activity {
         }
         if (webVoice != null) return;
         webVoice = new TextToSpeech(getApplicationContext(), result -> runOnUiThread(() -> {
+            if (webVoice != null) webVoice.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                @Override public void onStart(String id) { FridayService.externalSpeechStarted(spoken); }
+                @Override public void onDone(String id) { FridayService.externalSpeechFinished(); }
+                @Override public void onError(String id) { FridayService.externalSpeechFinished(); }
+            });
             webVoiceReady = result == TextToSpeech.SUCCESS && webVoice != null &&
                 webVoice.setLanguage(Locale.FRENCH) >= TextToSpeech.LANG_AVAILABLE;
             if (webVoiceReady) speakVoiceChunks(spoken);
-            else status.setText("Voix française Android indisponible. "
-                    + "Configurez le moteur de synthèse vocale dans Android.");
+            else {
+                FridayService.externalSpeechFinished();
+                status.setText("Voix française Android indisponible. "
+                        + "Configurez le moteur de synthèse vocale dans Android.");
+            }
         }));
     }
     private void refreshLocation() {
@@ -2062,6 +2095,7 @@ public class MainActivity extends Activity {
         if (events != null) unregisterReceiver(events);
         if (testTts != null) { try { testTts.shutdown(); } catch (Exception ignored) {} testTts = null; }
         if (webVoice != null) { try { webVoice.shutdown(); } catch (Exception ignored) {} webVoice = null; }
+        FridayService.externalSpeechFinished();
         if (!FridayService.isActive()) PhoneAudioRoute.release(this);
         if (hud != null) { hud.removeJavascriptInterface("FridayAndroid"); hud.destroy(); }
         super.onDestroy();
