@@ -50,8 +50,8 @@ class RecentVoiceNewsV387(unittest.TestCase):
 
     def test_version(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 101", gradle)
-        self.assertIn("versionName '3.14.7'", gradle)
+        self.assertIn("versionCode 102", gradle)
+        self.assertIn("versionName '3.14.8'", gradle)
 
 if __name__ == "__main__":
     unittest.main()

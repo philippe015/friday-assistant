@@ -1,0 +1,116 @@
+name: Publish JARVIS v3.14.8 LiteRT voice GPS beta
+
+on:
+  push:
+    branches:
+      - fix/litert-voice-gps-v3148-20261122
+    paths:
+      - .github/workflows/publish-v3.14.8-litert-voice-gps.yml
+      - 'app/**'
+      - 'tests/**'
+      - 'scripts/tester_sources.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate-build-publish:
+    if: github.repository == 'philippe015/friday-assistant'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Python 3.14 for Chaquopy
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Android SDK
+        run: |
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - name: Rust Android target
+        run: |
+          rustup target add aarch64-linux-android
+          cargo install cargo-ndk --locked
+
+      - name: Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Regression tests (Python Java JS Rust)
+        run: bash scripts/tester_sources.sh
+
+      - name: Build Rust JNI
+        run: |
+          cd native
+          cargo ndk -t arm64-v8a -o ../app/src/main/jniLibs build --release
+
+      - name: Compile Android debug APK
+        run: gradle --no-daemon :app:assembleDebug
+
+      - name: Verify and prepare beta APK
+        run: |
+          grep -Fq "versionCode 102" app/build.gradle
+          grep -Fq "versionName '3.14.8'" app/build.gradle
+          grep -Fq "applicationIdSuffix '.readerfixpreview'" app/build.gradle
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk \
+            dist/JARVIS-v3.14.8-litert-voice-gps-beta.apk
+          test -s dist/JARVIS-v3.14.8-litert-voice-gps-beta.apk
+          unzip -t dist/JARVIS-v3.14.8-litert-voice-gps-beta.apk >/dev/null
+          sha256sum dist/JARVIS-v3.14.8-litert-voice-gps-beta.apk \
+            | tee dist/SHA256SUMS.txt
+
+      - name: Upload verified APK as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-v3.14.8-litert-voice-gps-beta
+          path: |
+            dist/JARVIS-v3.14.8-litert-voice-gps-beta.apk
+            dist/SHA256SUMS.txt
+
+      - name: Publish downloadable beta release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v3.14.8-litert-voice-gps-beta"
+          APK="dist/JARVIS-v3.14.8-litert-voice-gps-beta.apk"
+          cat > dist/NOTES.md <<'EOF'
+          Bêta Android JARVIS v3.14.8 — diagnostic et reprise LiteRT-LM.
+          Après une exception JNI pendant la génération, l'engine natif est
+          libéré. Si l'erreur vient du GPU, un seul nouvel essai CPU est effectué
+          avec un moteur neuf, sans IA cloud. Une incompatibilité GPU/CPU est
+          explicitement signalée ; certains fichiers .litertlm sont GPU-only.
+          La dictée Vosk ignore les mots isolés non précédés du mot-cle,
+          comprend « article numéro un » et demande une reformulation lorsque
+          la commande est ambiguë. Le panneau GPS distingue une position non
+          encore mesurée d'une mesure échouée (Android, permissions, capteur).
+          Aucune permission supplémentaire, aucun partage de position.
+          À installer seulement pour tests. Le package debug est
+          fr.friday.assistant.readerfixpreview ; une signature Android debug
+          différente peut empêcher la mise à jour sans perte de données.
+          Gardez l'APK fonctionnelle et ses sauvegardes. Le modèle local doit
+          être installé séparément. Essais réels sur téléphone non certifiés.
+          EOF
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" dist/SHA256SUMS.txt --clobber
+          else
+            gh release create "$TAG" "$APK" dist/SHA256SUMS.txt \
+              --target "$GITHUB_SHA" --prerelease \
+              --title "JARVIS v3.14.8 — LiteRT + Vosk + GPS (bêta)" \
+              --notes-file dist/NOTES.md
+          fi

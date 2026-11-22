@@ -7,7 +7,7 @@ import java.util.regex.Pattern;
 public final class RssArticleIntent {
     private RssArticleIntent() {}
     private static final Pattern REFERENCE = Pattern.compile(
-            "\\b(?:article|page)\\s+(?:rss\\s+)?(?:(?:numero|n|no)\\s*)?(\\d{1,2}|premier|premiere|"
+            "\\b(?:article|page)\\s+(?:rss\\s+)?(?:(?:numero|n|no)\\s*)?(\\d{1,2}|un|deux|trois|quatre|cinq|six|sept|premier|premiere|"
             + "deuxieme|second|seconde|troisieme|quatrieme|cinquieme|sixieme|septieme)\\b");
     private static final Pattern ORDINAL = Pattern.compile(
             "\\b(premier|premiere|deuxieme|second|seconde|troisieme|quatrieme|cinquieme|"
@@ -38,6 +38,19 @@ public final class RssArticleIntent {
         return ANALYSIS.matcher(VoiceText.normalize(question)).find();
     }
 
+    /**
+     * La dictée libre Vosk peut confondre « lis l'article 1 en entier »
+     * avec « c'est l'article et en adsl ». On demande une confirmation
+     * sans supposer qu'une transcription ambiguë désigne un numéro précis.
+     */
+    public static boolean ambiguousVoiceReading(String question) {
+        String q = VoiceText.normalize(question);
+        return !isRequest(question)
+                && q.matches(".*\\barticle\\b.*")
+                && (q.matches(".*\\b(?:adsl|entier|entiere|integralement)\\b.*")
+                    || q.matches("^(?:c est|ces|cet) l article.*"));
+    }
+
     public static int index(String question) {
         String text = VoiceText.normalize(question);
         Matcher reference = REFERENCE.matcher(text);
@@ -52,13 +65,13 @@ public final class RssArticleIntent {
             return n >= 1 && n <= 7 ? n : -1;
         }
         switch (value) {
-            case "premier": case "premiere": return 1;
-            case "deuxieme": case "second": case "seconde": return 2;
-            case "troisieme": return 3;
-            case "quatrieme": return 4;
-            case "cinquieme": return 5;
-            case "sixieme": return 6;
-            case "septieme": return 7;
+            case "un": case "premier": case "premiere": return 1;
+            case "deux": case "deuxieme": case "second": case "seconde": return 2;
+            case "trois": case "troisieme": return 3;
+            case "quatre": case "quatrieme": return 4;
+            case "cinq": case "cinquieme": return 5;
+            case "six": case "sixieme": return 6;
+            case "sept": case "septieme": return 7;
             default: return -1;
         }
     }

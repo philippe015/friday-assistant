@@ -1,3 +1,32 @@
+## JARVIS v3.14.8 — LiteRT-LM, Vosk et état GPS (bêta)
+
+Cette préversion cible le diagnostic du **22 novembre 2026, 12 h 38**.
+
+- **LiteRT-LM** : en cas d'erreur JNI pendant l'inférence, le moteur natif
+  défaillant est fermé. Si la panne survient sur GPU, un unique essai sur CPU
+  est lancé avec un moteur neuf. Le détail de l'erreur est communiqué sans
+  exposer les fichiers privés. Un fichier .litertlm GPU-only peut rester
+  incompatible avec le CPU.
+- **Vosk** : une transcription d'un seul mot comme « cycle » n'est pas une
+  question directe. Les commandes RSS « lis l'article numéro un » à « sept »
+  sont reconnues ; une phrase incertaine comme « c'est l'article et en adsl »
+  déclenche une demande de reformulation locale sans solliciter Gemma.
+- **GPS** : le cockpit différencie une position non encore mesurée d'une
+  autorisation manquante, d'un fournisseur Android inactif et d'une
+  acquisition sans résultat. Une permission « précise » ne garantit jamais
+  une position à trois mètres.
+
+L'assistant et les informations personnelles restent **sur le téléphone** ;
+aucun changement de microphone, de permissions ou de fournisseur IA externe.
+
+**Attention :** la correction améliore la récupération et le diagnostic,
+sans garantir qu'un modèle LiteRT-LM incompatible fonctionnera sur ce GPU.
+La validation sur un téléphone Android demeure nécessaire.
+
+[Correctif GitHub](https://github.com/philippe015/friday-assistant/pulls)
+
+---
+
 ## JARVIS v3.14.7 — Éditeur RSS et anti-écho (bêta)
 
 La lecture d'articles de Google Actualités utilise désormais la métadonnée
