@@ -634,7 +634,10 @@ public class FridayService extends Service {
                             if (!segment.isEmpty()) {
                                 completed = VoiceText.join(completed, segment);
                                 lastVoice = now;
-                                if (now - lastPartialPublished >= 250) {
+                                if (now - lastPartialPublished >= 250
+                                        && !VoiceSelfEchoPolicy.suppressEchoPartial(
+                                                completed, lastSpokenForEcho,
+                                                now, lastSpokenAt)) {
                                     event("partial", completed); lastPartialPublished = now;
                                 }
                             }
@@ -645,7 +648,13 @@ public class FridayService extends Service {
                                 interim = next;
                                 lastVoice = now;
                                 if (now - lastPartialPublished >= 250) {
-                                    event("partial", VoiceText.join(completed, interim)); lastPartialPublished = now;
+                                    String preview = VoiceText.join(completed, interim);
+                                    if (!VoiceSelfEchoPolicy.suppressEchoPartial(
+                                            preview, lastSpokenForEcho,
+                                            now, lastSpokenAt)) {
+                                        event("partial", preview);
+                                        lastPartialPublished = now;
+                                    }
                                 }
                             }
                         }
