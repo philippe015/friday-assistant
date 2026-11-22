@@ -84,6 +84,7 @@ public class MainActivity extends Activity {
     private static final int REQ_PHOTO = 82;
     private static final int REQ_VOICE_SAMPLE = 83;
     private static final int REQ_LOCAL_LLM_MODEL = 84;
+    private static final int REQ_DIAGNOSTIC_EXPORT = 85;
     private volatile String cachedLocation = "";
     private File captureFile;
     private TextToSpeech webVoice;
@@ -94,6 +95,7 @@ public class MainActivity extends Activity {
         getWindow().setStatusBarColor(Color.rgb(3, 16, 26));
         getWindow().setNavigationBarColor(Color.rgb(3, 16, 26));
         prefs = new SecurePrefs(this);
+        DiagnosticLog.record(this, "APP_OPENED");
         // Migration unique : supprimer l'ancienne clé API de l'autre fournisseur, sans effacer
         // une éventuelle clé Mistral déjà présente dans les anciens profils.
         if (!"1".equals(prefs.get("mistral_only_v330", "0"))) {
@@ -477,6 +479,12 @@ public class MainActivity extends Activity {
         config.addView(lastErrorLabel);
         config.addView(button("⧉ Copier la dernière erreur", this::copyLastError));
         config.addView(button("Diagnostic complet · micro / Vosk / Jarvis / voix", this::showVoiceDiagnostics));
+        config.addView(label("JOURNAL D'ANOMALIES · 14 jours · chiffrement Android Keystore. "
+                + "Seuls les codes de panne et les durées sont conservés, jamais "
+                + "les conversations, les URL, les clés API ou les coordonnées GPS."));
+        config.addView(button("Consulter les logs JARVIS sauvegardés", this::showDiagnosticLogs));
+        config.addView(button("Sauvegarder les logs · JSON sur le téléphone", this::requestDiagnosticExport));
+        config.addView(button("Effacer les logs de diagnostic", this::confirmClearDiagnosticLogs));
         config.addView(button("Enregistrer les réglages", this::save));
         config.addView(label("PERSONNALITÉ · prompt sur plusieurs lignes · profils chiffrés"));
         config.addView(button("✧ Modifier la personnalité de F.R.I.D.A.Y.", () -> {
@@ -730,6 +738,38 @@ public class MainActivity extends Activity {
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_DIAGNOSTIC_EXPORT) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+                final Uri destination = data.getData();
+                new Thread(() -> {
+                    String notice;
+                    try {
+                        String json = DiagnosticLog.exportJson(this);
+                        try (java.io.OutputStream stream = getContentResolver()
+                                .openOutputStream(destination, "w")) {
+                            if (stream == null)
+                                throw new java.io.IOException("Android n'a pas ouvert le fichier");
+                            stream.write(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                            stream.flush();
+                        }
+                        notice = "Sauvegarde des logs effectuée dans le fichier choisi. "
+                                + "Le JSON exporté est lisible sans chiffrement : "
+                                + "ne le publiez pas sans le relire.";
+                    } catch (Exception ex) {
+                        notice = "Échec d'export : fichier ou stockage chiffré inaccessible. "
+                                + "Aucune synchronisation automatique effectuée.";
+                    }
+                    final String feedback = notice;
+                    runOnUiThread(() -> {
+                        if (!isFinishing() && !isDestroyed()) {
+                            status.setText(feedback);
+                            Toast.makeText(this, feedback, Toast.LENGTH_LONG).show();
+                        }
+                    });
+                }, "jarvis-diagnostic-save-json").start();
+            }
+            return;
+        }
         if (requestCode != REQ_LOCAL_LLM_MODEL) return;
         if (resultCode != RESULT_OK || data == null || data.getData() == null) {
             localJarvisImporting.set(false);
@@ -1284,6 +1324,79 @@ public class MainActivity extends Activity {
             if (result != TextToSpeech.SUCCESS) status.setText("Erreur de démarrage du test TTS : " + result);
         }));
     }
+
+    /** Prévisualisation locale : le journal ne contient que des codes non privés. */
+    private void showDiagnosticLogs() {
+        new Thread(() -> {
+            String preview;
+            try {
+                preview = DiagnosticLog.preview(this);
+            } catch (Exception failure) {
+                preview = "Impossible de déchiffrer le journal local. "
+                        + "Aucun journal non chiffré n'est conservé.";
+            }
+            final String result = preview;
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                new AlertDialog.Builder(this)
+                        .setTitle("Journal d'anomalies JARVIS")
+                        .setMessage(result)
+                        .setPositiveButton("Fermer", null)
+                        .setNeutralButton("Sauvegarder JSON", (d, w) -> requestDiagnosticExport())
+                        .show();
+            });
+        }, "jarvis-diagnostic-preview").start();
+    }
+
+    /** Android SAF creates an explicitly chosen user-owned JSON document. */
+    private void requestDiagnosticExport() {
+        new AlertDialog.Builder(this)
+                .setTitle("Sauvegarde des logs de diagnostic")
+                .setMessage("Le journal reste chiffré dans JARVIS. "
+                        + "Le fichier JSON que vous allez créer ne sera PAS chiffré. "
+                        + "Il contient uniquement des codes et des durées, sans paroles, "
+                        + "messages, GPS, mots de passe ou liens Internet. "
+                        + "Aucun transfert automatique. Enregistrer maintenant ?")
+                .setNegativeButton("Annuler", null)
+                .setPositiveButton("Choisir le fichier", (dialog, which) -> {
+                    Intent save = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    save.addCategory(Intent.CATEGORY_OPENABLE);
+                    save.setType("application/json");
+                    String stamp = new java.text.SimpleDateFormat(
+                            "yyyyMMdd-HHmmss", Locale.ROOT).format(new java.util.Date());
+                    save.putExtra(Intent.EXTRA_TITLE, "JARVIS-diagnostics-" + stamp + ".json");
+                    try {
+                        startActivityForResult(save, REQ_DIAGNOSTIC_EXPORT);
+                    } catch (Exception unavailable) {
+                        status.setText("Impossible d'ouvrir le sélecteur de fichiers Android.");
+                    }
+                }).show();
+    }
+
+    private void confirmClearDiagnosticLogs() {
+        new AlertDialog.Builder(this)
+                .setTitle("Effacer les diagnostics ?")
+                .setMessage("La suppression ne touche ni aux conversations chiffrées, "
+                        + "ni aux modèles, ni aux profils. Elle est irréversible.")
+                .setNegativeButton("Annuler", null)
+                .setPositiveButton("Effacer", (dialog, which) ->
+                    new Thread(() -> {
+                        String result;
+                        try {
+                            DiagnosticLog.clear(this);
+                            result = "Journal de diagnostic chiffré effacé.";
+                        } catch (Exception failure) {
+                            result = "Impossible d'effacer les logs : Keystore indisponible.";
+                        }
+                        final String outcome = result;
+                        runOnUiThread(() -> {
+                            if (!isFinishing() && !isDestroyed())
+                                status.setText(outcome);
+                        });
+                    }, "jarvis-diagnostic-clear").start()
+                ).show();
+    }
+
     private void clearVoiceHistory() {
         try {
             PrivateConversationHistory.clear(this, prefs);
@@ -1800,6 +1913,15 @@ public class MainActivity extends Activity {
         @JavascriptInterface public String currentVersion() { return FridayVersionGuard.thisVersion(MainActivity.this); }
         @JavascriptInterface public int otherVersionsCount() { return FridayVersionGuard.installed(MainActivity.this).size(); }
         @JavascriptInterface public void manageVersions() { runOnUiThread(() -> FridayVersionGuard.showManager(MainActivity.this)); }
+        @JavascriptInterface public void showDiagnosticLogs() {
+            runOnUiThread(MainActivity.this::showDiagnosticLogs);
+        }
+        @JavascriptInterface public void exportDiagnosticLogs() {
+            runOnUiThread(MainActivity.this::requestDiagnosticExport);
+        }
+        @JavascriptInterface public void clearDiagnosticLogs() {
+            runOnUiThread(MainActivity.this::confirmClearDiagnosticLogs);
+        }
         @JavascriptInterface public void gpsCheck() { runOnUiThread(MainActivity.this::showGpsAccuracy); }
         @JavascriptInterface public String locationText() { return cachedLocation; }
         @JavascriptInterface public void locationRefresh() { runOnUiThread(MainActivity.this::refreshLocation); }
