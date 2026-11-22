@@ -49,6 +49,12 @@ public final class DialogueMemoryPolicy {
         if (q.length() > 125 || q.isEmpty()) return false;
         if (q.matches(".*\\b(?:internet|web|actualites?|news|meteo|aujourd hui|maintenant|"
                 + "recherche|cherche|verifie|verifier|source|sources|en ligne)\\b.*")) return false;
+        // « le deuxième », « le suivant » : références sans sujet propre.
+        if (q.matches("^(?:et )?(?:le|la|les|l|celui|celle) "
+                + "(?:premier|deuxieme|troisieme|second|suivant|autre)\\b.*"))
+            return true;
+        if (q.matches("^(?:et )?(?:lui|elle|eux|celui ci|celle ci)\\b.*"))
+            return true;
         if (q.matches("^(?:pourquoi|pourquoi ca|pourquoi donc|et pourquoi|"
                 + "et pourquoi ca|comment ca|et ensuite|et apres|continue|"
                 + "poursuis|reprends|precise|et la suite)$")) return true;
