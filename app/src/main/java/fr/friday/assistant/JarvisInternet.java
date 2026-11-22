@@ -531,15 +531,28 @@ public final class JarvisInternet {
             // Un article de type « DIRECT » peut n'être qu'un encart dans une
             // page en continu : ne lire QUE l'extrait correspondant au titre,
             // jamais présenter le fil complet comme l'article demandé.
-            if (RssPublisherArticlePolicy.googleRssUrl(url)
-                    && RssPublisherArticlePolicy.isLiveHeadline(title)) {
-                String passage = RssPublisherArticlePolicy.relevantLivePassage(
-                        title, page.text);
-                if (passage.isEmpty())
-                    throw new IOException("Le site de l'éditeur a été trouvé, "
-                            + "mais la mise à jour correspondant au titre RSS "
-                            + "n'est pas identifiable dans son texte public.");
-                page = new WebPageReader.Page(page.url, page.title, passage, true, false);
+            if (RssPublisherArticlePolicy.googleRssUrl(url)) {
+                if (RssPublisherArticlePolicy.isLiveHeadline(title)) {
+                    String passage = RssPublisherArticlePolicy.relevantLivePassage(
+                            title, page.text);
+                    if (passage.isEmpty())
+                        throw new IOException("Le média a été trouvé, mais "
+                                + "la mise à jour de DIRECT du flux RSS "
+                                + "n'est pas vérifiable dans son texte public.");
+                    page = new WebPageReader.Page(
+                            page.url, page.title, passage, true, false);
+                } else if (!RssPublisherArticlePolicy.matchingTitle(
+                        title, page.title)) {
+                    String passage = RssPublisherArticlePolicy.verifiedArticlePassage(
+                            title, page.text);
+                    if (passage.isEmpty())
+                        throw new IOException("La page trouvée chez l'éditeur "
+                                + "ne correspond pas assez au titre du flux RSS.");
+                    // Le contenu est une section publiquement vérifiée, pas
+                    // une copie intégrale de l'article demandé.
+                    page = new WebPageReader.Page(
+                            page.url, page.title, passage, true, false);
+                }
             }
         } catch (java.util.concurrent.CancellationException cancelled) {
             throw cancelled;
@@ -595,6 +608,11 @@ public final class JarvisInternet {
                 && RssPublisherArticlePolicy.isLiveHeadline(title))
             head.append("Ceci est un extrait vérifié d'une mise à jour de DIRECT, "
                     + "pas l'intégralité de la page d'actualités en continu. ");
+        else if (RssPublisherArticlePolicy.googleRssUrl(url)
+                && !RssPublisherArticlePolicy.matchingTitle(title, page.title))
+            head.append("Le titre du site diffère du titre RSS. "
+                    + "Seul le passage public contenant les détails "
+                    + "correspondants est lu ; il ne s'agit pas du texte intégral. ");
         else if (page.truncated)
             head.append("Attention : contenu partiel, limite de lecture "
                     + "atteinte ; je ne peux pas garantir l'intégralité du site. ");
@@ -666,7 +684,8 @@ public final class JarvisInternet {
             RssPublisherArticlePolicy.shortPublisherQuery(headline, domain)
         };
         Set<String> inspectedUrls = new HashSet<>();
-        int[] liveInspections = {0};
+        // Limiter les ouvertures de pages publiques non indexées.
+        int[] publicPageInspections = {0};
         for (String query : queries) {
             if (cancellation != null) cancellation.check();
             String encoded = URLEncoder.encode(query, "UTF-8");
@@ -675,7 +694,7 @@ public final class JarvisInternet {
                         "https://www.bing.com/search?q=" + encoded
                                 + "&format=rss", true), 0, System.currentTimeMillis());
                 String validated = verifiedPublisherCandidate(bing, domain, headline,
-                        inspectedUrls, liveInspections, cancellation);
+                        inspectedUrls, publicPageInspections, cancellation);
                 if (!validated.isEmpty()) return validated;
             } catch (java.util.concurrent.CancellationException cancelled) {
                 throw cancelled;
@@ -687,7 +706,7 @@ public final class JarvisInternet {
                 List<Source> ddg = parseDuckDuckGo(fetch(
                         "https://html.duckduckgo.com/html/?q=" + encoded, true));
                 String validated = verifiedPublisherCandidate(ddg, domain, headline,
-                        inspectedUrls, liveInspections, cancellation);
+                        inspectedUrls, publicPageInspections, cancellation);
                 if (!validated.isEmpty()) return validated;
             } catch (java.util.concurrent.CancellationException cancelled) {
                 throw cancelled;
@@ -715,15 +734,18 @@ public final class JarvisInternet {
                     || !inspectedUrls.add(item.url)) continue;
             if (RssPublisherArticlePolicy.matchingTitle(headline, item.title))
                 return item.url;
-            if (!RssPublisherArticlePolicy.isLiveHeadline(headline)
-                    || liveInspections[0] >= 3) continue;
-            liveInspections[0]++;
+            if (publicPageInspections[0] >= 3) continue;
+            publicPageInspections[0]++;
             try {
                 WebPageReader.Page page = WebPageReader.readDeep(item.url);
-                if (RssPublisherArticlePolicy.publisherHost(page.url, domain)
-                        && !RssPublisherArticlePolicy.relevantLivePassage(
-                                headline, page.text).isEmpty())
-                    return page.url;
+                if (!RssPublisherArticlePolicy.publisherHost(page.url, domain))
+                    continue;
+                String passage = RssPublisherArticlePolicy.isLiveHeadline(headline)
+                        ? RssPublisherArticlePolicy.relevantLivePassage(
+                                headline, page.text)
+                        : RssPublisherArticlePolicy.verifiedArticlePassage(
+                                headline, page.text);
+                if (!passage.isEmpty()) return page.url;
             } catch (java.util.concurrent.CancellationException cancelled) {
                 throw cancelled;
             } catch (Exception inaccessible) {
