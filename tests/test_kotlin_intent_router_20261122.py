@@ -80,8 +80,9 @@ fun main() {
             t=p/"KotlinBrainSmoke.kt"
             t.write_text(smoke,encoding="utf-8")
             jar=p/"test.jar"
-            subprocess.run(["kotlinc", str(SOURCE), str(t), "-include-runtime", "-d", str(jar)],
-                           check=True,text=True,capture_output=True,timeout=90)
+            compiler=subprocess.run(["kotlinc", str(SOURCE), str(t), "-include-runtime", "-d", str(jar)],
+                           check=False,text=True,capture_output=True,timeout=90)
+            self.assertEqual(compiler.returncode, 0, compiler.stderr + compiler.stdout)
             done=subprocess.run(["java","-jar",str(jar)],
                                 check=True,text=True,capture_output=True,timeout=30)
             self.assertIn("KotlinBrainSmoke OK",done.stdout)
