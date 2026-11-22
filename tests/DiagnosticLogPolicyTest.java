@@ -57,6 +57,34 @@ public final class DiagnosticLogPolicyTest {
                 "Compiler constants accepted");
         yes(!DiagnosticLogPolicy.allowedCode(
                 "USER_SECRET: https://example.com/abc"), "Arbitrary details rejected");
+        same("TTS_FIRST_SPEECH", DiagnosticLogPolicy.safeCode(
+                "latency", "Première parole après 2344 ms (mesuré par Android)"),
+                "First speech is NOT response preparation");
+        yes(DiagnosticLogPolicy.safeMetricMs(
+                "latency", "Première parole après 2344 ms (mesuré par Android)") == 2344,
+                "First speech gets its actual duration");
+        same("", DiagnosticLogPolicy.safeCode("asr_diag",
+                "Réponse terminée ; après 2,5 s, question directe acceptée "
+                + "pendant 20 s sans mot-clé"),
+                "The words sans mot-cle must NOT produce a wake event");
+        same("VOSK_WAKE", DiagnosticLogPolicy.safeCode("asr_diag",
+                "Mot-clé Jarvis reconnu, question envoyée à Jarvis"),
+                "Actual Vosk wake recognized");
+        same("VOSK_DIRECT_QUESTION", DiagnosticLogPolicy.safeCode("asr_diag",
+                "Question directe reconnue, envoyée à Jarvis"),
+                "Hands-free question distinguished from wake word");
+        same("ECHO_DICTATION_PAUSED", DiagnosticLogPolicy.safeCode("barge_diag",
+                "Protection anti-écho : dictée suspendue · STOP vocal désactivé"),
+                "TTS echo pause");
+        same("ECHO_RESUMED", DiagnosticLogPolicy.safeCode("barge_diag",
+                "Protection anti-écho terminée · questions autorisées"),
+                "Echo guard released");
+        same("ECHO_COOLDOWN", DiagnosticLogPolicy.safeCode("barge_diag",
+                "Réponse clôturée · anti-écho temporaire · dictée bientôt active"),
+                "Echo cooldown phase");
+        same("", DiagnosticLogPolicy.safeCode("latency",
+                "Une phrase technique sans temps identifiable"),
+                "Do not save unclassified latency status");
         System.out.println("DiagnosticLogPolicyTest OK");
     }
 }
