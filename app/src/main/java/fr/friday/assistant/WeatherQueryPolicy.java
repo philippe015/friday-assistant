@@ -51,8 +51,8 @@ public final class WeatherQueryPolicy {
         String tail = normalized.substring(weather.end());
         tail = PERIOD.matcher(tail).replaceAll(" ")
                 .replaceAll("\\s+", " ").trim()
-                .replaceFirst("^(?:il\\s+)?(?:(?:a|pour|sur|de|dans)\\s+)+", "")
-                .replaceFirst("^il\\s+", "").trim();
+                .replaceFirst("^-?il\\s+", "")
+                .replaceFirst("^(?:(?:a|pour|sur|de|dans)\\s+)+", "").trim();
         if (tail.matches("^(?:pour|a|sur|de|dans|en|il)$")) return "";
         Matcher match = DESTINATION.matcher(tail);
         if (!match.matches()) return "";
