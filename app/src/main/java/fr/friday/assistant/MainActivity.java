@@ -1263,6 +1263,11 @@ public class MainActivity extends Activity {
                             prefs, new NativeAI.CancelToken());
                 if (answer == null && LocationIntent.nearby(request))
                     answer = JarvisLocationReply.answer(getApplicationContext(), prefs, request);
+                if (answer == null) {
+                    answer = JarvisKotlinBrain.localClarification(request, privateDialogue);
+                    if (answer != null)
+                        DiagnosticLog.record(getApplicationContext(), "KOTLIN_TURN_CLARIFIED");
+                }
                 if (answer == null)
                     answer = ConversationClarificationPolicy.missingContextQuestion(
                             request, privateDialogue);
