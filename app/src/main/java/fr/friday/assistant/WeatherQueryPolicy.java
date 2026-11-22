@@ -15,10 +15,15 @@ public final class WeatherQueryPolicy {
     private static final Pattern WEATHER = Pattern.compile(
         "\\b(?:meteo|previsions? meteo|temperature|temperatures|"
       + "quel temps fait|quel temps va faire|temps qu il fait)\\b");
+    // « Météo Joinville-le-Pont 94 » contient un numéro départemental,
+    // non une partie du nom de la commune.
     private static final Pattern DESTINATION = Pattern.compile(
-        "(?:^|\\s)(?:a|pour|sur|de|dans)\\s+"
-      + "([a-z][a-z0-9-]{1,}(?:\\s+[a-z][a-z0-9-]{1,}){0,3}"
-      + "(?:\\s*,\\s*[a-z][a-z-]{1,})?)$");
+            "^([a-z][a-z-]{1,}(?:\\s+[a-z][a-z-]{1,}){0,4})"
+          + "(?:\\s+(\\d{2}|\\d{5}))?"
+          + "(?:\\s*,\\s*([a-z][a-z -]{1,}))?$");
+    private static final Pattern PERIOD = Pattern.compile(
+            "\\b(?:maintenant|aujourd hui|demain|ce soir|cet apres midi|ce matin)\\b");
+
     private static final Pattern INVALID_CITY = Pattern.compile(
         "^(?:moi|nous|ma ville|mon village|mes alentours|chez moi|"
       + "la maison|ma position|proximite|ici|ma localisation|"
@@ -36,19 +41,31 @@ public final class WeatherQueryPolicy {
         return WEATHER.matcher(text).find();
     }
 
-    /** Retourne null pour autre intention, "" pour météo sans ville. */
+    /** Retourne null hors météo, "" si le lieu n'est pas fourni. */
     public static String city(String question) {
         if (!isWeather(question)) return null;
-        String text = fold(question)
-                .replaceFirst("^(?:jarvis|jervis|friday|fraday)\\s+", "")
-                .replaceAll("\\b(?:maintenant|aujourd hui|demain|ce soir|"
-                        + "cet apres midi|ce matin)\\s*$", "").trim();
-        Matcher match = DESTINATION.matcher(text);
-        if (!match.find()) return "";
-        String found = match.group(1).trim();
-        if (found.length() < 3 || found.length() > 65
-                || INVALID_CITY.matcher(found).matches()) return "";
-        return found;
+        String normalized = fold(question)
+                .replaceFirst("^(?:jarvis|jervis|friday|fraday)\\s+", "");
+        Matcher weather = WEATHER.matcher(normalized);
+        if (!weather.find()) return "";
+        String tail = normalized.substring(weather.end());
+        tail = PERIOD.matcher(tail).replaceAll(" ")
+                .replaceAll("\\s+", " ").trim()
+                .replaceFirst("^(?:il\\s+)?(?:a|pour|sur|de|dans)\\s+", "")
+                .replaceFirst("^il\\s+", "").trim();
+        if (tail.matches("^(?:pour|a|sur|de|dans|en|il)$")) return "";
+        Matcher match = DESTINATION.matcher(tail);
+        if (!match.matches()) return "";
+        String name = match.group(1).trim();
+        if (name.length() < 3 || name.length() > 65
+                || INVALID_CITY.matcher(name).matches()) return "";
+        String country = match.group(3);
+        return country == null ? name : name + ", " + country.trim();
+    }
+
+    public static boolean department94(String question) {
+        return isWeather(question)
+                && fold(question).matches(".*\\b(?:94|94340)\\b.*");
     }
 
     public static boolean tomorrow(String question) {
