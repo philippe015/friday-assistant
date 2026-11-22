@@ -23,8 +23,8 @@ public final class RssSpeechRecoveryTest {
                 "Pas de lecture d'un article inventé");
         ok(RssArticleIntent.ambiguousVoiceReading("c'est l'article et en adsl"),
                 "Vosk ambigu demande une reformulation locale");
-        ok(RssArticleIntent.isRequest("lis l'article en entier"),
-                "Commande singulière explicite conserve le premier article");
+        ok(RssArticleIntent.ambiguousVoiceReading("lis l'article en entier"),
+                "Demande sans numéro incomprise : clarification locale");
         ok(!RssArticleIntent.ambiguousVoiceReading("Que dit l'article de loi ?"),
                 "Ne pas intercepter les questions générales");
         ok(!RssArticleIntent.ambiguousVoiceReading("Quelle est ma position GPS ?"),
