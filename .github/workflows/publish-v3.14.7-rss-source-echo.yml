@@ -6,6 +6,9 @@ on:
       - fix/rss-source-url-echo-v3147-20261122
     paths:
       - .github/workflows/publish-v3.14.7-rss-source-echo.yml
+      - 'app/**'
+      - 'tests/**'
+      - 'scripts/tester_sources.sh'
   workflow_dispatch:
 
 permissions:
