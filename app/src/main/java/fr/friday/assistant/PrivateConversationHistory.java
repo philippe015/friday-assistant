@@ -53,8 +53,18 @@ public final class PrivateConversationHistory {
 
     public static synchronized long append(Context ctx, SecurePrefs prefs,
             String kind, String text) throws Exception {
+        return append(ctx, prefs, kind, text, "unknown");
+    }
+
+    /** Each NEW encrypted exchange has a wall-clock timestamp and source.
+     * Older messages remain intact but without an invented timestamp. */
+    public static synchronized long append(Context ctx, SecurePrefs prefs,
+            String kind, String text, String channel) throws Exception {
         if (!("user".equals(kind) || "assistant".equals(kind)))
             throw new IllegalArgumentException("Type d'événement invalide");
+        if (!("voice".equals(channel) || "text".equals(channel)
+                || "unknown".equals(channel)))
+            throw new IllegalArgumentException("Canal de conversation invalide");
         String json = read(ctx, prefs);
         JSONArray old = new JSONArray(json);
         JSONArray clean = new JSONArray();
@@ -66,7 +76,9 @@ public final class PrivateConversationHistory {
         }
         seq++;
         clean.put(new JSONObject().put("seq", seq)
-                .put("kind", kind).put("text", text == null ? "" : text));
+                .put("kind", kind).put("text", text == null ? "" : text)
+                .put("time_ms", System.currentTimeMillis())
+                .put("channel", channel));
         prefs.putPrivateSecret(KEY, clean.toString());
         return seq;
     }
