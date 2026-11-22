@@ -85,6 +85,8 @@ public class MainActivity extends Activity {
     private static final int REQ_VOICE_SAMPLE = 83;
     private static final int REQ_LOCAL_LLM_MODEL = 84;
     private static final int REQ_DIAGNOSTIC_EXPORT = 85;
+    /** Export-only option, never a persistent auto-recording preference. */
+    private boolean pendingDiagnosticIncludeConversation = false;
     private volatile String cachedLocation = "";
     private File captureFile;
     private TextToSpeech webVoice;
@@ -480,8 +482,10 @@ public class MainActivity extends Activity {
         config.addView(button("⧉ Copier la dernière erreur", this::copyLastError));
         config.addView(button("Diagnostic complet · micro / Vosk / Jarvis / voix", this::showVoiceDiagnostics));
         config.addView(label("JOURNAL D'ANOMALIES · 14 jours · chiffrement Android Keystore. "
-                + "Seuls les codes de panne et les durées sont conservés, jamais "
-                + "les conversations, les URL, les clés API ou les coordonnées GPS."));
+                + "Codes et durées conservés dans le journal technique. "
+                + "Lors de l'export, une option facultative ajoute les questions "
+                + "et réponses depuis l'historique de conversation déjà chiffré. "
+                + "Aucune transmission automatique."));
         config.addView(button("Consulter les logs JARVIS sauvegardés", this::showDiagnosticLogs));
         config.addView(button("Sauvegarder les logs · JSON sur le téléphone", this::requestDiagnosticExport));
         config.addView(button("Effacer les logs de diagnostic", this::confirmClearDiagnosticLogs));
@@ -739,12 +743,15 @@ public class MainActivity extends Activity {
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQ_DIAGNOSTIC_EXPORT) {
+            // Fail closed after returning from the document picker.
+            final boolean includeConversation = pendingDiagnosticIncludeConversation;
+            pendingDiagnosticIncludeConversation = false;
             if (resultCode == RESULT_OK && data != null && data.getData() != null) {
                 final Uri destination = data.getData();
                 new Thread(() -> {
                     String notice;
                     try {
-                        String json = DiagnosticLog.exportJson(this);
+                        String json = DiagnosticLog.exportJson(this, includeConversation);
                         try (java.io.OutputStream stream = getContentResolver()
                                 .openOutputStream(destination, "w")) {
                             if (stream == null)
@@ -752,9 +759,14 @@ public class MainActivity extends Activity {
                             stream.write(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                             stream.flush();
                         }
-                        notice = "Sauvegarde des logs effectuée dans le fichier choisi. "
-                                + "Le JSON exporté est lisible sans chiffrement : "
-                                + "ne le publiez pas sans le relire.";
+                        notice = includeConversation
+                                ? "Rapport avec conversation et événements sauvegardé. "
+                                + "ATTENTION : le JSON est lisible sans chiffrement "
+                                + "et peut contenir des informations privées. "
+                                + "Relisez-le avant tout partage."
+                                : "Journal technique sauvegardé (sans conversation). "
+                                + "Le JSON est lisible sans chiffrement : "
+                                + "vérifiez-le avant tout partage.";
                     } catch (Exception ex) {
                         notice = "Échec d'export : fichier ou stockage chiffré inaccessible. "
                                 + "Aucune synchronisation automatique effectuée.";
@@ -1350,24 +1362,43 @@ public class MainActivity extends Activity {
 
     /** Android SAF creates an explicitly chosen user-owned JSON document. */
     private void requestDiagnosticExport() {
+        // One-time opt-in. Never save this checkbox or its state to preferences.
+        pendingDiagnosticIncludeConversation = false;
+        CheckBox includeConversation = new CheckBox(this);
+        includeConversation.setText("Inclure la conversation : questions et réponses");
+        includeConversation.setTextColor(Color.WHITE);
+        includeConversation.setChecked(false); // Private-by-default.
+        includeConversation.setPadding(dp(12), dp(8), dp(12), dp(8));
         new AlertDialog.Builder(this)
-                .setTitle("Sauvegarde des logs de diagnostic")
-                .setMessage("Le journal reste chiffré dans JARVIS. "
-                        + "Le fichier JSON que vous allez créer ne sera PAS chiffré. "
-                        + "Il contient uniquement des codes et des durées, sans paroles, "
-                        + "messages, GPS, mots de passe ou liens Internet. "
-                        + "Aucun transfert automatique. Enregistrer maintenant ?")
-                .setNegativeButton("Annuler", null)
+                .setTitle("Rapport de diagnostic JARVIS")
+                .setMessage("Les événements techniques restent chiffrés dans JARVIS. "
+                        + "Si vous cochez la case, le rapport inclura aussi les "
+                        + "échanges sauvegardés (voix et texte), avec les heures "
+                        + "disponibles. Les anciennes conversations peuvent ne "
+                        + "pas avoir d'horodatage.\n\n"
+                        + "ATTENTION : le JSON créé n'est PAS chiffré. "
+                        + "Des noms, informations personnelles, questions, "
+                        + "URL ou secrets saisis peuvent y figurer. "
+                        + "Vérifiez-le avant de le partager. "
+                        + "Aucun envoi automatique.")
+                .setView(includeConversation)
+                .setNegativeButton("Annuler", (dialog, which) ->
+                        pendingDiagnosticIncludeConversation = false)
                 .setPositiveButton("Choisir le fichier", (dialog, which) -> {
+                    pendingDiagnosticIncludeConversation =
+                            includeConversation.isChecked();
                     Intent save = new Intent(Intent.ACTION_CREATE_DOCUMENT);
                     save.addCategory(Intent.CATEGORY_OPENABLE);
                     save.setType("application/json");
                     String stamp = new java.text.SimpleDateFormat(
                             "yyyyMMdd-HHmmss", Locale.ROOT).format(new java.util.Date());
-                    save.putExtra(Intent.EXTRA_TITLE, "JARVIS-diagnostics-" + stamp + ".json");
+                    String prefix = pendingDiagnosticIncludeConversation
+                            ? "JARVIS-rapport-conversation-" : "JARVIS-diagnostics-";
+                    save.putExtra(Intent.EXTRA_TITLE, prefix + stamp + ".json");
                     try {
                         startActivityForResult(save, REQ_DIAGNOSTIC_EXPORT);
                     } catch (Exception unavailable) {
+                        pendingDiagnosticIncludeConversation = false;
                         status.setText("Impossible d'ouvrir le sélecteur de fichiers Android.");
                     }
                 }).show();
