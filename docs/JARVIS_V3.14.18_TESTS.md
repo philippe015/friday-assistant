@@ -31,6 +31,6 @@ Le rapport contient des conversations privées ; il n'est pas ajouté au dépôt
 
 ## Publication / limites
 
-La compilation GitHub Actions de PR produit un **APK debug** de test, pas une version stable signée. Sa signature peut être différente de celle de l'APK déjà installé : **ne pas désinstaller l'application utilisée** sans sauvegarde sûre de la mémoire chiffrée et des préférences.
+La compilation GitHub Actions de PR produit un **APK debug** de test, pas une version stable signée. Son identifiant Android de test est `fr.friday.assistant.v31418preview` : il s'installe à côté des versions existantes et ne remplace pas leurs données. Sa signature peut être différente de celle de l'APK déjà installé : **ne pas désinstaller l'application utilisée** sans sauvegarde sûre de la mémoire chiffrée et des préférences.
 
 La fusion et la publication d'une version release v3.14.18 exigent les tests CI verts, un essai réel sur Android, et une signature compatible avec les versions distribuées.
