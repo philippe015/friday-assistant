@@ -1,3 +1,48 @@
+## JARVIS v3.14.16 — contributions communautaires GitHub sans données privées
+
+Il est désormais possible pour **chaque utilisateur Android** de signaler
+un dysfonctionnement via **Cockpit → Signaler sur GitHub** ou le bouton
+équivalent dans les réglages natifs.
+
+**Fonctionnement :** JARVIS prépare un brouillon de GitHub Issue avec
+le numéro de version de l'application, la version du SDK Android et
+les **28 derniers codes d'événements techniques**, présentés avec des
+délais relatifs. L'utilisateur voit l'intégralité de ce brouillon
+avant de confirmer l'ouverture de son navigateur ; les données du
+brouillon sont transmises au site GitHub **dès l'ouverture du lien**,
+même si le signalement n'est pas publié. C'est une opération volontaire
+distincte de la sauvegarde locale chiffrée.
+
+L'utilisateur doit avoir un compte GitHub, se connecter au besoin,
+corriger/compléter le rapport et **publier lui-même**. Aucun ticket
+n'est déposé automatiquement et aucune autorisation GitHub/API token
+n'est demandée à l'application. Sans clic utilisateur, les journaux
+restent sur le téléphone.
+
+**Protections de confidentialité :** le brouillon public est construit
+exclusivement à partir des codes fixes `DiagnosticLogPolicy.allowedCode`
+et de durées en millisecondes / temps relatifs. Il n'envoie aucun texte
+de dialogue, transcription vocale, nom, secret, URL, coordonnée GPS,
+horodatage absolu ni fichier JSON complet.
+
+**Ne joignez jamais directement un export `JARVIS-rapport-conversation*.json`
+dans une GitHub Issue publique.** Ces exports sont explicitement
+personnels et peuvent contenir des données sensibles. Une pièce jointe
+GitHub peut devenir accessible dès sa mise en ligne ; sa suppression
+ne garantit pas l'effacement de toutes les copies déjà effectuées.
+
+Le rapport JSON local de v3.14.14 reste indépendant et conserve
+sa case **« Inclure la conversation »** (désactivée par défaut).
+Les événements techniques et les échanges restent stockés sous
+chiffrement Android Keystore, sans synchronisation automatique.
+
+Les contributions permettent de repérer les codes d'anomalie
+récurrents et de prioriser les corrections, mais aucune correction
+automatique du code, aucune télémétrie permanente et aucune mise à
+jour forcée ne sont mises en place.
+
+---
+
 ## JARVIS v3.14.14 — Export conversation + journal technique (bêta)
 
 **Objectif :** obtenir un véritable rapport permettant de comprendre
