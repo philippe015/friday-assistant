@@ -40,6 +40,7 @@ javac -encoding UTF-8 -d "$TMP_TEST" \
   app/src/main/java/fr/friday/assistant/WebAnalysisPolicy.java \
   app/src/main/java/fr/friday/assistant/BargeInPolicy.java \
   app/src/main/java/fr/friday/assistant/VoiceStopSpotter.java \
+  app/src/main/java/fr/friday/assistant/VoiceSelfEchoPolicy.java \
   app/src/main/java/fr/friday/assistant/TtsEchoGate.java \
   app/src/main/java/fr/friday/assistant/MicSignalMeter.java \
   app/src/main/java/fr/friday/assistant/LocationIntent.java \
