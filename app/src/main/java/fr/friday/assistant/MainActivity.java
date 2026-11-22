@@ -1793,8 +1793,14 @@ public class MainActivity extends Activity {
         if (hud == null || !pageReady) return;
         try {
             String eventsJson = PrivateConversationHistory.read(this, prefs);
-            new org.json.JSONArray(eventsJson);
-            hud.evaluateJavascript("window.fridayNativeInbox&&window.fridayNativeInbox(" + eventsJson + ");", null);
+            org.json.JSONArray all = new org.json.JSONArray(eventsJson);
+            // Keep the Cockpit fast: 240 encrypted messages can be recalled by
+            // Jarvis, but only the latest 80 are rendered in the WebView.
+            org.json.JSONArray visible = new org.json.JSONArray();
+            for (int i = Math.max(0, all.length() - 80); i < all.length(); i++)
+                visible.put(all.get(i));
+            hud.evaluateJavascript("window.fridayNativeInbox&&window.fridayNativeInbox("
+                    + visible.toString() + ");", null);
         } catch (Exception encryptedFailure) {
             status.setText("Historique privé illisible : Keystore Android indisponible. Aucun accès en clair.");
         }
