@@ -23,6 +23,8 @@ object LiteRtJarvisEngine {
     private val lock = ReentrantLock()
     private var activePath: String? = null
     private var activeEngine: Engine? = null
+    /** Backend du moteur initialisé : nécessaire pour un repli sûr après JNI. */
+    private var activeGpu = false
 
     @JvmStatic
     @Throws(IOException::class)
@@ -51,6 +53,7 @@ object LiteRtJarvisEngine {
                 val backends = if (wantsGpu) listOf(Backend.GPU(), Backend.CPU())
                                else listOf(Backend.CPU())
                 var selected: Engine? = null
+                var selectedGpu = false
                 var lastFailure: Exception? = null
                 for (backend in backends) {
                     try {
@@ -63,7 +66,8 @@ object LiteRtJarvisEngine {
                         val candidate = Engine(config)
                         candidate.initialize()
                         selected = candidate
-                        prefs.put("local_jarvis_gpu", if (backend is Backend.GPU) "1" else "0")
+                        selectedGpu = backend is Backend.GPU
+                        prefs.put("local_jarvis_gpu", if (selectedGpu) "1" else "0")
                         break
                     } catch (failure: Exception) {
                         lastFailure = failure
@@ -86,15 +90,75 @@ object LiteRtJarvisEngine {
                 }
                 activeEngine = selected
                 activePath = file.absolutePath
+                activeGpu = selectedGpu
             }
             cancellation?.check()
             val engine = activeEngine ?: throw IOException("Moteur LiteRT-LM indisponible.")
-            val answer = engine.createConversation().use { conversation ->
-                conversation.sendMessage(prompt).toString().trim()
+            try {
+                val response = infer(engine, prompt)
+                cancellation?.check()
+                return response
+            } catch (memory: OutOfMemoryError) {
+                throw memory
+            } catch (linkage: LinkageError) {
+                throw linkage
+            } catch (inference: Exception) {
+                // Un échec JNI peut laisser un objet de conversation ou le cache
+                // GPU dans un état invalide. Ne JAMAIS réutiliser ce moteur.
+                val failedOnGpu = activeGpu
+                closeLocked()
+                cancellation?.check()
+                if (failedOnGpu) {
+                    // Une seule tentative CPU, sur un moteur entièrement neuf.
+                    // Certains modèles .litertlm sont compilés GPU seulement :
+                    // dans ce cas on dit que le repli n'est pas compatible.
+                    try {
+                        val cpuEngine = Engine(EngineConfig(
+                            modelPath = file.absolutePath,
+                            backend = Backend.CPU(),
+                            cacheDir = context.cacheDir.absolutePath,
+                            maxNumTokens = 2048
+                        ))
+                        cpuEngine.initialize()
+                        activeEngine = cpuEngine
+                        activePath = file.absolutePath
+                        activeGpu = false
+                        cancellation?.check()
+                        val cpuResponse = infer(cpuEngine, prompt)
+                        cancellation?.check()
+                        SecurePrefs(context).put("local_jarvis_gpu", "0")
+                        return cpuResponse
+                    } catch (cancelled: java.util.concurrent.CancellationException) {
+                        closeLocked()
+                        throw cancelled
+                    } catch (memory: OutOfMemoryError) {
+                        closeLocked()
+                        throw memory
+                    } catch (linkage: LinkageError) {
+                        closeLocked()
+                        throw linkage
+                    } catch (cpuFailure: Exception) {
+                        closeLocked()
+                        throw IOException(
+                            "LiteRT-LM : erreur d'inférence GPU (" +
+                                shortReason(inference) + "), et repli CPU impossible (" +
+                                shortReason(cpuFailure) + "). Le modèle .litertlm" +
+                                " peut être incompatible avec ce téléphone, notamment" +
+                                " s'il est compilé uniquement pour GPU." +
+                                " Essayez un modèle LiteRT-LM CPU compatible, sans" +
+                                " désinstaller JARVIS ni effacer vos conversations.",
+                            cpuFailure
+                        )
+                    }
+                }
+                throw IOException(
+                    "LiteRT-LM : erreur d'inférence sur CPU (" +
+                        shortReason(inference) + "). Moteur réinitialisé pour" +
+                        " la prochaine question. Vérifiez la compatibilité du" +
+                        " modèle, la RAM et la longueur du contexte.",
+                    inference
+                )
             }
-            cancellation?.check()
-            if (answer.isEmpty()) throw IOException("LiteRT-LM n'a généré aucun texte.")
-            return answer
         } catch (memory: OutOfMemoryError) {
             closeLocked()
             throw IOException(
@@ -110,19 +174,39 @@ object LiteRtJarvisEngine {
         } catch (failure: IOException) {
             throw failure
         } catch (failure: Exception) {
+            closeLocked()
             throw IOException(
-                "Échec d'inférence LiteRT-LM : " + failure.javaClass.simpleName +
-                    ". Vérifiez le modèle et les capacités GPU du téléphone.", failure
+                "Échec LiteRT-LM : " + shortReason(failure) +
+                    ". Vérifiez le modèle, la RAM et le backend Android.", failure
             )
         } finally {
             lock.unlock()
         }
     }
 
+    private fun infer(engine: Engine, prompt: String): String {
+        val answer = engine.createConversation().use { conversation ->
+            conversation.sendMessage(prompt).toString().trim()
+        }
+        if (answer.isEmpty()) throw IOException("LiteRT-LM n'a généré aucun texte.")
+        return answer
+    }
+
+    /** Diagnostic local court, sans chemin privé ni contenu du profil/mémoire. */
+    private fun shortReason(failure: Throwable): String {
+        val message = failure.message.orEmpty()
+            .replace(Regex("[\\r\\n]+"), " ")
+            .replace(Regex("/(?:data|storage)/[^\\s:]+"), "[fichier privé]")
+            .take(145)
+        return failure.javaClass.simpleName +
+            (if (message.isBlank()) "" else " : " + message)
+    }
+
     private fun closeLocked() {
         val old = activeEngine
         activeEngine = null
         activePath = null
+        activeGpu = false
         if (old != null) {
             try { old.close() } catch (_: Exception) { }
         }
