@@ -1381,6 +1381,15 @@ public final class JarvisInternet {
     private static String recentNewsTopic(String question) {
         String words = VoiceText.normalize(question).replaceAll("[^a-z0-9 ]+", " ")
                 .replaceAll("\\s+", " ").trim();
+        // Le rapport v3.14.14 a capturé « j'ai envie de moi les
+        // dernières actualités six ». Vosk a déformé une amorce vocale
+        // et « envie » est devenu un faux sujet d'actualité.
+        // Réparer UNIQUEMENT cette formule incongrue lorsqu'elle
+        // précède directement « les dernières actualités » ; ne pas
+        // supprimer « envie » dans de vraies recherches thématiques.
+        words = words.replaceFirst(
+                "^(?:jarvis\\s+)?j\\s+ai\\s+envie\\s+de\\s+moi\\s+(?=(?:les\\s+)?dernieres\\s+actualites\\b)",
+                "");
         // Vosk peut transcrire « les frappes » comme « les disputes frappe ».
         // N'appliquer cette réparation qu'à cette succession anormale exacte.
         words = words.replaceAll("\\bdisputes?\\s+frappes?\\b", "frappes");
