@@ -99,25 +99,114 @@ public final class DiagnosticLog {
         return raw.isEmpty() ? new JSONArray() : new JSONArray(raw);
     }
 
-    /** Snapshot returns only fixed diagnostic codes. Call from background thread. */
+    /** Default remains code-only. No conversation history read without consent. */
     public static String exportJson(Context context) throws Exception {
+        return exportJson(context, false);
+    }
+
+    /**
+     * User-selected export: assemble the encrypted diagnostic events with the
+     * already-encrypted conversation history. Never duplicate dialogues into
+     * the technical log, preferences or any temporary plaintext file.
+     * The JSON result stays in memory until Android's selected document is
+     * explicitly opened by MainActivity.
+     */
+    public static String exportJson(Context context, boolean includeConversation)
+            throws Exception {
         final Context app = context.getApplicationContext();
         Future<String> future = IO.submit(() -> {
-            JSONArray entries = read(new SecurePrefs(app));
+            SecurePrefs prefs = new SecurePrefs(app);
+            JSONArray entries = read(prefs);
             JSONObject report = new JSONObject();
             report.put("format", "jarvis-diagnostics");
-            report.put("schema", 1);
+            report.put("schema", 2);
             report.put("generated_utc", utc(System.currentTimeMillis()));
             report.put("app_version", FridayVersionGuard.thisVersion(app));
             report.put("android_sdk", Build.VERSION.SDK_INT);
             report.put("retention_days", 14);
-            report.put("privacy", "Événements prédéfinis et durées seulement. "
-                    + "Aucune transcription, conversation, coordonnée GPS, URL, "
-                    + "clé API, identité ou prompt. Export manuel non chiffré.");
+            report.put("conversation_included", includeConversation);
+            report.put("privacy", includeConversation
+                    ? "Export EXPLICITE incluant le texte des échanges locaux. "
+                      + "Le fichier JSON n'est PAS chiffré ; il peut révéler "
+                      + "des données personnelles, des URL et des secrets saisis. "
+                      + "Ne l'envoyez qu'après vérification manuelle."
+                    : "Codes de diagnostic et durées uniquement : aucune "
+                      + "transcription ou réponse n'est incluse.");
             report.put("events", entries);
+
+            if (includeConversation) {
+                // Do not record dialogue a second time. Read the encrypted
+                // 80-message ring ONLY when the user checks the option.
+                JSONArray history = new JSONArray(
+                        PrivateConversationHistory.read(app, prefs));
+                JSONArray conversation = new JSONArray();
+                for (int i = Math.max(0, history.length() - 80);
+                        i < history.length(); i++) {
+                    JSONObject message = history.optJSONObject(i);
+                    if (message == null) continue;
+                    String kind = message.optString("kind", "");
+                    if (!("user".equals(kind) || "assistant".equals(kind))) continue;
+                    JSONObject item = new JSONObject();
+                    item.put("seq", message.optLong("seq", i + 1));
+                    item.put("role", kind);
+                    item.put("channel", message.optString("channel", "unknown"));
+                    // Full text of the retained exchange (no clipping).
+                    item.put("text", message.optString("text", ""));
+                    long timestamp = message.optLong("time_ms", 0);
+                    if (timestamp > 0) {
+                        item.put("time_ms", timestamp);
+                        item.put("time_utc", utc(timestamp));
+                    } else {
+                        // Do not fabricate dates for conversations saved before
+                        // v3.14.14. Their original order is still preserved.
+                        item.put("time_unknown", true);
+                    }
+                    conversation.put(item);
+                }
+                report.put("conversation", conversation);
+                report.put("conversation_count", conversation.length());
+                report.put("conversation_note",
+                        "80 derniers messages conservés au maximum dans "
+                        + "l'historique privé. Les messages antérieurs à "
+                        + "v3.14.14 n'ont pas d'horodatage fiable.");
+                report.put("timeline", timeline(entries, conversation));
+            }
             return report.toString(2);
         });
         return future.get(12, TimeUnit.SECONDS);
+    }
+
+    /** Sort non-private diagnostics + references to dated dialogue messages. */
+    private static JSONArray timeline(JSONArray events, JSONArray conversation)
+            throws Exception {
+        java.util.ArrayList<JSONObject> merged = new java.util.ArrayList<>();
+        for (int i = 0; i < events.length(); i++) {
+            JSONObject entry = events.optJSONObject(i);
+            if (entry == null) continue;
+            JSONObject point = new JSONObject();
+            point.put("time_ms", entry.optLong("time_ms", 0));
+            point.put("type", "diagnostic");
+            point.put("code", entry.optString("code", ""));
+            if (entry.has("duration_ms"))
+                point.put("duration_ms", entry.optInt("duration_ms"));
+            merged.add(point);
+        }
+        for (int i = 0; i < conversation.length(); i++) {
+            JSONObject message = conversation.optJSONObject(i);
+            if (message == null || !message.has("time_ms")) continue;
+            JSONObject point = new JSONObject();
+            point.put("time_ms", message.optLong("time_ms"));
+            point.put("type", "conversation_reference");
+            point.put("seq", message.optLong("seq"));
+            point.put("role", message.optString("role"));
+            // Text is available exactly once in conversation[].
+            merged.add(point);
+        }
+        merged.sort(java.util.Comparator.comparingLong(
+                e -> e.optLong("time_ms", 0)));
+        JSONArray ordered = new JSONArray();
+        for (JSONObject point : merged) ordered.put(point);
+        return ordered;
     }
 
     /** Local preview, read only after queued writes complete. */
