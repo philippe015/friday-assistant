@@ -19,6 +19,8 @@
         <package android:name="fr.friday.assistant" />
         <package android:name="fr.friday.assistant.preview" />
         <package android:name="fr.friday.assistant.smartpreview" />
+        <package android:name="fr.friday.assistant.readerfixpreview" />
+        <package android:name="fr.friday.assistant.v31418preview" />
     </queries>
     <application
         android:name="com.chaquo.python.android.PyApplication"
