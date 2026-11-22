@@ -34,6 +34,28 @@ public final class RssArticleIntent {
                         + "legislatif|constitution)\\b.*");
     }
 
+    /**
+     * Une courte réponse vocale « l'article numéro un » après un bulletin
+     * RSS est une sélection d'article, pas une question générale à Gemma.
+     * Limiter aux phrases ENTIERES, sans mention de code de loi ni autre sujet.
+     * La présence du dernier bulletin est vérifiée par le lecteur chiffré.
+     */
+    public static boolean isBareReference(String question) {
+        String q = VoiceText.normalize(question)
+                .replaceAll("[’']", " ").replaceAll("[^a-z0-9 ]+", " ")
+                .replaceAll("\\s+", " ").trim();
+        boolean bare = q.matches("^(?:(?:jarvis|jarvise|jervis|friday)\\s+)?"
+                + "(?:(?:dix|dis)\\s+)?"
+                + "(?:(?:l|le|la|cet|cette|ce)\\s+)?"
+                + "(?:article|page)\\s+(?:rss\\s+)?"
+                + "(?:(?:numero|n|no)\\s+)?"
+                + "(?:[1-7]|un|deux|trois|quatre|cinq|six|sept|"
+                + "premier|premiere|deuxieme|second|seconde|troisieme|"
+                + "quatrieme|cinquieme|sixieme|septieme)"
+                + "(?:\\s+en\\s+entier)?$");
+        return bare && index(q) >= 1 && index(q) <= 7;
+    }
+
     public static boolean wantsAnalysis(String question) {
         return ANALYSIS.matcher(VoiceText.normalize(question)).find();
     }
