@@ -33,7 +33,7 @@ class DiagnosticLogPrivacyTest(unittest.TestCase):
         self.assertIn("REQ_DIAGNOSTIC_EXPORT", MAIN)
         self.assertIn("DiagnosticLog.exportJson(this, includeConversation)", MAIN)
         self.assertIn("DiagnosticLog.clear(this)", MAIN)
-        self.assertIn("setTitle(\"Sauvegarde des logs de diagnostic\")", MAIN)
+        self.assertIn("setTitle(\"Rapport de diagnostic JARVIS\")", MAIN)
         self.assertIn("exportDiagnosticLogs", MAIN)
         self.assertIn("showDiagnosticLogs", MAIN)
         self.assertIn("clearDiagnosticLogs", MAIN)
