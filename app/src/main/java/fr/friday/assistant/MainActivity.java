@@ -1224,6 +1224,19 @@ public class MainActivity extends Activity {
             String fault = null;
             boolean persisted = false;
             try {
+                // Written turns must receive the SAME private local dialogue
+                // context as voice turns. History never goes to search engines.
+                String privateDialogue = "";
+                if (MemoryIntent.kind(request) == MemoryIntent.NONE
+                        && !LocationIntent.nearby(request)) {
+                    try {
+                        privateDialogue = DialogueContext.recent(
+                                getApplicationContext(), prefs, request);
+                    } catch (Exception unavailable) {
+                        // Do not leak messages or Keystore details to a log.
+                        privateDialogue = "";
+                    }
+                }
                 if (MemoryIntent.kind(request) != MemoryIntent.NONE)
                     answer = PersonalMemory.command(prefs, request);
                 if (answer == null && DialogueMemoryPolicy.asksMemoryStatus(request))
@@ -1237,18 +1250,22 @@ public class MainActivity extends Activity {
                 if (answer == null && WebSearch.requestsLiveConnectivityCheck(request))
                     answer = JarvisInternet.liveConnectionDiagnostic(
                             prefs, new NativeAI.CancelToken());
+                if (answer == null)
+                    answer = ConversationClarificationPolicy.missingContextQuestion(
+                            request, privateDialogue);
                 // Les capacités intrinsèques de Jarvis restent locales.
                 if (answer == null)
                     answer = WebSearch.assistantAnswer(request, JarvisInternet.enabled(prefs));
                 if (answer == null) {
                     if (JarvisInternet.shouldResearch(prefs, request)) {
                         JarvisInternet.Result researched = JarvisInternet.answer(
-                                getApplicationContext(), prefs, request, new NativeAI.CancelToken());
+                                getApplicationContext(), prefs, request,
+                                privateDialogue, new NativeAI.CancelToken());
                         answer = researched.text;
                         speechAnswer = researched.speech;
                     } else {
                         answer = LocalJarvisEngine.answer(getApplicationContext(), prefs, request,
-                                new NativeAI.CancelToken());
+                                privateDialogue, new NativeAI.CancelToken());
                     }
                 }
                 if (answer == null || answer.trim().isEmpty())
