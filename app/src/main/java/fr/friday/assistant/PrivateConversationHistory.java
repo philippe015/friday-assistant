@@ -13,9 +13,12 @@ import org.json.JSONObject;
 public final class PrivateConversationHistory {
     private static final String KEY = "voice_history_v380";
     private static final String OLD = "friday_voice_history";
-    // Les 40 derniers échanges (80 messages) restent chiffrés sur le téléphone.
-    // L'IA ne reçoit qu'un extrait court sélectionné à chaque réponse.
-    private static final int MAX_EVENTS = 80;
+    // Jusqu'à 120 échanges (240 messages) conservés exclusivement sous
+    // chiffrement Android Keystore ; le modèle reçoit une sélection courte.
+    // La taille totale reste bornée pour limiter les ralentissements Android.
+    public static final int MAX_EVENTS = 240;
+    private static final int MAX_JSON_CHARS = 320000;
+    private static final int MAX_MESSAGE_CHARS = 16000;
     private PrivateConversationHistory() {}
 
     public static synchronized String read(Context ctx, SecurePrefs prefs) throws Exception {
@@ -86,10 +89,20 @@ public final class PrivateConversationHistory {
             clean.put(item);
         }
         seq++;
+        String message = text == null ? "" : text;
+        if (message.length() > MAX_MESSAGE_CHARS)
+            message = message.substring(0, MAX_MESSAGE_CHARS - 60)
+                    + "\n[Message partiel : limite de stockage de l'historique]";
         clean.put(new JSONObject().put("seq", seq)
-                .put("kind", kind).put("text", text == null ? "" : text)
+                .put("kind", kind).put("text", message)
                 .put("time_ms", occurredAtMs)
                 .put("channel", channel));
+        // Suppression en premier des plus anciens messages, jamais des plus
+        // récents. Une archive corrompue ne déclenche aucun repli en clair.
+        while (clean.length() > MAX_EVENTS
+                || clean.toString().length() > MAX_JSON_CHARS) {
+            clean.remove(0);
+        }
         prefs.putPrivateSecret(KEY, clean.toString());
         return seq;
     }
