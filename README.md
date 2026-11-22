@@ -1,3 +1,33 @@
+## JARVIS v3.14.10 — accès aux articles « DIRECT » Google Actualités (bêta)
+
+Après une sélection correcte de **l'article RSS n° 1**, un titre
+« DIRECT. … - BFM » a échoué : Google Actualités n'a fourni qu'un lien
+d'agrégateur et le titre exact n'était pas retrouvé chez l'éditeur.
+
+Cette version :
+- reconnaît aussi le domaine officiel `bfmtv.com` pour les références
+  au média BFM ;
+- combine une recherche du titre exact et une recherche courte ciblée
+  sur le **même domaine d'éditeur** (Bing RSS et DuckDuckGo publics) ;
+- n'accepte un candidat qu'après vérification du nom de domaine, du
+  titre ou d'un **passage public réellement présent dans le direct** ;
+- pour un DIRECT, ne lit que le passage correspondant à la brève,
+  et le signale comme **partiel** ; elle ne confond pas le fil
+  d'actualité complet avec un article individuel ;
+- respecte les refus HTTP, pages nécessitant JavaScript, paywalls et
+  absences de contenu. Si rien n'est accessible, aucun texte n'est inventé.
+
+L'appareil conserve l'IA locale, l'historique chiffré et les réglages
+microphone. Les recherches sont faites uniquement sur des titres RSS
+publics, jamais sur les conversations, les notes personnelles ou le GPS.
+
+**Tester sur Android :** demander un nouveau bulletin daté, puis
+« JARVIS, lis l'article numéro un en entier ». Une page de DIRECT peut ne
+permettre que la lecture d'une mise à jour, ou aucune lecture si le site
+bloque l'extraction. La validation réelle sur téléphone reste nécessaire.
+
+---
+
 ## JARVIS v3.14.9 — limite d'entrée LiteRT-LM et sélection RSS (bêta)
 
 Le journal du **22 novembre 2026, 15 h 05** identifie la cause exacte :
