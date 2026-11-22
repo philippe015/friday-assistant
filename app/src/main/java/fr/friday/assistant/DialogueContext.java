@@ -15,9 +15,9 @@ import java.util.List;
 public final class DialogueContext {
     private DialogueContext() { }
 
-    private static final int MAX_DIALOGUE_MESSAGES = 6;
-    private static final int MAX_RECALLED_TOPICS = 2;
-    private static final int MAX_DIALOGUE_CHARACTERS = 2800;
+    private static final int MAX_DIALOGUE_MESSAGES = 10;
+    private static final int MAX_RECALLED_TOPICS = 4;
+    private static final int MAX_DIALOGUE_CHARACTERS = 3600;
 
     /** Évite d'utiliser deux fois la question que le service vient d'enregistrer. */
     private static int previousEnd(JSONArray events, String currentQuestion) {
@@ -58,7 +58,7 @@ public final class DialogueContext {
             if (obj == null) continue;
             String kind = obj.optString("kind", "");
             if (!"user".equals(kind) && !"assistant".equals(kind)) continue;
-            String text = clip(obj.optString("text", ""), "user".equals(kind) ? 440 : 580);
+            String text = clip(obj.optString("text", ""), "user".equals(kind) ? 380 : 490);
             if (text.isEmpty()) continue;
             String line = ("user".equals(kind) ? "Utilisateur : " : "Jarvis : ")
                     + text;
@@ -71,7 +71,7 @@ public final class DialogueContext {
         result.append("[CONTEXTE PRIVÉ DES ÉCHANGES PRÉCÉDENTS — TÉLÉPHONE UNIQUEMENT]\n");
 
         // Rappel thématique dans les anciennes conversations chiffrées.
-        // Les six messages les plus récents restent prioritaires ; seules
+        // Les dix messages les plus récents restent prioritaires ; seules
         // les anciennes questions qui partagent un sujet précis sont rappelées.
         // Aucune requête HTTP ni échange avec un moteur externe.
         int olderEnd = Math.max(0, end - MAX_DIALOGUE_MESSAGES);
@@ -132,12 +132,15 @@ public final class DialogueContext {
                         + "Les notes personnelles enregistrées explicitement sont distinctes.";
             return "Oui. J'ai accès sur ce téléphone à " + questions
                     + " question(s) précédentes et " + answers
-                    + " réponse(s) dans un historique chiffré. "
-                    + "Je peux réutiliser les derniers échanges pour poursuivre "
-                    + "et approfondir le même sujet, même après redémarrage. "
-                    + "Ce contexte est limité : il ne garantit pas de retrouver "
-                    + "toutes les conversations anciennes. Pour conserver un fait "
-                    + "important plus durablement, dites « Jarvis, retiens que… ».";
+                    + " réponse(s) dans un historique chiffré "
+                    + "(maximum 240 messages, selon la taille des réponses). "
+                    + "Je peux relier jusqu'à dix messages récents et "
+                    + "retrouver quatre anciens sujets par pertinence, "
+                    + "sans transmettre ce contexte à un moteur Web. "
+                    + "Le modèle local reçoit une sélection réduite : "
+                    + "il peut avoir besoin d'une précision si un pronom "
+                    + "ou une référence manque. Pour conserver un fait "
+                    + "durablement, dites « Jarvis, retiens que… ».";
         } catch (Exception unreadable) {
             return "Je ne peux pas lire mon historique local chiffré actuellement. "
                     + "Je ne vais pas prétendre me souvenir d'échanges inaccessibles. "
