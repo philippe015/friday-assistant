@@ -91,6 +91,7 @@ public class MainActivity extends Activity {
     private File captureFile;
     private TextToSpeech webVoice;
     private volatile boolean webVoiceReady = false;
+    private volatile String webVoiceFinalUtterance = "";
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -1738,6 +1739,8 @@ public class MainActivity extends Activity {
     private void interruptSpeaking() {
         hudCloneSpeaking.set(false);
         if (webVoice != null) { try { webVoice.stop(); } catch (Exception ignored) { } }
+        FridayService.externalSpeechFinished();
+        FridayService.externalSpeechFinished();
         if (!FridayService.isActive()) {
             status.setText("Micro arrêté : tentative d'activation de l'écoute.");
             startListening();
@@ -1903,9 +1906,11 @@ public class MainActivity extends Activity {
             java.util.List<String> parts = VoiceText.ttsChunks(spoken, 280);
             FridayService.externalSpeechStarted(spoken);
             for (int i=0; i<parts.size(); i++) {
+                String utteranceId = "friday_jarvis_ui_" + System.nanoTime() + "_" + i;
+                if (i == parts.size() - 1) webVoiceFinalUtterance = utteranceId;
                 int result = webVoice.speak(parts.get(i),
                         i == 0 ? TextToSpeech.QUEUE_FLUSH : TextToSpeech.QUEUE_ADD,
-                        new Bundle(), "friday_jarvis_ui_" + System.nanoTime() + "_" + i);
+                        new Bundle(), utteranceId);
                 if (result != TextToSpeech.SUCCESS) {
                     FridayService.externalSpeechFinished();
                     status.setText("Échec synthèse vocale Android (code " + result + "). "
@@ -1928,7 +1933,10 @@ public class MainActivity extends Activity {
         webVoice = new TextToSpeech(getApplicationContext(), result -> runOnUiThread(() -> {
             if (webVoice != null) webVoice.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                 @Override public void onStart(String id) { FridayService.externalSpeechStarted(spoken); }
-                @Override public void onDone(String id) { FridayService.externalSpeechFinished(); }
+                @Override public void onDone(String id) {
+                    if (id != null && id.equals(webVoiceFinalUtterance))
+                        FridayService.externalSpeechFinished();
+                }
                 @Override public void onError(String id) { FridayService.externalSpeechFinished(); }
             });
             webVoiceReady = result == TextToSpeech.SUCCESS && webVoice != null &&
