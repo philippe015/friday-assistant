@@ -266,7 +266,7 @@ public class FridayService extends Service {
         msg.putExtra("text", value);
         if (kind.equals("user") || kind.equals("assistant")) {
             try {
-                long seq = PrivateConversationHistory.append(this, settings, kind, value);
+                long seq = PrivateConversationHistory.append(this, settings, kind, value, "voice");
                 msg.putExtra("seq", seq);
             } catch (Exception encryptedFailure) {
                 // Jamais de repli sur SharedPreferences en clair, même sans Keystore.
