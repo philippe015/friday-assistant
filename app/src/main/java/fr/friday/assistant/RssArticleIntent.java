@@ -69,6 +69,15 @@ public final class RssArticleIntent {
         return ANALYSIS.matcher(VoiceText.normalize(question)).find();
     }
 
+    /** Lecture complète même si Vosk remplace « lis » par « lily ».
+     * Requiert un numéro explicite : aucun choix inventé. */
+    public static boolean wantsFullText(String question) {
+        String q = VoiceText.normalize(question);
+        return (REFERENCE.matcher(q).find() || ORDINAL.matcher(q).find())
+                && COMPLETE_READING.matcher(q).find()
+                && !wantsAnalysis(question);
+    }
+
     /**
      * La dictée libre Vosk peut confondre « lis l'article 1 en entier »
      * avec « c'est l'article et en adsl ». On demande une confirmation
