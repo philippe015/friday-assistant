@@ -20,7 +20,7 @@ object JarvisKotlinBrain {
     private fun fold(value: String?): String {
         val normalized = Normalizer.normalize(value.orEmpty(), Normalizer.Form.NFD)
             .replace(Regex("\\p{M}+"), "").lowercase(Locale.FRENCH)
-        return normalized.replace(Regex("[^a-z0-9-]+"), " ")
+        return normalized.replace(Regex("[^a-z0-9]+"), " ")
             .replace(Regex("\\s+"), " ").trim()
             .replace(Regex("^(?:jarvis|jarvise|jervis|friday) "), "")
     }
