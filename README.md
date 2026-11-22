@@ -1,3 +1,41 @@
+## JARVIS v3.14.13 — diagnostics fiables et cause d'échec RSS (bêta)
+
+L'analyse d'un **journal de 114 événements du 22 novembre 2026** a
+confirmé un problème de résolution de la page de l'éditeur pendant
+une commande « analyse l'article numéro deux », sans échec LiteRT
+ni panne micro constatés dans cette fenêtre.
+
+Deux anomalies venaient **du journal lui-même**, pas du moteur vocal :
+
+- L'événement `latency` servait aussi à « Première parole après N ms »
+  et était enregistré à tort comme un second `RESPONSE_PREPARED`,
+  suivi de `LOCAL_RESULT`. Le code est désormais `TTS_FIRST_SPEECH`,
+  avec sa durée mesurée en millisecondes, sans fausse conclusion locale.
+- Une phrase diagnostique « question sans mot-clé » produisait
+  `VOSK_WAKE`, à tort. Désormais, `VOSK_WAKE` exige l'annonce
+  explicite de reconnaissance de Jarvis. Une demande vocale directe
+  reçoit `VOSK_DIRECT_QUESTION`. Le cycle d'anti-écho distingue
+  `ECHO_DICTATION_PAUSED`, `ECHO_COOLDOWN` et `ECHO_RESUMED`.
+
+Pour comprendre **pourquoi l'article RSS reste inaccessible**, les logs
+chiffrés ajoutent des codes distincts :
+`RSS_BING_NO_RESULTS`, `RSS_DDG_NO_RESULTS`,
+`RSS_BING_UNAVAILABLE`, `RSS_DDG_UNAVAILABLE`,
+`RSS_PUBLISHER_DOMAIN_UNKNOWN`, `RSS_NO_PUBLISHER_CANDIDATE`,
+`RSS_PUBLIC_PAGE_ACCESS_FAILED`,
+`RSS_PUBLISHER_CONTENT_MISMATCH` et
+`RSS_PUBLISHER_TITLE_MISMATCH`.
+Aucun texte de recherche, titre d'article, URL ou profil n'est
+sauvegardé. Les tests de non-régression des données privées continuent
+de s'appliquer.
+
+La correction **améliore la précision du diagnostic** ; elle ne garantit
+pas de déverrouiller une page inaccessible, payante ou non indexée.
+Le lecteur public et les protections de la version précédente sont
+conservés. Les journaux d'avant l'installation ne sont pas réécrits.
+
+---
+
 ## JARVIS v3.14.11 — lecture RSS et titre différent chez l'éditeur (bêta)
 
 Rapport Android du **22 novembre 2026 à 16 h 34** : Vosk reconnaît
