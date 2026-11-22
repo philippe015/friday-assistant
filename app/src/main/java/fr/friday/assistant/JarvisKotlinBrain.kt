@@ -51,10 +51,12 @@ object JarvisKotlinBrain {
             .any { fold(it).contains("pour quelle ville souhaitez vous la meteo") }
 
         if (q == "non" || q in repeatedReject) {
-            return if (latestAssistant.contains("pour quelle ville souhaitez vous la meteo"))
-                "D'accord. Je ne lance pas de recherche météo. "
-                    + "Indiquez une ville si vous souhaitez reprendre cette demande."
-            else "D'accord. Que souhaitez-vous corriger ou préciser ?"
+            return if (latestAssistant.contains("pour quelle ville souhaitez vous la meteo")) {
+                "D'accord. Je ne lance pas de recherche météo. " +
+                    "Indiquez une ville si vous souhaitez reprendre cette demande."
+            } else {
+                "D'accord. Que souhaitez-vous corriger ou préciser ?"
+            }
         }
         if (q == "oui") return "D'accord. Quelle précision souhaitez-vous ajouter ?"
         if (q in acknowledgement) return "Je vous écoute. Quelle est votre prochaine demande ?"
@@ -62,21 +64,21 @@ object JarvisKotlinBrain {
 
         // Une formule répétée sans action ne doit pas envoyer « suite » à Wikipédia.
         if (q == "tout de suite c est tout de suite")
-            return "Que souhaitez-vous que je fasse immédiatement ? "
-                + "Précisez l'action ou la question."
+            return "Que souhaitez-vous que je fasse immédiatement ? " +
+                "Précisez l'action ou la question."
 
         // « Notre article un humain » : référence ambiguë, pas un ordre de lecture.
         if (q.matches(Regex("^(?:notre|cet|ce) article (?:[1-7]|un|deux|trois|quatre|cinq|six|sept) [a-z-]+(?: [a-z-]+){0,2}$")))
-            return "Vous parlez d'un article précis ? "
-                + "Dites « lis l'article un en entier » pour le dernier bulletin, "
-                + "ou précisez le sujet souhaité."
+            return "Vous parlez d'un article précis ? " +
+                "Dites « lis l'article un en entier » pour le dernier bulletin, " +
+                "ou précisez le sujet souhaité."
 
         // La ville seule, après une question météo récente, mérite clarification
         // si l'outil météo existant n'a pas déjà résolu la ville.
         if (recentlyAskedWeather && bareCity.matches(q)
             && q.substringBefore(' ') !in cityBadStart) {
-            return "Vous indiquez « " + question.orEmpty().trim().take(70)
-                + " ». Confirmez-vous que vous souhaitez la météo de cette commune ?"
+            return "Vous indiquez « " + question.orEmpty().trim().take(70) +
+                " ». Confirmez-vous que vous souhaitez la météo de cette commune ?"
         }
         return null
     }
