@@ -706,12 +706,19 @@ public class FridayService extends Service {
                             // Un mot-clé explicitement reconnu autorise un seuil
                             // plus tolérant ; la dictée sans mot-clé reste prudente.
                             boolean explicitWake = BargeInPolicy.startsWithWake(phrase);
+                            // Une hallucination acoustique d'un seul mot (« cycle »)
+                            // ne doit pas être annoncée comme question finalisée.
+                            boolean isolatedNoise = !controlPhrase && !explicitWake
+                                    && phrase.trim().split("\\s+").length < 2;
                             boolean unclear = !controlPhrase && phrase.split("\\s+").length >= 3
                                     && confidence > 0 && confidence < (explicitWake ? 0.35 : 0.55);
                             if (selfEcho) {
                                 asrDiagnostic("Écho du haut-parleur JARVIS ignoré : "
                                         + "la réponse ne sera pas renvoyée au modèle.");
                                 event("barge_diag", "Filtre anti-auto-réponse : voix JARVIS reconnue et ignorée");
+                            } else if (isolatedNoise) {
+                                asrDiagnostic("Mot isolé reconnu par Vosk, ignoré sans "
+                                        + "interroger Jarvis : « " + phrase.trim() + " ».");
                             } else if (!dropSpeaker && !phrase.trim().isEmpty()) {
                                 if (unclear) {
                                     asrDiagnostic("Phrase reconnue mais confiance Vosk faible ("
@@ -1002,6 +1009,12 @@ public class FridayService extends Service {
                 local = JarvisInternet.liveConnectionDiagnostic(settings, turn.api);
             }
             // Les capacités intrinsèques de FRIDAY restent connues localement.
+            if (local == null && RssArticleIntent.ambiguousVoiceReading(question))
+                local = "J'ai reconnu une demande d'article RSS, mais pas son "
+                        + "numéro ou l'action souhaitée. Répétez clairement : "
+                        + "« Jarvis, lis l'article numéro un en entier », ou "
+                        + "« Jarvis, analyse l'article numéro un ». "
+                        + "Cette précision est traitée localement.";
             if (local == null)
                 local = WebSearch.assistantAnswer(question, JarvisInternet.enabled(settings));
             // Les commandes strictement locales conservent leur fonctionnement.
