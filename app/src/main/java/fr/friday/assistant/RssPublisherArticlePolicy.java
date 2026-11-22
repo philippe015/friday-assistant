@@ -160,7 +160,7 @@ public final class RssPublisherArticlePolicy {
 
     private static Set<String> significant(String title) {
         Set<String> words = new HashSet<>();
-        String s = VoiceText.normalize(strippedTitle(title))
+        String s = VoiceText.normalize(title)
                 .replaceAll("[^a-z0-9]+"," ");
         for (String token : s.split("\\s+")) {
             if (token.length() >= 4 && !token.matches(
