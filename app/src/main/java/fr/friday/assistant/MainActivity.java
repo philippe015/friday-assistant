@@ -92,6 +92,7 @@ public class MainActivity extends Activity {
     private TextToSpeech webVoice;
     private volatile boolean webVoiceReady = false;
     private volatile String webVoiceFinalUtterance = "";
+    private volatile String webVoiceCurrentSpeech = "";
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -1740,7 +1741,6 @@ public class MainActivity extends Activity {
         hudCloneSpeaking.set(false);
         if (webVoice != null) { try { webVoice.stop(); } catch (Exception ignored) { } }
         FridayService.externalSpeechFinished();
-        FridayService.externalSpeechFinished();
         if (!FridayService.isActive()) {
             status.setText("Micro arrêté : tentative d'activation de l'écoute.");
             startListening();
@@ -1783,6 +1783,7 @@ public class MainActivity extends Activity {
                 if (kind.equals("interrupted")) {
                     hudCloneSpeaking.set(false);
                     if (webVoice != null) { try { webVoice.stop(); } catch (Exception ignored) { } }
+                    FridayService.externalSpeechFinished();
                 }
                 if (kind.equals("location")) {
                     cachedLocation = text;
@@ -1904,6 +1905,7 @@ public class MainActivity extends Activity {
             int rate = Integer.parseInt(prefs.get("tts_speed", "100"));
             webVoice.setSpeechRate(Math.max(0.7f, Math.min(1.5f, rate / 100f)));
             java.util.List<String> parts = VoiceText.ttsChunks(spoken, 280);
+            webVoiceCurrentSpeech = spoken;
             FridayService.externalSpeechStarted(spoken);
             for (int i=0; i<parts.size(); i++) {
                 String utteranceId = "friday_jarvis_ui_" + System.nanoTime() + "_" + i;
@@ -1932,7 +1934,7 @@ public class MainActivity extends Activity {
         if (webVoice != null) return;
         webVoice = new TextToSpeech(getApplicationContext(), result -> runOnUiThread(() -> {
             if (webVoice != null) webVoice.setOnUtteranceProgressListener(new UtteranceProgressListener() {
-                @Override public void onStart(String id) { FridayService.externalSpeechStarted(spoken); }
+                @Override public void onStart(String id) { FridayService.externalSpeechStarted(webVoiceCurrentSpeech); }
                 @Override public void onDone(String id) {
                     if (id != null && id.equals(webVoiceFinalUtterance))
                         FridayService.externalSpeechFinished();
@@ -2091,7 +2093,8 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void speakNative(String text) { runOnUiThread(() -> playWebVoice(text)); }
         @JavascriptInterface public void stopSpeakingNative() {
             runOnUiThread(() -> { hudCloneSpeaking.set(false);
-                if (webVoice != null) webVoice.stop(); });
+                if (webVoice != null) webVoice.stop();
+                FridayService.externalSpeechFinished(); });
         }
         @JavascriptInterface public boolean locationEnabled() {
             return "1".equals(prefs.get("location_enabled", "0")) && FridayLocation.hasPermission(MainActivity.this);
