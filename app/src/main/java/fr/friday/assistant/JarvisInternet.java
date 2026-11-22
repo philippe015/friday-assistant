@@ -528,6 +528,7 @@ public final class JarvisInternet {
             DiagnosticLog.record(context, "RSS_PUBLISHER_RESOLVED");
             if (cancellation != null) cancellation.check();
             page = (RssArticleIntent.wantsAnalysis(question)
+                    || RssArticleIntent.wantsFullText(question)
                     || WebAnalysisPolicy.verbatimRequested(question)
                     || RssPublisherArticlePolicy.isLiveHeadline(title))
                     ? WebPageReader.readDeep(publisherUrl)
