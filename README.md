@@ -1,3 +1,83 @@
+## JARVIS v3.14.14 — Rapport de diagnostic **avec conversation**, facultatif (bêta)
+
+Pour comprendre réellement une anomalie, les événements techniques
+ne suffisent pas : il faut savoir **quelle question** a été reconnue,
+**quelle réponse** JARVIS a produite et les étapes internes correspondantes.
+
+### Export dans le Cockpit Android
+
+1. Ouvrir **Journal d'anomalies**, puis **Exporter rapport / conversation**.
+2. Cocher **« Inclure la conversation : questions et réponses »**.
+   **La case est désactivée par défaut.** Sans elle, le fichier reste
+   un simple journal technique comme dans la v3.14.13.
+3. Confirmer l'avertissement de confidentialité et sélectionner le dossier
+   dans le sélecteur de fichiers Android. Le rapport complet s'appelle
+   `JARVIS-rapport-conversation-AAAAMMJJ-HHMMSS.json`.
+4. Relire le fichier **avant de l'envoyer** : le JSON exporté n'est
+   **pas chiffré**, peut contenir des données sensibles, des URL, des
+   informations personnelles ou des secrets saisis pendant les échanges.
+   Aucun fichier n'est envoyé automatiquement à un serveur ou à GitHub.
+
+### Que contient le JSON ?
+
+Le schéma 2 conserve la liste `events` (codes de pannes/durée, limite
+14 jours et 420 événements). Si l'option est cochée, il ajoute :
+
+- `conversation` : jusqu'aux **80 messages les plus récents** de
+  l'historique vocal et écrit déjà chiffré sur le téléphone. Chaque
+  élément contient le `role` (`user` ou `assistant`), le texte
+  `text`, le canal `channel` (`voice`, `text`, `unknown`),
+  et `seq` (ordre de l'historique).
+- `time_ms` et `time_utc` pour les **nouveaux échanges enregistrés
+  depuis v3.14.14**. Les anciens messages n'avaient pas d'horodatage ;
+  ils sont indiqués par `time_unknown: true` sans inventer d'heure.
+- `timeline` : événements techniques et références aux messages
+  horodatés, triés chronologiquement. Le texte est présent une seule
+  fois dans `conversation`, pas dans chaque événement de la timeline.
+
+Les échanges privés ne sont **jamais ajoutés aux événements du journal
+technique**, ni envoyés automatiquement vers le Web. Le chiffrement
+Android Keystore de l'historique et du journal n'est pas modifié.
+Si le coffre privé est inaccessible, le rapport avec conversation
+échoue plutôt que de créer une copie non sécurisée.
+
+### Exemple du rapport enrichi (fictif)
+
+```json
+{
+  "format": "jarvis-diagnostics",
+  "schema": 2,
+  "conversation_included": true,
+  "events": [
+    {"time_ms": 1795370160340, "code": "WEB_RESULT_UNAVAILABLE"}
+  ],
+  "conversation": [
+    {
+      "seq": 1, "role": "user", "channel": "voice",
+      "time_ms": 1795370159000, "time_utc": "2026-11-22T17:55:59Z",
+      "text": "Jarvis, analyse l'article numéro deux"
+    },
+    {
+      "seq": 2, "role": "assistant", "channel": "voice",
+      "time_ms": 1795370160900, "time_utc": "2026-11-22T17:56:00Z",
+      "text": "La page de l'éditeur est introuvable."
+    }
+  ],
+  "timeline": [
+    {"time_ms": 1795370159000, "type": "conversation_reference", "seq": 1, "role": "user"},
+    {"time_ms": 1795370160340, "type": "diagnostic", "code": "WEB_RESULT_UNAVAILABLE"},
+    {"time_ms": 1795370160900, "type": "conversation_reference", "seq": 2, "role": "assistant"}
+  ]
+}
+```
+
+La v3.14.14 conserve les correctifs RSS/Vosk/TTS de v3.14.13.
+Elle ne reconstitue pas les conversations déjà effacées, ni
+les données non sauvegardées lors d'une panne Android.
+Tests réels sur téléphone nécessaires pour valider la migration.
+
+---
+
 ## JARVIS v3.14.14 — Export conversation + journal technique (bêta)
 
 **Objectif :** obtenir un véritable rapport permettant de comprendre
