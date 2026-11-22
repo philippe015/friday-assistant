@@ -102,7 +102,7 @@ public class PublisherArticleSmoke {
         assert "PersonalityProfiles.activeName(settings)" in internet
         assert "PersonalityProfiles.activePrompt(cfg)" in profiles
         assert "RssArticleText.looksLikeExecutableCode(text)" in web
-        assert "versionCode 103" in gradle and "versionName '3.14.9'" in gradle
+        assert "versionCode 104" in gradle and "versionName '3.14.10'" in gradle
         assert "applicationIdSuffix '.readerfixpreview'" in gradle
         assert "Analyse RSS 1 avec mon profil" in html
         assert "STOP vocal" in (JAVA/"FridayService.java").read_text(encoding="utf-8")
