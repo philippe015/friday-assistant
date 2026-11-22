@@ -74,6 +74,7 @@ object LiteRtJarvisEngine {
                     }
                 }
                 if (selected == null) {
+                    DiagnosticLog.record(context, "LITERT_ENGINE_INIT_FAILED")
                     val detail = lastFailure?.let { failure ->
                         val reason = failure.message?.replace(Regex("[\\r\\n]+"), " ")
                             ?.take(180) ?: "cause non détaillée"
@@ -88,6 +89,8 @@ object LiteRtJarvisEngine {
                         lastFailure
                     )
                 }
+                DiagnosticLog.record(context,
+                    if (selectedGpu) "LITERT_GPU_READY" else "LITERT_CPU_READY")
                 activeEngine = selected
                 activePath = file.absolutePath
                 activeGpu = selectedGpu
@@ -101,6 +104,7 @@ object LiteRtJarvisEngine {
                     prompt, LiteRtPromptBudget.INITIAL_UTF8_BYTES)
                 val response = infer(engine, preparedPrompt)
                 cancellation?.check()
+                DiagnosticLog.record(context, "LITERT_RESPONSE_OK")
                 return response
             } catch (cancelled: java.util.concurrent.CancellationException) {
                 // Annulation de l'utilisateur : ne pas démarrer de nouveau backend.
@@ -114,6 +118,9 @@ object LiteRtJarvisEngine {
                 // GPU dans un état invalide. Ne JAMAIS réutiliser ce moteur.
                 val failedOnGpu = activeGpu
                 val tooManyTokens = tokenOverflow(inference)
+                DiagnosticLog.record(context, if (tooManyTokens)
+                    "LITERT_TOKEN_OVERFLOW" else if (failedOnGpu)
+                    "LITERT_GPU_INFERENCE_FAILED" else "LITERT_CPU_INFERENCE_FAILED")
                 closeLocked()
                 cancellation?.check()
                 if (tooManyTokens) {
@@ -136,6 +143,7 @@ object LiteRtJarvisEngine {
                         cancellation?.check()
                         val recovered = infer(retried, reduced)
                         cancellation?.check()
+                        DiagnosticLog.record(context, "LITERT_TOKEN_RETRY_OK")
                         return recovered
                     } catch (cancelled: java.util.concurrent.CancellationException) {
                         closeLocked()
@@ -147,6 +155,7 @@ object LiteRtJarvisEngine {
                         closeLocked()
                         throw linkage
                     } catch (retryError: Exception) {
+                        DiagnosticLog.record(context, "LITERT_TOKEN_RETRY_FAILED")
                         closeLocked()
                         throw IOException(
                             "LiteRT-LM : entrée trop longue pour la limite du "
@@ -175,8 +184,11 @@ object LiteRtJarvisEngine {
                         activePath = file.absolutePath
                         activeGpu = false
                         cancellation?.check()
-                        val cpuResponse = infer(cpuEngine, prompt)
+                        val cpuResponse = infer(cpuEngine,
+                            LiteRtPromptBudget.fit(
+                                prompt, LiteRtPromptBudget.INITIAL_UTF8_BYTES))
                         cancellation?.check()
+                        DiagnosticLog.record(context, "LITERT_GPU_CPU_FALLBACK_OK")
                         SecurePrefs(context).put("local_jarvis_gpu", "0")
                         return cpuResponse
                     } catch (cancelled: java.util.concurrent.CancellationException) {
@@ -189,6 +201,7 @@ object LiteRtJarvisEngine {
                         closeLocked()
                         throw linkage
                     } catch (cpuFailure: Exception) {
+                        DiagnosticLog.record(context, "LITERT_GPU_CPU_FALLBACK_FAILED")
                         closeLocked()
                         throw IOException(
                             "LiteRT-LM : erreur d'inférence GPU (" +
