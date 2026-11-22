@@ -5,7 +5,9 @@ final class FridayVersionPolicy {
     static final String[] KNOWN_PACKAGES = {
         "fr.friday.assistant",
         "fr.friday.assistant.preview",
-        "fr.friday.assistant.smartpreview"
+        "fr.friday.assistant.smartpreview",
+        "fr.friday.assistant.readerfixpreview",
+        "fr.friday.assistant.v31418preview"
     };
     private FridayVersionPolicy() { }
 
