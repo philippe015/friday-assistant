@@ -209,6 +209,66 @@ public final class DiagnosticLog {
         return ordered;
     }
 
+    /**
+     * Minimal, privacy-preserving report for a PUBLIC GitHub Issue.
+     * No full diagnostic JSON, transcripts, URLs, raw errors, keys,
+     * precise dates/times or conversation history can enter this export.
+     * The Android UI asks permission before opening the browser.
+     */
+    public static String githubIssueBody(Context context) throws Exception {
+        final Context app = context.getApplicationContext();
+        Future<String> future = IO.submit(() -> {
+            JSONArray entries = read(new SecurePrefs(app));
+            StringBuilder body = new StringBuilder(2700);
+            body.append("## Anomalie observée\n")
+                    .append("Décrivez ce qui ne fonctionne pas.\n\n")
+                    .append("## Étapes pour reproduire\n")
+                    .append("1. Ouvrir JARVIS\n2. ...\n3. ...\n\n")
+                    .append("## Résultat attendu\n")
+                    .append("Décrivez le comportement souhaité.\n\n")
+                    .append("## Environnement (non identifiant)\n")
+                    .append("- Version JARVIS : ")
+                    .append(FridayVersionGuard.thisVersion(app)
+                            .replaceAll("[^a-zA-Z0-9. _-]", " ").trim())
+                    .append("\n- Android SDK : ")
+                    .append(Build.VERSION.SDK_INT)
+                    .append("\n\n## Derniers événements techniques anonymisés\n")
+                    .append("Codes fixes + délais relatifs seulement. ")
+                    .append("Pas de paroles, conversations, URL, GPS précis, ")
+                    .append("identifiants ou clés.\n\n")
+                    .append("```text\n");
+            int start = Math.max(0, entries.length() - 28);
+            long base = -1;
+            int included = 0;
+            for (int i = start; i < entries.length(); i++) {
+                JSONObject entry = entries.optJSONObject(i);
+                if (entry == null) continue;
+                String code = entry.optString("code", "");
+                // Only strictly predetermined uppercase codes are published.
+                if (!DiagnosticLogPolicy.allowedCode(code)) continue;
+                long timestamp = entry.optLong("time_ms", 0);
+                if (timestamp <= 0) continue;
+                if (base < 0) base = timestamp;
+                long elapsed = Math.max(0, (timestamp - base) / 1000);
+                body.append("+").append(elapsed).append("s  ").append(code);
+                if (entry.has("duration_ms")) {
+                    int duration = entry.optInt("duration_ms", -1);
+                    if (duration >= 0 && duration <= 600000)
+                        body.append("  ").append(duration).append("ms");
+                }
+                body.append("\n");
+                included++;
+            }
+            if (included == 0) body.append("(Aucun événement technique disponible)\n");
+            body.append("```\n\n")
+                    .append("> Rapport créé volontairement depuis JARVIS. ")
+                    .append("Il est PUBLIC une fois publié sur GitHub. ")
+                    .append("Vérifiez et modifiez le brouillon avant validation.\n");
+            return body.toString();
+        });
+        return future.get(12, TimeUnit.SECONDS);
+    }
+
     /** Local preview, read only after queued writes complete. */
     public static String preview(Context context) throws Exception {
         final Context app = context.getApplicationContext();
