@@ -19,17 +19,26 @@ public final class RssArticleIntent {
             "\\b(?:lis|lit|lire|lecture|ouvre|ouvrir|raconte|raconter|"
             + "resume|resumer|synthese|analyse|analyser|analyses|"
             + "explique|expliquer|exposes?|detaille|details?)\\b");
+    // Le dernier bulletin mentionne un numéro clair et « en entier » :
+    // une dictée « lily l'article numéro deux en entier » reste une demande
+    // explicite de lecture, même si Vosk déforme « lis » en « lily ».
+    private static final Pattern COMPLETE_READING = Pattern.compile(
+            "\\b(?:en\\s+entier|integralement|au\\s+complet)\\b");
     private static final Pattern ANALYSIS = Pattern.compile(
             "\\b(?:analyse|analyser|analyses|resume|resumer|synthese|"
             + "explique|expliquer|detaille)\\b");
 
     public static boolean isRequest(String question) {
         String text = VoiceText.normalize(question);
-        boolean specific = REFERENCE.matcher(text).find()
-                || ORDINAL.matcher(text).find() || SINGULAR.matcher(text).find();
-        // "lis les articles en entier" et "ce service lit les articles"
-        // sont des demandes GENERALES, pas l'ordre de lire l'article 1.
-        return specific && ACTION.matcher(text).find()
+        boolean numbered = REFERENCE.matcher(text).find()
+                || ORDINAL.matcher(text).find();
+        boolean specific = numbered || SINGULAR.matcher(text).find();
+        // « lily l'article numéro deux en entier » : l'article et le
+        // caractère intégral sont clairs, malgré le verbe mal transcrit.
+        // Ne pas traiter « article numéro de » : numéro ABSENT.
+        boolean completeNumbered = numbered && COMPLETE_READING.matcher(text).find();
+        // "lis les articles en entier" est général, pas un index.
+        return specific && (ACTION.matcher(text).find() || completeNumbered)
                 && !text.matches(".*\\b(?:code penal|code civil|loi|juridique|"
                         + "legislatif|constitution)\\b.*");
     }
@@ -67,10 +76,18 @@ public final class RssArticleIntent {
      */
     public static boolean ambiguousVoiceReading(String question) {
         String q = VoiceText.normalize(question);
-        return !isRequest(question)
+        return !isRequest(question) && !isBareReference(question)
                 && q.matches(".*\\barticle\\b.*")
                 && (q.matches(".*\\b(?:adsl|entier|entiere|integralement)\\b.*")
                     || q.matches("^(?:c est|ces|cet) l article.*"));
+    }
+
+    /** A command naming an article number but missing a valid value.
+     * Never infer « deux » from « de »: ask for a number explicitly. */
+    public static boolean missingNumber(String question) {
+        String q = VoiceText.normalize(question);
+        return q.matches(".*\\barticle\\s+numero\\s+(?:de|des|du)\\b.*")
+                && !REFERENCE.matcher(q).find();
     }
 
     public static int index(String question) {
