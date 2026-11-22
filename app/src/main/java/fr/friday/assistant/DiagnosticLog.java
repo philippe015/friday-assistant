@@ -136,7 +136,7 @@ public final class DiagnosticLog {
 
             if (includeConversation) {
                 // Do not record dialogue a second time. Read the encrypted
-                // 80-message ring ONLY when the user checks the option.
+                // Last 80 of up to 240 encrypted history messages ONLY on opt-in.
                 JSONArray history = new JSONArray(
                         PrivateConversationHistory.read(app, prefs));
                 JSONArray conversation = new JSONArray();
@@ -166,8 +166,9 @@ public final class DiagnosticLog {
                 report.put("conversation", conversation);
                 report.put("conversation_count", conversation.length());
                 report.put("conversation_note",
-                        "80 derniers messages conservés au maximum dans "
-                        + "l'historique privé. Les messages antérieurs à "
+                        "Ce rapport contient au maximum 80 derniers messages "
+                        + "parmi les 240 conservables dans l'historique privé "
+                        + "(sous réserve de limite de taille). Les messages antérieurs à "
                         + "v3.14.14 n'ont pas d'horodatage fiable.");
                 report.put("timeline", timeline(entries, conversation));
             }
