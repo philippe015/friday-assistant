@@ -40,7 +40,7 @@ class RealLocalTest(unittest.TestCase):
 
     def test_version(self):
         gradle=(ROOT/"app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 100",gradle)
-        self.assertIn("versionName '3.14.6'",gradle)
+        self.assertIn("versionCode 101",gradle)
+        self.assertIn("versionName '3.14.7'",gradle)
 
 if __name__=="__main__": unittest.main()
