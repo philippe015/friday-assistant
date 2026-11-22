@@ -1,0 +1,125 @@
+name: Publish JARVIS v3.14.16 Community GitHub bug reporting beta
+
+on:
+  push:
+    branches:
+      - feature/community-diagnostics-github-v31416-20261122
+    paths:
+      - .github/workflows/publish-v3.14.16-community-github-bugreport.yml
+      - 'app/**'
+      - 'tests/**'
+      - 'scripts/tester_sources.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate-build-publish:
+    if: github.repository == 'philippe015/friday-assistant'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Python 3.14 for Chaquopy
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Android SDK
+        run: |
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - name: Rust Android target
+        run: |
+          rustup target add aarch64-linux-android
+          cargo install cargo-ndk --locked
+
+      - name: Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Regression tests (Python Java JS Rust)
+        run: bash scripts/tester_sources.sh
+
+      - name: Build Rust JNI
+        run: |
+          cd native
+          cargo ndk -t arm64-v8a -o ../app/src/main/jniLibs build --release
+
+      - name: Compile Android debug APK
+        run: gradle --no-daemon :app:assembleDebug
+
+      - name: Verify and prepare beta APK
+        run: |
+          grep -Fq "versionCode 110" app/build.gradle
+          grep -Fq "versionName '3.14.16'" app/build.gradle
+          grep -Fq "applicationIdSuffix '.readerfixpreview'" app/build.gradle
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk \
+            dist/JARVIS-v3.14.16-community-github-bugreport-beta.apk
+          test -s dist/JARVIS-v3.14.16-community-github-bugreport-beta.apk
+          unzip -t dist/JARVIS-v3.14.16-community-github-bugreport-beta.apk >/dev/null
+          sha256sum dist/JARVIS-v3.14.16-community-github-bugreport-beta.apk \
+            | tee dist/SHA256SUMS.txt
+
+      - name: Upload verified APK as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-v3.14.16-community-github-bugreport-beta
+          path: |
+            dist/JARVIS-v3.14.16-community-github-bugreport-beta.apk
+            dist/SHA256SUMS.txt
+
+      - name: Publish downloadable beta release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v3.14.16-community-github-bugreport-beta"
+          APK="dist/JARVIS-v3.14.16-community-github-bugreport-beta.apk"
+          cat > dist/NOTES.md <<'EOF'
+          Bêta Android JARVIS v3.14.16 — signalement volontaire d'anomalies.
+          Le Cockpit et les réglages Android proposent désormais
+          « Signaler une anomalie sur GitHub ».
+          Le bouton prépare en local un rapport de type GitHub Issue :
+          version de JARVIS, version SDK Android, et au maximum les
+          28 derniers codes techniques et durées relatives.
+          AUCUNE conversation, transcription, URL consultée, position
+          GPS précise, identité ou clé API n'est incluse. Aucun
+          horodatage absolu n'est envoyé dans ce signalement.
+          L'utilisateur voit le texte exact avant le partage,
+          confirme explicitement l'ouverture du navigateur GitHub,
+          et décide SEUL s'il publie le ticket. Le contenu du
+          brouillon est transmis au site GitHub dès l'ouverture
+          du lien, même si le ticket n'est finalement pas publié.
+          Aucune API GitHub, aucun token, aucune synchronisation
+          automatique, ni aucun dépôt d'un JSON privé.
+          Le rapport JSON local complet avec conversation de v3.14.14,
+          le lecteur RSS corrigé de v3.14.15 et le chiffrement Keystore
+          restent intacts. Nouveau test de non-régression de vie privée.
+                    À installer seulement pour tests. Le package debug est
+          fr.friday.assistant.readerfixpreview ; une signature Android debug
+          différente peut empêcher la mise à jour sans perte de données.
+          Gardez l'APK fonctionnelle et ses sauvegardes. Le modèle local doit
+          être installé séparément. Essais réels sur téléphone non certifiés.
+          EOF
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" dist/SHA256SUMS.txt --clobber
+          else
+            gh release create "$TAG" "$APK" dist/SHA256SUMS.txt \
+              --target "$GITHUB_SHA" --prerelease \
+              --title "JARVIS v3.14.16 — Signalement anonyme d’anomalies sur GitHub (bêta)" \
+              --notes-file dist/NOTES.md
+          fi

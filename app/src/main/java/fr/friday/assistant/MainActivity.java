@@ -488,6 +488,7 @@ public class MainActivity extends Activity {
                 + "Aucune transmission automatique."));
         config.addView(button("Consulter les logs JARVIS sauvegardés", this::showDiagnosticLogs));
         config.addView(button("Sauvegarder les logs · JSON sur le téléphone", this::requestDiagnosticExport));
+        config.addView(button("Signaler une anomalie sur GitHub (volontaire)", this::requestGitHubIssue));
         config.addView(button("Effacer les logs de diagnostic", this::confirmClearDiagnosticLogs));
         config.addView(button("Enregistrer les réglages", this::save));
         config.addView(label("PERSONNALITÉ · prompt sur plusieurs lignes · profils chiffrés"));
@@ -1406,6 +1407,68 @@ public class MainActivity extends Activity {
                 }).show();
     }
 
+    /**
+     * Community issue: ONLY a limited code-only summary. The user gets an
+     * explicit preview/consent dialog before any request to github.com.
+     * Never exports conversation history here, even if the user previously
+     * opted into a PRIVATE local full-conversation JSON export.
+     */
+    private void requestGitHubIssue() {
+        new Thread(() -> {
+            final String draft;
+            try {
+                draft = DiagnosticLog.githubIssueBody(this);
+            } catch (Exception inaccessible) {
+                runOnUiThread(() -> {
+                    if (!isFinishing() && !isDestroyed())
+                        status.setText("Impossible de préparer un rapport GitHub : "
+                                + "stockage chiffré inaccessible.");
+                });
+                return;
+            }
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                new AlertDialog.Builder(this)
+                        .setTitle("Signaler une anomalie à la communauté GitHub")
+                        .setMessage("En continuant, JARVIS ouvrira le site GitHub "
+                                + "avec ce brouillon technique. Le texte du "
+                                + "brouillon sera transmis à GitHub dès "
+                                + "l'ouverture du navigateur, même si vous "
+                                + "ne publiez pas le ticket.\n\n"
+                                + "Le rapport ne contient QUE les codes "
+                                + "prédéfinis et leurs durées relatives : "
+                                + "aucune conversation, transcription, "
+                                + "coordonnée GPS, URL, clé ou identité. "
+                                + "Le signalement devient PUBLIC si vous "
+                                + "validez sur GitHub. Un compte GitHub est "
+                                + "nécessaire ; aucun ticket n'est publié "
+                                + "automatiquement.\n\n"
+                                + "Vérifiez le brouillon :\n\n" + draft)
+                        .setNegativeButton("Annuler", null)
+                        .setPositiveButton("Ouvrir GitHub", (dialog, which) -> {
+                            try {
+                                Uri destination = Uri.parse(
+                                        "https://github.com/philippe015/"
+                                        + "friday-assistant/issues/new")
+                                        .buildUpon()
+                                        .appendQueryParameter("title",
+                                                "Anomalie JARVIS Android - rapport utilisateur")
+                                        .appendQueryParameter("body", draft)
+                                        .build();
+                                Intent browser = new Intent(Intent.ACTION_VIEW, destination);
+                                browser.addCategory(Intent.CATEGORY_BROWSABLE);
+                                startActivity(browser);
+                                status.setText("Brouillon GitHub ouvert : "
+                                        + "vérifiez-le avant de publier le signalement.");
+                            } catch (Exception noBrowser) {
+                                status.setText("Impossible d'ouvrir GitHub : "
+                                        + "navigateur absent ou indisponible.");
+                            }
+                        }).show();
+            });
+        }, "jarvis-community-issue-draft").start();
+    }
+
     private void confirmClearDiagnosticLogs() {
         new AlertDialog.Builder(this)
                 .setTitle("Effacer les diagnostics ?")
@@ -1951,6 +2014,9 @@ public class MainActivity extends Activity {
         }
         @JavascriptInterface public void exportDiagnosticLogs() {
             runOnUiThread(MainActivity.this::requestDiagnosticExport);
+        }
+        @JavascriptInterface public void reportDiagnosticGitHub() {
+            runOnUiThread(MainActivity.this::requestGitHubIssue);
         }
         @JavascriptInterface public void clearDiagnosticLogs() {
             runOnUiThread(MainActivity.this::confirmClearDiagnosticLogs);
