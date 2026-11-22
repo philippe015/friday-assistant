@@ -5,7 +5,7 @@ on:
     branches:
       - fix/rss-source-url-echo-v3147-20261122
     paths:
-      - .github/workflows/publish-v3.14.7-deep-web.yml
+      - .github/workflows/publish-v3.14.7-rss-source-echo.yml
   workflow_dispatch:
 
 permissions:
