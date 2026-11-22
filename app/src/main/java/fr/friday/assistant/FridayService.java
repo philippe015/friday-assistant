@@ -738,8 +738,11 @@ public class FridayService extends Service {
                             // ne doit pas être annoncée comme question finalisée.
                             boolean isolatedNoise = !controlPhrase && !explicitWake
                                     && phrase.trim().split("\\s+").length < 2;
-                            boolean unclear = !controlPhrase && phrase.split("\\s+").length >= 3
-                                    && confidence > 0 && confidence < (explicitWake ? 0.35 : 0.55);
+                            boolean unclear = !controlPhrase && (
+                                    (phrase.split("\\s+").length >= 3
+                                     && confidence > 0 && confidence < (explicitWake ? 0.35 : 0.55))
+                                    || JarvisKotlinBrain.needsVoiceClarification(
+                                            phrase, confidence, explicitWake));
                             if (selfEcho) {
                                 asrDiagnostic("Écho du haut-parleur JARVIS ignoré : "
                                         + "la réponse ne sera pas renvoyée au modèle.");
@@ -1051,6 +1054,10 @@ public class FridayService extends Service {
                           + "Dites par exemple « lis l'article deux en entier » "
                           + "ou « analyse l'article deux ». "
                           + "Cette précision est traitée localement.";
+            }
+            if (local == null) {
+                local = JarvisKotlinBrain.localClarification(question, privateDialogue);
+                if (local != null) DiagnosticLog.record(this, "KOTLIN_TURN_CLARIFIED");
             }
             if (local == null)
                 local = ConversationClarificationPolicy.missingContextQuestion(
