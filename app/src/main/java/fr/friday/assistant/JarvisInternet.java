@@ -714,11 +714,11 @@ public final class JarvisInternet {
                 Log.i("FRIDAY_RSS_ARTICLE", "DuckDuckGo : recherche d'éditeur indisponible");
             }
         }
-        throw new IOException("Aucune page publique correspondant à ce titre n'a "
-                + "été confirmée sur le domaine de l'éditeur " + domain
-                + ". Il peut s'agir d'une brève dans un fil DIRECT, d'un "
-                + "article supprimé ou d'une page non indexée. "
-                + "Un lien Google Actualités ne donne pas le texte intégral.");
+        throw new IOException("Aucun lien exact vers l'article du média "
+                + domain + " n'a pu être vérifié. "
+                + (RssPublisherArticlePolicy.isLiveHeadline(headline)
+                        ? "Il peut s'agir d'une brève dans un DIRECT."
+                        : "La page peut être récente, non indexée ou inaccessible."));
     }
 
     /** Une URL de résultat n'est jamais une preuve : domaine et titre doivent
