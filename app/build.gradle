@@ -34,7 +34,7 @@ android {
 
     buildTypes {
         // Installe la v2.0 à côté de la v1.x, sans effacer ses clés ni son modèle Vosk.
-        debug { applicationIdSuffix '.readerfixpreview' }
+        debug { applicationIdSuffix '.v31418preview' }
         release {
             minifyEnabled false
             if (System.getenv("KEYSTORE_PATH") != null) {
