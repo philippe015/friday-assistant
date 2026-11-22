@@ -36,6 +36,7 @@ javac -encoding UTF-8 -d "$TMP_TEST" \
   app/src/main/java/fr/friday/assistant/WebPageReader.java \
   app/src/main/java/fr/friday/assistant/RssArticleText.java \
   app/src/main/java/fr/friday/assistant/RssArticleIntent.java \
+  app/src/main/java/fr/friday/assistant/LiteRtPromptBudget.java \
   app/src/main/java/fr/friday/assistant/RssPublisherArticlePolicy.java \
   app/src/main/java/fr/friday/assistant/WebAnalysisPolicy.java \
   app/src/main/java/fr/friday/assistant/BargeInPolicy.java \
@@ -50,6 +51,7 @@ javac -encoding UTF-8 -d "$TMP_TEST" \
   tests/WebAnalysisPolicyTest.java \
   tests/RssSourceEchoFixTest.java \
   tests/RssSpeechRecoveryTest.java \
+  tests/LiteRtPromptBudgetTest.java \
   tests/DialogueMemoryPolicyTest.java tests/LocalJarvisPolicyTest.java tests/JarvisMistralRoutingTest.java tests/OpenJarvisPolicyTest.java tests/WebPageReaderTest.java tests/WebToolPolicyTest.java tests/MemoryRulesTest.java tests/MicSignalMeterTest.java tests/VoiceStopSpotterTest.java tests/TtsEchoGateTest.java tests/VoiceVocabularyTest.java tests/SpeechSentenceBufferTest.java tests/HttpRetryPolicyTest.java tests/AssistantIdentityTest.java tests/WebSearchTest.java tests/RecentNewsPolicyTest.java tests/VoiceTextTest.java tests/BargeInPolicyTest.java tests/LocationIntentTest.java tests/MemoryIntentTest.java tests/FridayVersionPolicyTest.java tests/VoiceUtteranceTimingTest.java tests/RssFreshnessTest.java
-for name in fr.friday.assistant.RssSpeechRecoveryTest fr.friday.assistant.RssSourceEchoFixTest fr.friday.assistant.WebAnalysisPolicyTest DialogueMemoryPolicyTest LocalJarvisPolicyTest JarvisMistralRoutingTest OpenJarvisPolicyTest fr.friday.assistant.WebPageReaderTest WebToolPolicyTest MemoryRulesTest MicSignalMeterTest VoiceStopSpotterTest TtsEchoGateTest VoiceVocabularyTest SpeechSentenceBufferTest HttpRetryPolicyTest AssistantIdentityTest WebSearchTest RecentNewsPolicyTest VoiceTextTest BargeInPolicyTest fr.friday.assistant.LocationIntentTest MemoryIntentTest fr.friday.assistant.FridayVersionPolicyTest VoiceUtteranceTimingTest RssFreshnessTest; do java -cp "$TMP_TEST" "$name"; done
+for name in fr.friday.assistant.LiteRtPromptBudgetTest fr.friday.assistant.RssSpeechRecoveryTest fr.friday.assistant.RssSourceEchoFixTest fr.friday.assistant.WebAnalysisPolicyTest DialogueMemoryPolicyTest LocalJarvisPolicyTest JarvisMistralRoutingTest OpenJarvisPolicyTest fr.friday.assistant.WebPageReaderTest WebToolPolicyTest MemoryRulesTest MicSignalMeterTest VoiceStopSpotterTest TtsEchoGateTest VoiceVocabularyTest SpeechSentenceBufferTest HttpRetryPolicyTest AssistantIdentityTest WebSearchTest RecentNewsPolicyTest VoiceTextTest BargeInPolicyTest fr.friday.assistant.LocationIntentTest MemoryIntentTest fr.friday.assistant.FridayVersionPolicyTest VoiceUtteranceTimingTest RssFreshnessTest; do java -cp "$TMP_TEST" "$name"; done
 echo 'Tests F.R.I.D.A.Y. réussis (Java, Python, Rust, JS).'

@@ -1,3 +1,29 @@
+## JARVIS v3.14.9 — limite d'entrée LiteRT-LM et sélection RSS (bêta)
+
+Le journal du **22 novembre 2026, 15 h 05** identifie la cause exacte :
+`INVALID_ARGUMENT: Input token ids are too long` : **2 151 tokens**
+envoyés pour une limite de **2 048**. Le repli CPU ne pouvait pas
+résoudre ce dépassement de contexte.
+
+- Un **budget UTF-8 local** réduit le profil, l'historique et les extraits
+  avant leur envoi natif, en conservant l'identité active et la demande en cours.
+  Il ne dépend pas d'une estimation erronée du nombre de caractères :
+  le tokenizer LiteRT reste l'autorité finale.
+- Si l'entrée dépasse encore 2 048 tokens, une seule tentative de secours
+  emploie un budget plus strict sur le **même backend**. Un dépassement de
+  contexte n'est plus présenté comme une panne GPU ou CPU.
+- « **L'article numéro un** » et « **dix l'article numéro un** » (transcription
+  Vosk de « lis l'article… ») sélectionnent le dernier lien RSS mémorisé,
+  sans envoyer cette commande courte à l'IA. Aucun article n'est inventé.
+- Un extrait Web ou un passage privé réduit pour respecter la capacité du
+  modèle est marqué comme **partiel** plutôt que présenté comme intégral.
+
+Les conversations et le profil restent sur le téléphone. Le modèle
+`.litertlm` doit toujours être installé séparément et compatible avec
+le GPU/CPU du smartphone. Les essais réels sur Android restent nécessaires.
+
+---
+
 ## JARVIS v3.14.8 — LiteRT-LM, Vosk et état GPS (bêta)
 
 Cette préversion cible le diagnostic du **22 novembre 2026, 12 h 38**.

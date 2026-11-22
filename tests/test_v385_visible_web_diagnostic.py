@@ -23,6 +23,6 @@ class WebDisabledJarvisExclusive(unittest.TestCase):
         self.assertIn('prefs.put("web_mode", "off")',UI)
     def test_version(self):
         gradle=(ROOT/"app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 102",gradle)
-        self.assertIn("versionName '3.14.8'",gradle)
+        self.assertIn("versionCode 103",gradle)
+        self.assertIn("versionName '3.14.9'",gradle)
 if __name__=="__main__": unittest.main()

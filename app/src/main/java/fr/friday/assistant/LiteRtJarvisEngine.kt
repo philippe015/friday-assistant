@@ -95,7 +95,11 @@ object LiteRtJarvisEngine {
             cancellation?.check()
             val engine = activeEngine ?: throw IOException("Moteur LiteRT-LM indisponible.")
             try {
-                val response = infer(engine, prompt)
+                // 2048 is a tokenizer limit, NOT 2048 characters. Reduce
+                // oversized context before JNI and reserve output headroom.
+                val preparedPrompt = LiteRtPromptBudget.fit(
+                    prompt, LiteRtPromptBudget.INITIAL_UTF8_BYTES)
+                val response = infer(engine, preparedPrompt)
                 cancellation?.check()
                 return response
             } catch (cancelled: java.util.concurrent.CancellationException) {
@@ -109,8 +113,52 @@ object LiteRtJarvisEngine {
                 // Un échec JNI peut laisser un objet de conversation ou le cache
                 // GPU dans un état invalide. Ne JAMAIS réutiliser ce moteur.
                 val failedOnGpu = activeGpu
+                val tooManyTokens = tokenOverflow(inference)
                 closeLocked()
                 cancellation?.check()
+                if (tooManyTokens) {
+                    // INVALID_ARGUMENT: input token ids are too long is a
+                    // PROMPT-size error, not evidence of GPU incompatibility.
+                    // Retrying unchanged input on CPU only obscures the cause.
+                    val reduced = LiteRtPromptBudget.fit(
+                        prompt, LiteRtPromptBudget.RETRY_UTF8_BYTES)
+                    try {
+                        val retried = Engine(EngineConfig(
+                            modelPath = file.absolutePath,
+                            backend = if (failedOnGpu) Backend.GPU() else Backend.CPU(),
+                            cacheDir = context.cacheDir.absolutePath,
+                            maxNumTokens = 2048
+                        ))
+                        retried.initialize()
+                        activeEngine = retried
+                        activePath = file.absolutePath
+                        activeGpu = failedOnGpu
+                        cancellation?.check()
+                        val recovered = infer(retried, reduced)
+                        cancellation?.check()
+                        return recovered
+                    } catch (cancelled: java.util.concurrent.CancellationException) {
+                        closeLocked()
+                        throw cancelled
+                    } catch (memory: OutOfMemoryError) {
+                        closeLocked()
+                        throw memory
+                    } catch (linkage: LinkageError) {
+                        closeLocked()
+                        throw linkage
+                    } catch (retryError: Exception) {
+                        closeLocked()
+                        throw IOException(
+                            "LiteRT-LM : entrée trop longue pour la limite du "
+                                + "modèle (2048 tokens). Le contexte a été "
+                                + "raccourci et réessayé sur le même backend, "
+                                + "sans résultat : " + shortReason(retryError) +
+                                ". Réduisez le profil actif ou l'historique. "
+                                + "Il ne s'agit pas d'une preuve de panne GPU.",
+                            retryError
+                        )
+                    }
+                }
                 if (failedOnGpu) {
                     // Une seule tentative CPU, sur un moteur entièrement neuf.
                     // Certains modèles .litertlm sont compilés GPU seulement :
@@ -189,6 +237,20 @@ object LiteRtJarvisEngine {
         } finally {
             lock.unlock()
         }
+    }
+
+    /** Never switch GPU -> CPU for an oversized prompt. */
+    private fun tokenOverflow(error: Throwable): Boolean {
+        var problem: Throwable? = error
+        for (depth in 0..4) {
+            val message = problem?.message?.lowercase() ?: return false
+            if (message.contains("input token ids are too long")
+                    || message.contains("exceeding the maximum number of tokens")
+                    || message.contains("maximum number of input tokens"))
+                return true
+            problem = problem.cause
+        }
+        return false
     }
 
     private fun infer(engine: Engine, prompt: String): String {

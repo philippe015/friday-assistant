@@ -137,7 +137,8 @@ public final class JarvisInternet {
     public static boolean shouldResearch(SecurePrefs settings, String question) {
         // Une demande de lecture d'un lien RSS déjà présenté reste explicite.
         // L'état du réseau est vérifié dans readRememberedRssArticle().
-        if (RssArticleIntent.isRequest(question)) return true;
+        if (RssArticleIntent.isRequest(question)
+                || RssArticleIntent.isBareReference(question)) return true;
         if (!enabled(settings)) return false;
         // Ne jamais envoyer commandes de mémoire ni données de position
         // aux moteurs de recherche publics, même en mode « toujours ».
@@ -159,7 +160,8 @@ public final class JarvisInternet {
     public static Result answer(Context context, SecurePrefs settings, String question,
                                 String privateDialogue,
                                 NativeAI.CancelToken cancellation) throws Exception {
-        if (RssArticleIntent.isRequest(question))
+        if (RssArticleIntent.isRequest(question)
+                || RssArticleIntent.isBareReference(question))
             return readRememberedRssArticle(context, settings, question, cancellation);
         if (!shouldResearch(settings, question)) {
             String answer = LocalJarvisEngine.answer(
