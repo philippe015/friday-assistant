@@ -45,8 +45,8 @@ class VoiceContinuityV388(unittest.TestCase):
 
     def test_version_and_privacy(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("versionCode 106", gradle)
-        self.assertIn("versionName '3.14.12'", gradle)
+        self.assertIn("versionCode 107", gradle)
+        self.assertIn("versionName '3.14.13'", gradle)
         personal = (JAVA / "PersonalMemory.java").read_text(encoding="utf-8")
         self.assertIn('cfg.get("memory_share_mistral", "0")', personal)
         ai = (JAVA / "NativeAI.java").read_text(encoding="utf-8")
