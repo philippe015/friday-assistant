@@ -1677,14 +1677,36 @@ public class MainActivity extends Activity {
         }));
     }
     private void refreshLocation() {
-        if (!"1".equals(prefs.get("location_enabled", "0")) || !FridayLocation.hasPermission(this)) {
-            cachedLocation = "Localisation désactivée"; return;
+        if (!"1".equals(prefs.get("location_enabled", "0"))) {
+            cachedLocation = "GPS désactivé dans les réglages de JARVIS.";
+            return;
         }
+        if (!FridayLocation.hasPermission(this)) {
+            cachedLocation = "Autorisation Android de position manquante. "
+                    + "Ouvrez Tester GPS pour la demander.";
+            return;
+        }
+        if (!FridayLocation.providerEnabled(this)) {
+            cachedLocation = "Localisation Android désactivée. "
+                    + "Activez Localisation dans le téléphone.";
+            return;
+        }
+        cachedLocation = "Acquisition GPS en cours (maximum 16 s)…";
         new Thread(() -> {
             try {
                 FridayLocation.Fix fix = FridayLocation.locate(getApplicationContext());
-                cachedLocation = fix == null ? "Position indisponible" : fix.forUser();
-            } catch (Exception e) { cachedLocation = "Position indisponible"; }
+                cachedLocation = fix == null
+                        ? "Aucun relevé récent reçu d'Android après 16 secondes. "
+                          + "Vérifiez la localisation précise et essayez à l'extérieur."
+                        : fix.forUser();
+            } catch (SecurityException denied) {
+                cachedLocation = "Autorisation GPS Android refusée : "
+                        + "vérifiez les permissions de JARVIS.";
+            } catch (Exception unavailable) {
+                cachedLocation = "Acquisition GPS indisponible ("
+                        + unavailable.getClass().getSimpleName()
+                        + "). Réessayez avec le bouton Tester GPS.";
+            }
             runOnUiThread(() -> {
                 if (pageReady && hud != null)
                     hud.evaluateJavascript("window.fridayLocationSync&&window.fridayLocationSync();", null);
