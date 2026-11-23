@@ -1,3 +1,32 @@
+# FRIDAY 3.14.20 Intelligence+ — Assistant vocal Android
+
+**Dernière version Preview disponible sur GitHub — 23 novembre 2026.**
+
+[**Télécharger directement FRIDAY 3.14.20 Intelligence+ (APK Android)**](https://github.com/philippe015/friday-assistant/releases/download/v3.14.20-friday-intelligence-preview/FRIDAY-3.14.20-IntelligencePlus-Preview.apk) · [Page GitHub Releases](https://github.com/philippe015/friday-assistant/releases/tag/v3.14.20-friday-intelligence-preview) · [**Manuel complet en français**](docs/MANUEL_FRIDAY_3_14_20_INTELLIGENCE.md)
+
+| Édition | Détails |
+| --- | --- |
+| **FRIDAY Intelligence+ 3.14.20 Preview** | Android 8+ · ARM64 · APK ~43,5 Mo |
+| **IA locale** | MediaPipe `.task` et LiteRT-LM `.litertlm` (modèles à importer séparément) |
+| **Dialogue vocal** | Reconnaissance Vosk française, synthèse vocale Android et relance contextuelle après demande de ville |
+| **Météo « ce soir »** | Prévisions horaires Open-Meteo, fuseau horaire de la ville |
+| **Mémoire** | Échanges conservés localement et stockage protégé par Android |
+| **Installation parallèle** | `fr.friday.assistant.v31420preview`, sans écraser les anciennes éditions |
+
+**Trois captures réelles de FRIDAY 3.14.20 sur Android :** accueil et cockpit, commandes d'écoute, import de modèles locaux.
+
+<p align="center">
+  <img src="docs/images/friday-31420-captures.webp" alt="Trois captures de FRIDAY Intelligence+ 3.14.20 sur Android : accueil, écoute vocale et modèles IA locaux" width="760">
+</p>
+
+**[Consulter le manuel d'installation, de réglages, d'écoute continue, de modèles locaux et de dépannage](docs/MANUEL_FRIDAY_3_14_20_INTELLIGENCE.md)**
+
+> **Version de test** : modèles IA non inclus ; microphone, compatibilité GPU et stabilité de l'écoute en arrière-plan à vérifier sur chaque téléphone. Les libellés du cockpit peuvent encore afficher l'ancien numéro 3.14.18. La publication Google Play est distincte de cet APK Preview.
+
+---
+
+## Historique et édition JARVIS · Écoute 3.14.18
+
 # J.A.R.V.I.S. — Assistant vocal IA locale pour Android
 
 **[Télécharger JARVIS · Écoute v3.14.18 pour Android (APK · 43,5 Mo)](https://github.com/philippe015/friday-assistant/releases/download/v3.14.18-ecoute/JARVIS-3.14.18-Ecoute.apk)**
