@@ -9,6 +9,12 @@ public final class RssArticleIntent {
     private static final Pattern REFERENCE = Pattern.compile(
             "\\b(?:article|page)\\s+(?:rss\\s+)?(?:(?:numero|n|no)\\s*)?(\\d{1,2}|un|deux|trois|quatre|cinq|six|sept|premier|premiere|"
             + "deuxieme|second|seconde|troisieme|quatrieme|cinquieme|sixieme|septieme)\\b");
+    // Variantes orales réelles : « dit l'article entier numéro un ».
+    // Un numéro explicite demeure obligatoire : « de en entier » reste ambigu.
+    private static final Pattern ARTICLE_COMPLETE_BEFORE_NUMBER = Pattern.compile(
+            "\\barticles?\\s+entier\\s+(?:(?:numero|n|no)\\s*)?"
+            + "(\\d{1,2}|un|deux|trois|quatre|cinq|six|sept|premier|premiere|"
+            + "deuxieme|second|seconde|troisieme|quatrieme|cinquieme|sixieme|septieme)\\b");
     // Une sélection peut également être demandée par « actualités 2 en entier ».
     private static final Pattern NEWS_NUMBER = Pattern.compile(
             "\\b(?:articles?|actualites?|titres?|pages?)\\s+(?:(?:numero|n|no)\\s*)?"
@@ -36,12 +42,15 @@ public final class RssArticleIntent {
     public static boolean isRequest(String question) {
         String text = VoiceText.normalize(question);
         boolean numbered = REFERENCE.matcher(text).find()
-                || NEWS_NUMBER.matcher(text).find() || ORDINAL.matcher(text).find();
+                || NEWS_NUMBER.matcher(text).find()
+                || ARTICLE_COMPLETE_BEFORE_NUMBER.matcher(text).find()
+                || ORDINAL.matcher(text).find();
         boolean specific = numbered || SINGULAR.matcher(text).find();
         // « lily l'article numéro deux en entier » : l'article et le
         // caractère intégral sont clairs, malgré le verbe mal transcrit.
         // Ne pas traiter « article numéro de » : numéro ABSENT.
-        boolean completeNumbered = numbered && COMPLETE_READING.matcher(text).find();
+        boolean completeNumbered = numbered && (COMPLETE_READING.matcher(text).find()
+                || ARTICLE_COMPLETE_BEFORE_NUMBER.matcher(text).find());
         // "lis les articles en entier" est général, pas un index.
         return specific && (ACTION.matcher(text).find() || completeNumbered)
                 && !text.matches(".*\\b(?:code penal|code civil|loi|juridique|"
@@ -78,8 +87,9 @@ public final class RssArticleIntent {
      * Requiert un numéro explicite : aucun choix inventé. */
     public static boolean wantsFullText(String question) {
         String q = VoiceText.normalize(question);
-        return (REFERENCE.matcher(q).find() || NEWS_NUMBER.matcher(q).find() || ORDINAL.matcher(q).find())
-                && COMPLETE_READING.matcher(q).find()
+        return (REFERENCE.matcher(q).find() || NEWS_NUMBER.matcher(q).find()
+                || ARTICLE_COMPLETE_BEFORE_NUMBER.matcher(q).find() || ORDINAL.matcher(q).find())
+                && (COMPLETE_READING.matcher(q).find() || ARTICLE_COMPLETE_BEFORE_NUMBER.matcher(q).find())
                 && !wantsAnalysis(question);
     }
 
@@ -110,6 +120,8 @@ public final class RssArticleIntent {
         if (reference.find()) return number(reference.group(1));
         Matcher news = NEWS_NUMBER.matcher(text);
         if (news.find()) return number(news.group(1));
+        Matcher complete = ARTICLE_COMPLETE_BEFORE_NUMBER.matcher(text);
+        if (complete.find()) return number(complete.group(1));
         Matcher ordinal = ORDINAL.matcher(text);
         return ordinal.find() ? number(ordinal.group(1)) : 1;
     }
