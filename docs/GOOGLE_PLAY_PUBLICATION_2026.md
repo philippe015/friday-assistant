@@ -4,11 +4,35 @@ Statut : **PRÉPARATION / AUCUNE PUBLICATION DÉCLENCHÉE**.
 Console privée indiquée par le propriétaire :
 https://play.google.com/console/u/0/developers/5340777987600946368/app/4976446886469015692/app-dashboard
 
+## Alerte importante visible dans Play Console
+
+La capture du journal d'activité du 23/11/2026 affiche :
+- **JARVIS** / **`jarvis.myapp`** ;
+- **Signature d'application > Activer** : modification enregistrée à 07:45 ;
+- un bandeau rouge : **« Compte de développeur risquant d'être clôturé pour inactivité »**.
+
+Ouvrir **« Afficher les détails »** sur le bandeau rouge et relever la
+**date butoir exacte** indiquée par Google. Cette capture n'affiche
+pas l'échéance : ne pas la deviner.
+
+D'après la documentation officielle de Google, les démarches pour conserver
+un compte concerné peuvent inclure **la vérification de l'e-mail et du téléphone
+de contact du compte** **et** **le téléversement/la mise à disposition d'une
+application**, une piste de test interne/fermé pouvant convenir sans lancer
+de production. Effectuer les actions demandées spécifiquement par le
+message de Google, avant la date limite.
+
+Source : https://support.google.com/googleplay/android-developer/answer/11605267
+
 ## 1. Compatibilité Android
 
-- Application ID **release** conservé : `fr.friday.assistant`. ATTENTION : vérifier que
-  le package enregistré dans **cette application** Play Console correspond exactement ;
-  le numéro d'URL Play Console ne permet pas de déduire le nom du package.
+- Identifiant montré sur la capture Play Console du 23 novembre 2026 :
+  **`jarvis.myapp`**. Ne pas télécharger un AAB signé sous `fr.friday.assistant`
+  dans cette application. L'AAB de Google Play est construit en passant
+  **`-PjarvisPlayPackage=jarvis.myapp`** au workflow dédié. Le `namespace`
+  Java/Kotlin reste `fr.friday.assistant` ; cela ne modifie pas les classes.
+  Les APK de développement hors Google Play conservent leur identifiant actuel.
+  Vérifier aussi l'écran « Intégrité de l'application » pour la signature et la clé.
 - Identifiant des APK debug précédents différent : `fr.friday.assistant.v31418voicefix` ;
   **ne pas** envoyer un APK debug à Google Play.
 - `compileSdk 36` et `targetSdk 36`, requis pour les nouvelles publications standard
@@ -21,7 +45,7 @@ https://play.google.com/console/u/0/developers/5340777987600946368/app/497644688
 ## 2. Signer un Android App Bundle (AAB)
 
 Le workflow GitHub manuel `.github/workflows/play-console-bundle.yml`
-construit `app/build/outputs/bundle/release/app-release.aab`. Il est
+construit `app/build/outputs/bundle/release/app-release.aab` pour **`jarvis.myapp`**. Il est
 volontairement **manuel**, sans déploiement automatique ni publication Play.
 
 Prévoir ces **secrets GitHub Actions** dans Settings > Secrets and variables > Actions :
@@ -47,7 +71,8 @@ vérification `jarsigner -verify -strict` et SHA-256.
 ## 3. Entrer les informations dans Play Console
 
 1. **Vérifier** dans Tableau de bord > Paramètres de l'application
-   l'identifiant de package, Play App Signing et les pistes de test déjà existantes.
+   l'identifiant déjà visible **`jarvis.myapp`**, Play App Signing,
+   la clé de téléversement et les pistes de test déjà existantes.
 2. Préparer les informations de la fiche (nom, description, icône 512x512,
    visuels et captures d'écran Android réels), ainsi qu'une politique de
    confidentialité publique opérationnelle.
@@ -70,7 +95,8 @@ vérification `jarsigner -verify -strict` et SHA-256.
 
 ## 4. Vérifications bloquantes avant production
 
-- **Package/clé existants** : toute erreur peut interdire la mise à jour de l'app.
+- **Package/clé existants** : le package Play cible est `jarvis.myapp` ;
+  toute erreur de certificat ou de code de version peut bloquer la publication.
 - **VersionCode unique** : vérifier les numéros déjà utilisés dans Play Console.
 - **API 36 et comportements Android 16** : contrôler l'edge-to-edge,
   le bouton Retour, le microphone en service premier plan, les notifications,
