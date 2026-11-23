@@ -87,7 +87,7 @@ jobs:
           set -euo pipefail
           grep -Fq "jarvisPlayPackage" app/build.gradle
           grep -Fq "targetSdk 36" app/build.gradle
-          gradle --no-daemon :app:bundleRelease
+          gradle --no-daemon -PjarvisPlayPackage=jarvis.myapp :app:bundleRelease
 
       - name: Verify bundle signature and content
         shell: bash
