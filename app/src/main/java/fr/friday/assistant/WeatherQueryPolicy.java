@@ -22,7 +22,7 @@ public final class WeatherQueryPolicy {
           + "(?:\\s+(\\d{2}|\\d{5}))?"
           + "(?:\\s*,\\s*([a-z][a-z -]{1,}))?$");
     private static final Pattern PERIOD = Pattern.compile(
-            "\\b(?:maintenant|aujourd hui|demain|ce soir|cet apres midi|ce matin)\\b");
+            "\\b(?:maintenant|aujourd hui|demain soir|demain|ce soir|cet apres midi|ce matin)\\b");
 
     private static final Pattern INVALID_CITY = Pattern.compile(
         "^(?:moi|nous|ma ville|mon village|mes alentours|chez moi|"
