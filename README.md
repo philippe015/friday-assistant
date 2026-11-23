@@ -1,3 +1,21 @@
+# FRIDAY 3.14.21 — Terminal Matrix (Android Preview)
+
+**Nouvelle édition de test : onglet Terminal Matrix noir et vert avec questions écrites et réponses écrites + voix Android.**
+
+[**Télécharger FRIDAY 3.14.21 Terminal Matrix — APK direct**](https://github.com/philippe015/friday-assistant/releases/download/v3.14.21-matrix-preview/FRIDAY-3.14.21-Matrix-Preview.apk) · [Page de la Release GitHub](https://github.com/philippe015/friday-assistant/releases/tag/v3.14.21-matrix-preview) · [**Manuel Terminal Matrix**](https://github.com/philippe015/friday-assistant/blob/v3.14.21-matrix-preview/docs/FRIDAY_MATRIX_TERMINAL_20261123.md)
+
+- **Interface Matrix verte sur fond noir :** quatrième onglet du cockpit, adapté aux écrans Android étroits.
+- **Questions par écrit** : saisissez dans `vous@friday:~$`, puis ENVOYER ou Entrée (Maj+Entrée = nouvelle ligne).
+- **Réponses vocales et écrites** : historique Android existant, synthèse vocale française selon les réglages, boutons **Écoute vocale**, **Lire la réponse**, **Stop voix**.
+- **Même IA locale, même mémoire chiffrée** que le cockpit ; aucune commande système n'est exécutée par le terminal.
+- **Installable à côté de FRIDAY 3.14.20** : Android 8+ ARM64, package `fr.friday.assistant.v31421matrix`, APK d'environ 43,5 Mo. Les modèles locaux `.task` / `.litertlm` sont à importer dans cette édition.
+
+> **Préversion à tester sur téléphone** : compatibilité GPU, écoute continue et reconnaissance vocale non garanties sur chaque modèle Android. Le fichier n'est pas une publication Google Play.
+
+---
+
+## Version précédente : FRIDAY Intelligence+ 3.14.20
+
 # FRIDAY 3.14.20 Intelligence+ — Assistant vocal Android
 
 **Dernière version Preview disponible sur GitHub — 23 novembre 2026.**
