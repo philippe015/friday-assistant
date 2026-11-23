@@ -178,8 +178,11 @@ public final class LocalJarvisEngine {
                     + "Réglages → Jarvis local → Importer un modèle .task ou .litertlm.");
         if (cancellation != null) cancellation.check();
         if ("litertlm".equals(format(context))) {
-            return LiteRtJarvisEngine.answer(context, modelFile(context),
+            String response = LiteRtJarvisEngine.answer(context, modelFile(context),
                     buildLocalPrompt(cfg, cleaned, privateDialogue), cancellation);
+            return AssistantResponseIdentityGuard.correct(cleaned, response,
+                    AssistantIdentity.displayName(PersonalityProfiles.activeName(cfg),
+                            PersonalityProfiles.activePrompt(cfg)));
         }
         if (!LOCK.tryLock(3, TimeUnit.SECONDS))
             throw new IOException("Jarvis local traite déjà une demande. La prochaine pourra être posée dès la fin.");
@@ -223,7 +226,9 @@ public final class LocalJarvisEngine {
             if (cancellation != null) cancellation.check();
             if (response == null || response.trim().isEmpty())
                 throw new IOException("Le modèle local n'a généré aucun texte.");
-            return response.trim();
+            return AssistantResponseIdentityGuard.correct(cleaned, response.trim(),
+                    AssistantIdentity.displayName(PersonalityProfiles.activeName(cfg),
+                            PersonalityProfiles.activePrompt(cfg)));
         } finally {
             LOCK.unlock();
         }
