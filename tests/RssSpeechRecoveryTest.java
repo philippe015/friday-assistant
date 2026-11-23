@@ -50,6 +50,26 @@ public final class RssSpeechRecoveryTest {
                 "Numéro mal entendu -> clarification");
         ok(RssArticleIntent.missingNumber("article numéro de en entier"),
                 "Identifier explicitement numéro de comme erreur ASR");
+        // Rapport Android v3.14.18 LogFix du 23/11 : Vosk a entendu
+        // « arctique numero de en entier » puis cherché le climat arctique.
+        ok(!RssArticleIntent.isRequest("arctique numero de en entier"),
+                "Ne jamais deviner le numéro de l'article depuis « de »");
+        ok(RssArticleIntent.ambiguousVoiceReading("arctique numero de en entier"),
+                "Vosk arctique/article : demander une précision, sans Web");
+        ok(RssArticleIntent.missingNumber("arctique numero de en entier"),
+                "Ne pas envoyer une transcription de numéro manquant à Wikipédia");
+        ok(RssArticleIntent.ambiguousVoiceReading(
+                "lily l'article entier numero de"),
+                "Lily / article entier numero de doit rester local");
+        ok(RssArticleIntent.missingNumber(
+                "lily l'article entier numero de"),
+                "Le numéro manquant après entier doit être explicite");
+        ok(!RssArticleIntent.ambiguousVoiceReading(
+                "Quel est le climat de l'Arctique ?"),
+                "Une vraie question sur l'Arctique ne doit pas être bloquée");
+        ok(!RssArticleIntent.ambiguousVoiceReading(
+                "Arctique numéro trois : évolution du climat"),
+                "Une référence réelle à l'Arctique reste une question générale");
         ok(!RssArticleIntent.missingNumber("article numéro deux en entier"),
                 "Numéro deux présent et fiable");
         ok(!RssArticleIntent.isRequest("le code pénal article deux en entier"),

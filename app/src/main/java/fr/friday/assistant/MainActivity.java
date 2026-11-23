@@ -1263,6 +1263,18 @@ public class MainActivity extends Activity {
                             prefs, new NativeAI.CancelToken());
                 if (answer == null && LocationIntent.nearby(request))
                     answer = JarvisLocationReply.answer(getApplicationContext(), prefs, request);
+                // Même garde-fou pour les demandes écrites : un numéro RSS
+                // non reconnu ne doit pas devenir une recherche « Arctique ».
+                if (answer == null && RssArticleIntent.ambiguousVoiceReading(request)) {
+                    boolean missing = RssArticleIntent.missingNumber(request);
+                    DiagnosticLog.record(getApplicationContext(),
+                            missing ? "RSS_VOSK_NUMBER_MISSING" : "RSS_VOSK_AMBIGUOUS");
+                    answer = missing
+                            ? "Je n'ai pas compris le numéro de l'article. "
+                              + "Dites « article un », « article deux » ou « article trois »."
+                            : "La lecture de l'article reste ambiguë. "
+                              + "Précisez son numéro dans le dernier bulletin.";
+                }
                 if (answer == null) {
                     answer = JarvisKotlinBrain.localClarification(request, privateDialogue);
                     if (answer != null)

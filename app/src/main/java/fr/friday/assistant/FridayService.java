@@ -738,11 +738,8 @@ public class FridayService extends Service {
                             // ne doit pas être annoncée comme question finalisée.
                             boolean isolatedNoise = !controlPhrase && !explicitWake
                                     && phrase.trim().split("\\s+").length < 2;
-                            boolean unclear = !controlPhrase && (
-                                    (phrase.split("\\s+").length >= 3
-                                     && confidence > 0 && confidence < (explicitWake ? 0.35 : 0.55))
-                                    || JarvisKotlinBrain.needsVoiceClarification(
-                                            phrase, confidence, explicitWake));
+                            boolean unclear = !controlPhrase && JarvisKotlinBrain.needsVoiceClarification(
+                                    phrase, confidence, explicitWake);
                             if (selfEcho) {
                                 asrDiagnostic("Écho du haut-parleur JARVIS ignoré : "
                                         + "la réponse ne sera pas renvoyée au modèle.");
@@ -752,12 +749,11 @@ public class FridayService extends Service {
                                         + "interroger Jarvis : « " + phrase.trim() + " ».");
                             } else if (!dropSpeaker && !phrase.trim().isEmpty()) {
                                 if (unclear) {
-                                    asrDiagnostic("Phrase reconnue mais confiance Vosk faible ("
-                                            + Math.round(confidence * 100) + " %)");
-                                    // Transcription douteuse : on montre ce qui a été entendu au lieu d'interroger l'IA.
-                                    event("user", phrase.trim());
-                                    event("error", "Je n'ai pas bien compris : « " + phrase.trim()
-                                            + " » (confiance " + Math.round(confidence * 100) + " %). Pouvez-vous répéter ?");
+                                    if (currentTurn == null && now >= echoBlockUntil
+                                            && (explicitWake || acceptsDirectQuestion(now))) {
+                                        asrDiagnostic("Dictée incertaine (" + Math.round(confidence * 100)
+                                                + " %). Je vous écoute, pouvez-vous répéter ?");
+                                    }
                                 } else {
                                     asrDiagnostic("Question finalisée par Vosk : « "
                                             + (phrase.length() > 140
@@ -875,6 +871,14 @@ public class FridayService extends Service {
         return new double[]{sum, count};
     }
 
+    private boolean acceptsDirectQuestion(long now) {
+        return now >= echoBlockUntil && (TtsEchoGate.followupAccepts(now, echoBlockUntil, wakeOnlyUntil)
+                || (MainActivity.isCockpitVisible() &&
+                    AutoListenPolicy.enabled(settings.get("jarvis_auto_listen_on_open", "1")))
+                || ("1".equals(settings.get("followup_handsfree", "0")) && wakeArmed &&
+                    (now - lastReplyAt <= followupMs || now < clarificationUntil)));
+    }
+
     private void handlePhrase(String heard) {
         if (!running || heard == null || heard.trim().isEmpty()) return;
         long now = SystemClock.elapsedRealtime();
@@ -940,14 +944,7 @@ public class FridayService extends Service {
                 event("status", "Jarvis à l'écoute : posez votre question.");
                 return;
             }
-        } else if ((TtsEchoGate.followupAccepts(now, echoBlockUntil, wakeOnlyUntil) ||
-                // Le cockpit ouvert est un consentement explicite à l'écoute :
-                // ne pas ignorer une phrase reconnue après 15/20 secondes.
-                (MainActivity.isCockpitVisible() &&
-                 AutoListenPolicy.enabled(settings.get("jarvis_auto_listen_on_open", "1"))) ||
-                ("1".equals(settings.get("followup_handsfree", "0")) && wakeArmed &&
-                (now - lastReplyAt <= followupMs || now < clarificationUntil))) &&
-                now >= echoBlockUntil) {
+        } else if (acceptsDirectQuestion(now)) {
             // Hors du cockpit, une question directe n'est acceptée que
             // pendant la fenêtre post-réponse, pour limiter les faux positifs.
             // Dans le cockpit, conserver l'écoute même après cette fenêtre.

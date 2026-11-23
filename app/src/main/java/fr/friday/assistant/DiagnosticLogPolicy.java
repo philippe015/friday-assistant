@@ -33,6 +33,7 @@ public final class DiagnosticLogPolicy {
                     return "TTS_FIRST_SPEECH";
                 return "";
             case "asr_diag":
+                if (v.startsWith("dictée incertaine (")) return "VOSK_CLARIFICATION";
                 if (v.contains("question finalisée") || v.contains("question finalisee"))
                     return "VOSK_FINAL";
                 if (v.contains("mot isolé") || v.contains("mot isole"))
