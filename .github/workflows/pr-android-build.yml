@@ -65,6 +65,7 @@ jobs:
           AAB="app/build/outputs/bundle/release/app-release.aab"
           test -s "$AAB"
           unzip -t "$AAB" > /dev/null
+          python3 scripts/check_play_16kb_elf.py "$AAB"
           echo "Release AAB packaging passed; PR artifact is not Play signed."
 
       - name: Upload debug APK for testing
