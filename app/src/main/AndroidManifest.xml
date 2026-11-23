@@ -28,13 +28,13 @@
         android:name="com.chaquo.python.android.PyApplication"
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
-        android:label="JARVIS · Vocal Fix"
+        android:label="JARVIS · Assistant IA"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:icon="@drawable/friday_icon">
         <!-- LiteRT-LM GPU needs access to the Android vendor OpenCL libraries. -->
         <uses-native-library android:name="libvndksupport.so" android:required="false" />
         <uses-native-library android:name="libOpenCL.so" android:required="false" />
-        <activity android:name=".MainActivity" android:exported="true" android:configChanges="orientation|screenSize">
+        <activity android:name="fr.friday.assistant.MainActivity" android:exported="true" android:configChanges="orientation|screenSize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -48,7 +48,7 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/friday_file_paths" />
         </provider>
-        <service android:name=".FridayService"
+        <service android:name="fr.friday.assistant.FridayService"
             android:exported="false"
             android:foregroundServiceType="microphone|location" />
     </application>

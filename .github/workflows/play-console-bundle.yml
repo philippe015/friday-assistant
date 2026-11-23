@@ -1,0 +1,154 @@
+name: JARVIS - Google Play signed AAB (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_to_internal:
+        description: "Après validation : publier l'AAB sur la piste INTERNE Google Play (jamais en production)"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jarvis-play-bundle
+  cancel-in-progress: false
+
+jobs:
+  bundle:
+    name: Build verified signed Android App Bundle
+    if: github.repository == 'philippe015/friday-assistant'
+    runs-on: ubuntu-latest
+    env:
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure upload key secrets are configured
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!key:-}" ]; then
+              echo "::error::Missing GitHub Actions secret: $key. Configure Play upload-key secrets in repository settings."
+              exit 1
+            fi
+          done
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Python 3.14 (Chaquopy)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install Android SDK API 36
+        shell: bash
+        run: |
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+      - name: Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Rust JNI for Android arm64
+        shell: bash
+        run: |
+          rustup target add aarch64-linux-android
+          cargo install cargo-ndk --locked
+          (cd native && cargo ndk -t arm64-v8a -o ../app/src/main/jniLibs build --release)
+
+      - name: Verify tests
+        run: bash scripts/tester_sources.sh
+
+      - name: Decode the Play upload signing key privately
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p "$RUNNER_TEMP/jarvis-signing"
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/jarvis-signing/upload.jks"
+          test -s "$RUNNER_TEMP/jarvis-signing/upload.jks"
+          echo "KEYSTORE_PATH=$RUNNER_TEMP/jarvis-signing/upload.jks" >> "$GITHUB_ENV"
+          # Never print the key, its password, or its bytes to GitHub logs.
+
+      - name: Build signed production AAB
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq "jarvisPlayPackage" app/build.gradle
+          grep -Fq "targetSdk 36" app/build.gradle
+          gradle --no-daemon -PjarvisPlayPackage=jarvis.myapp :app:bundleRelease
+
+      - name: Verify bundle signature and content
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAB="app/build/outputs/bundle/release/app-release.aab"
+          test -s "$AAB"
+          unzip -t "$AAB" > /dev/null
+          python3 scripts/check_play_16kb_elf.py "$AAB"
+          python3 scripts/check_play_bundle_package.py "$AAB" jarvis.myapp
+          jarsigner -verify -strict "$AAB"
+          unzip -l "$AAB" | grep -q "base/manifest/AndroidManifest.xml"
+          sha256sum "$AAB" | tee app/build/outputs/bundle/release/SHA256SUMS.txt
+          echo "Production AAB signed with the configured upload key (not the debug certificate)."
+
+      - name: Upload verified AAB for manual Play Console submission
+        uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-play-signed-aab
+          path: |
+            app/build/outputs/bundle/release/app-release.aab
+            app/build/outputs/bundle/release/SHA256SUMS.txt
+          retention-days: 14
+
+      - name: Block unapproved or non-default-branch Play publication
+        if: ${{ inputs.publish_to_internal && github.ref != 'refs/heads/main' }}
+        shell: bash
+        run: |
+          echo "::error::La publication Google Play exige la branche main validée."
+          exit 1
+
+      - name: Ensure Play Developer API is connected
+        if: ${{ inputs.publish_to_internal }}
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        shell: bash
+        run: |
+          if [ -z "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" ]; then
+            echo "::error::Le secret GOOGLE_PLAY_SERVICE_ACCOUNT_JSON est absent."
+            echo "Configurez la connexion Google Play Developer API et les droits Tests internes."
+            exit 1
+          fi
+
+      - name: Publish to Google Play INTERNAL testing (explicit opt-in only)
+        if: ${{ inputs.publish_to_internal }}
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: jarvis.myapp
+          releaseFiles: app/build/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed
+          changesNotSentForReview: false
+
+      - name: Clean signing key from runner
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/jarvis-signing"

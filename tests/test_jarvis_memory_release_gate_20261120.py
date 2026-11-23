@@ -14,7 +14,14 @@ class JarvisMemoryReleaseRegression(unittest.TestCase):
     def test_package_name_and_version_gate_match_real_build(self):
         version_code = re.search(r"versionCode\s+(\d+)", BUILD).group(1)
         version_name = re.search(r"versionName\s+'([^']+)'", BUILD).group(1)
-        package = re.search(r"applicationId\s+'([^']+)'", BUILD).group(1)
+        direct_id = re.search(r"applicationId\s+'([^']+)'", BUILD)
+        if direct_id:
+            package = direct_id.group(1)
+        else:
+            # Google Play uses a separate, explicit Gradle property. Existing
+            # direct-install beta artifacts keep the historical applicationId.
+            self.assertIn("project.findProperty('jarvisPlayPackage')", BUILD)
+            package = re.search(r"\?:\s*'([^']+)'", BUILD).group(1)
         self.assertEqual((package, version_code, version_name),
                          ("fr.friday.assistant", "112", "3.14.18"))
         # Le workflow v3.13.8 est une publication HISTORIQUE figée :
