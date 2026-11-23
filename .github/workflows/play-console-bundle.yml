@@ -97,6 +97,7 @@ jobs:
           test -s "$AAB"
           unzip -t "$AAB" > /dev/null
           python3 scripts/check_play_16kb_elf.py "$AAB"
+          python3 scripts/check_play_bundle_package.py "$AAB" jarvis.myapp
           jarsigner -verify -strict "$AAB"
           unzip -l "$AAB" | grep -q "base/manifest/AndroidManifest.xml"
           sha256sum "$AAB" | tee app/build/outputs/bundle/release/SHA256SUMS.txt
