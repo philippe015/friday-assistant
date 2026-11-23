@@ -70,9 +70,13 @@ Points restant à tester : conflits Android d'acquisition du microphone, stabili
 
 ## 6. Captures réelles de l'application
 
-| Accueil / cockpit | Commandes d'écoute | Modèles IA locaux |
-| --- | --- | --- |
-| ![FRIDAY 3.14.20 cockpit Android](images/friday-31420-accueil.webp) | ![FRIDAY 3.14.20 commandes écoute](images/friday-31420-ecoute.webp) | ![FRIDAY 3.14.20 importation de modèles](images/friday-31420-modeles.webp) |
+<p align="center">
+  <img src="images/friday-31420-captures.webp"
+       alt="Trois captures réelles de FRIDAY 3.14.20 Preview : accueil du cockpit, réglages d'écoute et modèles IA locaux"
+       width="760">
+</p>
+
+De gauche à droite : **accueil / cockpit**, **commandes d'écoute et microphone**, **importation d'un modèle IA local**.
 
 Ces **trois captures ont été fournies par un utilisateur** et représentent une session réelle de FRIDAY 3.14.20 Preview sur Android. Elles ne constituent pas une preuve de stabilité fonctionnelle.
 
