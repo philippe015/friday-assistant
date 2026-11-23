@@ -2,7 +2,7 @@ name: JARVIS 3.14.18 - jatvis.app
 on:
   push:
     branches: ['play/jatvis-app-31418']
-    paths: ['.github/workflows/jatvis-play.yml']
+    paths: ['.github/workflows/jatvis-play.yml', 'scripts/check_play_bundle_package.py', 'app/**']
 
 permissions:
   contents: read
