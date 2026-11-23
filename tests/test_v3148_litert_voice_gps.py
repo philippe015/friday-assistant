@@ -51,7 +51,7 @@ class JarvisV3148RecoveryTests(unittest.TestCase):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
         self.assertIn("versionCode 112", gradle)
         self.assertIn("versionName '3.14.18'", gradle)
-        self.assertIn("applicationIdSuffix '.v31418preview'", gradle)
+        self.assertIn("applicationIdSuffix '.v31418logfix'", gradle)
 
 
 if __name__ == "__main__":
