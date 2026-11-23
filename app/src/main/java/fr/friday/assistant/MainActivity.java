@@ -1218,10 +1218,16 @@ public class MainActivity extends Activity {
     private void sendQuestion(String question, boolean fromMatrixTerminal) {
         String cleaned = question == null ? "" : VoiceText.withoutWakeWord(question.trim());
         if (cleaned.isEmpty()) {
-            status.setText("Saisissez une question pour le test."); return;
+            status.setText("Saisissez une question pour le test.");
+            if (fromMatrixTerminal) matrixTerminalComplete("", "",
+                    "Saisissez une question complète.");
+            return;
         }
         if (cleaned.length() > 5000) {
-            status.setText("Question trop longue (5 000 caractères maximum)."); return;
+            status.setText("Question trop longue (5 000 caractères maximum).");
+            if (fromMatrixTerminal) matrixTerminalComplete("", "",
+                    "Question limitée à 5 000 caractères.");
+            return;
         }
         if (!typedQuestionRunning.compareAndSet(false, true)) {
             status.setText("Une question écrite est déjà en cours. Attendez sa réponse.");
