@@ -2,6 +2,12 @@ name: JARVIS - Google Play signed AAB (manual)
 
 on:
   workflow_dispatch:
+    inputs:
+      publish_to_internal:
+        description: "Après validation : publier l'AAB sur la piste INTERNE Google Play (jamais en production)"
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -111,6 +117,36 @@ jobs:
             app/build/outputs/bundle/release/app-release.aab
             app/build/outputs/bundle/release/SHA256SUMS.txt
           retention-days: 14
+
+      - name: Block unapproved or non-default-branch Play publication
+        if: ${{ inputs.publish_to_internal && github.ref != 'refs/heads/main' }}
+        shell: bash
+        run: |
+          echo "::error::La publication Google Play exige la branche main validée."
+          exit 1
+
+      - name: Ensure Play Developer API is connected
+        if: ${{ inputs.publish_to_internal }}
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        shell: bash
+        run: |
+          if [ -z "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" ]; then
+            echo "::error::Le secret GOOGLE_PLAY_SERVICE_ACCOUNT_JSON est absent."
+            echo "Configurez la connexion Google Play Developer API et les droits Tests internes."
+            exit 1
+          fi
+
+      - name: Publish to Google Play INTERNAL testing (explicit opt-in only)
+        if: ${{ inputs.publish_to_internal }}
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: jarvis.myapp
+          releaseFiles: app/build/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed
+          changesNotSentForReview: false
 
       - name: Clean signing key from runner
         if: always()
