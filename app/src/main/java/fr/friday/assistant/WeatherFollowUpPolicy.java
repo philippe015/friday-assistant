@@ -17,21 +17,50 @@ public final class WeatherFollowUpPolicy {
     private static final Pattern CITY_REPLY = Pattern.compile(
         "^(?:pour\\s+)?([a-z][a-z0-9-]{2,}(?:\\s+[a-z][a-z0-9-]{2,}){0,2}"
       + "(?:\\s*,\\s*[a-z-]{2,})?)$");
+    // The speaker may answer with a city AND the time requested by Jarvis:
+    // « Vitry-sur-Seine ce soir ». This time is not part of the city name.
+    private static final Pattern REPLY_PERIOD = Pattern.compile(
+        "\\s+(?:ce soir|demain|demain matin|ce matin|cet apres midi|aujourd hui)$");
+    // ASR may split « Seine » into « scène »; never geocode a guessed city.
+    private static final Pattern UNCERTAIN_CITY_VOSK = Pattern.compile(
+        "^(?:(?:c est|c|ce|sur)\\s+){1,3}.*\\b(?:scene|seine|vitry|france)\\b.*$");
+
     private static final Pattern OTHER_CITY = Pattern.compile(
         "^et\\s+(?:pour|a|sur)\\s+([a-z][a-z0-9-]{2,}"
       + "(?:\\s+[a-z][a-z0-9-]{2,}){0,2}(?:\\s*,\\s*[a-z-]{2,})?)$");
+
+    /** An uncertain city correction immediately after a local weather prompt
+     * should request clarification instead of launching arbitrary web search.
+     * Restricted to likely ASR deformation; ordinary new questions are free. */
+    public static boolean uncertainCityAfterWeatherPrompt(
+            String question, String previousAssistant) {
+        if (previousAssistant == null
+                || !previousAssistant.startsWith("Pour quelle ville souhaitez-vous la météo"))
+            return false;
+        String q = WeatherQueryPolicy.fold(question);
+        if (q.length() > 65 || q.isEmpty()) return false;
+        return UNCERTAIN_CITY_VOSK.matcher(q).matches();
+    }
 
     public static String enrich(String question, String previousAssistant) {
         String q = WeatherQueryPolicy.fold(question).replaceFirst(
                 "^(?:jarvis|jervis|friday|fraday)\\s+", "").trim();
         if (q.isEmpty() || q.length() > 90 || previousAssistant == null)
             return null;
+        // A complete explicit weather question belongs to the regular tool,
+        // not to a city-only follow-up. Avoid « météo pour météo pour Paris ».
+        if (WeatherQueryPolicy.isWeather(q)) return null;
         // Réponse à la question directe « Pour quelle ville ? »
         if (previousAssistant.startsWith("Pour quelle ville souhaitez-vous la météo")) {
-            Matcher city = CITY_REPLY.matcher(q);
+            Matcher period = REPLY_PERIOD.matcher(q);
+            boolean hasPeriod = period.find();
+            String periodText = hasPeriod ? period.group().trim() : "";
+            String cityOnly = hasPeriod ? period.replaceFirst("").trim() : q;
+            Matcher city = CITY_REPLY.matcher(cityOnly);
             if (city.matches() && !city.group(1).matches(
                     "(?i)(merci|bonjour|aujourd hui|demain|oui|non|je sais|chez moi)"))
-                return "météo pour " + city.group(1);
+                return "météo " + (periodText.isEmpty() ? "" : periodText + " ")
+                        + "pour " + city.group(1);
             return null;
         }
         if (!previousAssistant.contains("Source : Open-Meteo"))

@@ -38,9 +38,17 @@ public final class JarvisWeather {
             if (end < 1) return null;
             JSONObject prior = history.optJSONObject(end - 1);
             if (prior == null || !"assistant".equals(prior.optString("kind"))) return null;
-            String query = WeatherFollowUpPolicy.enrich(
-                    question, prior.optString("text", ""));
-            return query == null ? null : answer(query, enabledWeb(prefs));
+            String lastAssistant = prior.optString("text", "");
+            String query = WeatherFollowUpPolicy.enrich(question, lastAssistant);
+            if (query != null) return answer(query, enabledWeb(prefs));
+            if (WeatherFollowUpPolicy.uncertainCityAfterWeatherPrompt(
+                    question, lastAssistant)) {
+                return "Je n'ai pas compris le nom de la commune. "
+                        + "Précisez la ville et le pays, par exemple "
+                        + "« météo ce soir pour Vitry-sur-Seine, France ». "
+                        + "Je ne lance pas de recherche Internet sur une ville incertaine.";
+            }
+            return null;
         } catch (Exception localHistoryUnavailable) {
             // Aucun repli vers la recherche en ligne de l'historique personnel.
             return null;
