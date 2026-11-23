@@ -33,6 +33,18 @@ public class Friday31420Smoke {
           "Tomorrow evening intent");
     check(!WeatherEveningPolicy.requested("météo Paris demain matin"),
           "Do not turn tomorrow morning into an evening");
+    same(WeatherQueryPolicy.city("météo demain soir pour Paris"),
+         "paris", "Tomorrow evening not mistaken for city name");
+    check(WeatherFollowUpPolicy.clearSpokenCityReply("Vitry-sur-Seine ce soir"),
+          "City named after prompt, without wake word");
+    check(WeatherFollowUpPolicy.clearSpokenCityReply("pour Paris"),
+          "Explicit city reply in local follow-up window");
+    check(!WeatherFollowUpPolicy.clearSpokenCityReply("bonne soirée"),
+          "Ambient speech must not be treated as a city");
+    check(!WeatherFollowUpPolicy.clearSpokenCityReply("bonjour"),
+          "No single ambient word");
+    check(!WeatherFollowUpPolicy.clearSpokenCityReply("quel temps fera demain"),
+          "A fresh question must not bypass wake requirement");
     String[] stamps = {
       "2026-11-23T17:00", "2026-11-23T18:00", "2026-11-23T19:00",
       "2026-11-23T20:00", "2026-11-23T21:00", "2026-11-23T22:00",
@@ -75,6 +87,7 @@ public class Friday31420Smoke {
             cmd = ["javac", "-encoding", "UTF-8", "-d", temp,
                    str(JAVA / "WeatherQueryPolicy.java"),
                    str(JAVA / "WeatherEveningPolicy.java"),
+                   str(JAVA / "WeatherFollowUpPolicy.java"),
                    str(JAVA / "AssistantResponseIdentityGuard.java"),
                    str(wd / "Friday31420Smoke.java")]
             result = subprocess.run(cmd, capture_output=True, text=True)
@@ -90,6 +103,10 @@ public class Friday31420Smoke {
         self.assertIn("WeatherEveningPolicy.indices(stamps, date, earliest)", weather)
         self.assertIn("java.time.ZonedDateTime.now(zone)", weather)
         self.assertIn("return eveningAnswer(name, country, forecast", weather)
+        voice = (JAVA / "FridayService.java").read_text(encoding="utf-8")
+        self.assertIn("weatherCityFollowupUntil", voice)
+        self.assertIn("WeatherFollowUpPolicy.clearSpokenCityReply(heard)", voice)
+        self.assertIn("lastReplyAt + 50_000L", voice)
         self.assertIn("AssistantResponseIdentityGuard.correct(", inference)
         self.assertGreaterEqual(inference.count("AssistantResponseIdentityGuard.correct("), 2)
         self.assertNotIn("privateDialogue", (JAVA/"WeatherEveningPolicy.java").read_text())
