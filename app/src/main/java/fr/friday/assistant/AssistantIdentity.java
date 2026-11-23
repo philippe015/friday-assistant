@@ -48,6 +48,7 @@ public final class AssistantIdentity {
         return "Je suis " + assistant + ", votre assistant personnel. "
                 + "Mon comportement est défini par le prompt du profil actif « "
                 + (profileName == null || profileName.trim().isEmpty() ? "F.R.I.D.A.Y." : profileName.trim())
-                + " ». Mistral est uniquement le moteur d'intelligence artificielle que j'utilise.";
+                + " ». Mes outils et modèles locaux fonctionnent sur ce téléphone, "
+                + "selon les composants installés et activés.";
     }
 }
