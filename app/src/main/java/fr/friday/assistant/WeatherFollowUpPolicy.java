@@ -47,6 +47,9 @@ public final class WeatherFollowUpPolicy {
                 "^(?:jarvis|jervis|friday|fraday)\\s+", "").trim();
         if (q.isEmpty() || q.length() > 90 || previousAssistant == null)
             return null;
+        // A complete explicit weather question belongs to the regular tool,
+        // not to a city-only follow-up. Avoid « météo pour météo pour Paris ».
+        if (WeatherQueryPolicy.isWeather(q)) return null;
         // Réponse à la question directe « Pour quelle ville ? »
         if (previousAssistant.startsWith("Pour quelle ville souhaitez-vous la météo")) {
             Matcher period = REPLY_PERIOD.matcher(q);
