@@ -47,6 +47,13 @@ object JarvisKotlinBrain {
         val assistantLines = privateDialogue.orEmpty().lineSequence()
             .filter { it.startsWith("Jarvis : ") }.toList()
         val latestAssistant = assistantLines.lastOrNull()?.let(::fold).orEmpty()
+        val lastArticle = Regex("^article rss ([1-7])\\b").find(latestAssistant)
+        val asksForLink = q.matches(Regex("(?:(?:ou se trouve|se trouve|trouve|donne moi|montre moi) )?le lien(?: de l article| t paix| s il te plait)?"))
+        if (lastArticle != null && asksForLink) {
+            val number = lastArticle.groupValues[1]
+            return "Pour l’article $number, ouvre le dialogue écrit et regarde la source indiquée dans ma réponse précédente."
+        }
+
         val recentlyAskedWeather = assistantLines.takeLast(2)
             .any { fold(it).contains("pour quelle ville souhaitez vous la meteo") }
 
