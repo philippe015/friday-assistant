@@ -8,7 +8,9 @@ android {
     namespace 'fr.friday.assistant'
     compileSdk 36
     defaultConfig {
-        applicationId 'fr.friday.assistant'
+        // Normal APKs keep the established direct-install ID.
+        // Only the audited Play workflow supplies -PjarvisPlayPackage=jarvis.myapp.
+        applicationId (project.findProperty('jarvisPlayPackage') ?: 'fr.friday.assistant')
         minSdk 26
         targetSdk 36
         versionCode 112
