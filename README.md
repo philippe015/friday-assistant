@@ -1,21 +1,20 @@
 # J.A.R.V.I.S. — Assistant vocal IA locale pour Android
 
-**Version mise en avant pour les nouveaux utilisateurs : JARVIS v3.14.16 (BÊTA) · Android · 43,5 Mo**  
-**Sans ordinateur · Reconnaissance française Vosk · IA locale Gemma · Recherche Internet/RSS · Mémoire chiffrée · Signalement GitHub**
+**[Télécharger JARVIS · Écoute v3.14.18 pour Android (APK · 43,5 Mo)](https://github.com/philippe015/friday-assistant/releases/download/v3.14.18-ecoute/JARVIS-3.14.18-Ecoute.apk)**
 
-[![Télécharger JARVIS v3.14.16](https://img.shields.io/badge/T%C3%89L%C3%89CHARGER-JARVIS%20v3.14.16-blue?style=for-the-badge)](https://github.com/philippe015/friday-assistant/releases/download/v3.14.16-community-github-bugreport-beta/JARVIS-v3.14.16-community-github-bugreport-beta.apk)
-[![Manuel complet](https://img.shields.io/badge/MANUEL-Installation%20Android%20FR-informational?style=for-the-badge)](docs/MANUEL_JARVIS_ANDROID_V3.14.16.md)
-[![Signaler un bug](https://img.shields.io/badge/COMMUNAUT%C3%89-Signaler%20sur%20GitHub-success?style=for-the-badge)](https://github.com/philippe015/friday-assistant/issues)
+Version de test pour Android 8.0 ou ultérieur sur téléphone ARM64. Cette édition améliore la reconnaissance des demandes d’actualités en français. Si JARVIS hésite sur une phrase, il reste en écoute et vous invite à répéter.
 
-> **Statut : préversion destinée aux essais.** L'APK a passé les tests automatisés et la compilation GitHub Actions. Elle n'est pas certifiée comme stable sur tous les téléphones. La Release GitHub \`Latest\` peut désigner une autre version : **pour la v3.14.16, utilisez les liens directs ci-dessus**.
+Si **JARVIS · Vocal Fix** écoute déjà, appuyez sur **Stop** dans cette ancienne édition avant d’ouvrir **JARVIS · Écoute**. Les deux applications peuvent être installées côte à côte.
 
-## Installer JARVIS v3.14.16 sur son téléphone
+[Notes de version](https://github.com/philippe015/friday-assistant/releases/tag/v3.14.18-ecoute) · [Manuel d’installation en français](docs/MANUEL_JARVIS_ANDROID_V3.14.16.md) · [Signaler un problème](https://github.com/philippe015/friday-assistant/issues)
+
+## Installer JARVIS · Écoute sur son téléphone
 
 **Aucun ordinateur ni Termux nécessaire.** Cet APK nécessite **Android 8.0+** et un téléphone **ARM64**. L'APK de **43,5 Mo** ne contient pas les modèles vocaux ou IA, à télécharger séparément.
 
-1. **[Téléchargez l'APK officiel v3.14.16](https://github.com/philippe015/friday-assistant/releases/download/v3.14.16-community-github-bugreport-beta/JARVIS-v3.14.16-community-github-bugreport-beta.apk)** sur le smartphone.
+1. **[Téléchargez l’APK JARVIS · Écoute](https://github.com/philippe015/friday-assistant/releases/download/v3.14.18-ecoute/JARVIS-3.14.18-Ecoute.apk)** sur le smartphone.
 2. Ouvrez le fichier \`.apk\` dans **Téléchargements** et autorisez, seulement si Android le demande, **Installer depuis cette source** pour le navigateur ou gestionnaire de fichiers utilisé.
-3. Lancez **JARVIS · IA locale**, autorisez le **microphone**, puis acceptez l'installation du modèle français **Vosk (~41 Mo)** lorsque l'application le propose.
+3. Lancez **JARVIS · Écoute**, autorisez le **microphone**, puis acceptez l'installation du modèle français **Vosk (~41 Mo)** lorsque l'application le propose.
 4. Ouvrez **Réglages → Importer un modèle IA local (.task / .litertlm)**. Téléchargez et importez **[Gemma 3 léger (~304 Mo)](https://huggingface.co/litert-community/gemma-3-270m-it/tree/main)** ou **[Gemma 4 E2B GPU (~2,34 Go)](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/blob/main/gemma-4-E2B-it-gpu.litertlm)**. Le modèle GPU lourd exige un matériel compatible.
 5. Lancez **« Tester Jarvis IA locale sans Internet »**, puis posez une question vocale ou écrite.
 6. Si vous souhaitez une écoute permanente pendant l'utilisation, laissez **Démarrer automatiquement l'écoute** activé et **Mode une question** décoché. Pour les questions en ligne, activez **Autoriser Jarvis à rechercher des informations sur Internet**.
@@ -46,15 +45,15 @@
 
 | Ressource | Lien |
 | --- | --- |
-| **APK Android v3.14.16 — 43 505 683 octets** | **[Télécharger directement](https://github.com/philippe015/friday-assistant/releases/download/v3.14.16-community-github-bugreport-beta/JARVIS-v3.14.16-community-github-bugreport-beta.apk)** |
-| **Page de publication GitHub** | [v3.14.16 — bêta et fichiers de contrôle](https://github.com/philippe015/friday-assistant/releases/tag/v3.14.16-community-github-bugreport-beta) |
-| **Manuel Android complet (FR)** | [Installer, configurer, utiliser et dépanner JARVIS](docs/MANUEL_JARVIS_ANDROID_V3.14.16.md) |
-| **Empreinte de l'APK** | [SHA256SUMS.txt](https://github.com/philippe015/friday-assistant/releases/download/v3.14.16-community-github-bugreport-beta/SHA256SUMS.txt) |
-| **Code exact de la v3.14.16** | [Tag du code de la bêta](https://github.com/philippe015/friday-assistant/tree/v3.14.16-community-github-bugreport-beta) |
+| **APK Android v3.14.18 Écoute — 43 518 263 octets** | **[Télécharger directement](https://github.com/philippe015/friday-assistant/releases/download/v3.14.18-ecoute/JARVIS-3.14.18-Ecoute.apk)** |
+| **Page de publication GitHub** | [v3.14.18 Écoute et fichiers de contrôle](https://github.com/philippe015/friday-assistant/releases/tag/v3.14.18-ecoute) |
+| **Manuel Android (rédigé pour la v3.14.16)** | [Installer, configurer, utiliser et dépanner JARVIS](docs/MANUEL_JARVIS_ANDROID_V3.14.16.md) |
+| **Empreinte de l'APK** | [SHA256SUMS.txt](https://github.com/philippe015/friday-assistant/releases/download/v3.14.18-ecoute/SHA256SUMS.txt) |
+| **Code de JARVIS · Écoute** | [Tag du code de la bêta](https://github.com/philippe015/friday-assistant/tree/v3.14.18-ecoute) |
 | **Participer / signaler un bug** | [GitHub Issues](https://github.com/philippe015/friday-assistant/issues) |
-| **Évolution du projet** | [Pull Request #105](https://github.com/philippe015/friday-assistant/pull/105) |
+| **Évolution du projet** | [Pull Request #111](https://github.com/philippe015/friday-assistant/pull/111) |
 
-**SHA-256 de l'APK :** \`c72fa8b8d566a54f5e1602175ee1730b0d65dca0f5b31eeb51e239561090086d\`.
+**SHA-256 de l'APK :** \`269d669e4f608dd7d8c369a3ca58fae298e7af6d7f2e91ec90b2390d1f04d84a\`.
 
 **Précautions pour les mises à jour :** les anciennes éditions peuvent utiliser un autre identifiant Android et un autre stockage privé ; une signature \`debug\` différente peut empêcher l'installation par-dessus une version déjà présente. **N'effacez pas une installation fonctionnelle sans avoir conservé les données exportables et vérifié les conséquences**. L'export JSON des conversations n'est pas une sauvegarde intégrale restaurable.
 
@@ -64,7 +63,9 @@
 
 ## Archives et anciennes éditions
 
-Les notes ci-dessous documentent des versions précédentes de FRIDAY et JARVIS. Les premières mentions de téléchargement, moteur Mistral et validation « dernière version » sont **historiques** : elles ne remplacent pas le guide v3.14.16 ci-dessus.
+[Retrouver la bêta v3.14.16 et son APK](https://github.com/philippe015/friday-assistant/releases/tag/v3.14.16-community-github-bugreport-beta).
+
+Les notes ci-dessous documentent des versions précédentes de FRIDAY et JARVIS. Les premières mentions de téléchargement, moteur Mistral et validation « dernière version » sont **historiques** : elles ne remplacent pas le guide d’installation ci-dessus.
 
 <details>
 <summary>Afficher l'historique complet des versions précédentes (FRIDAY/JARVIS)</summary>
