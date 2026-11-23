@@ -61,7 +61,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gradle --no-daemon :app:bundleRelease
+          gradle --no-daemon -PjarvisPlayPackage=jarvis.myapp :app:bundleRelease
           AAB="app/build/outputs/bundle/release/app-release.aab"
           test -s "$AAB"
           unzip -t "$AAB" > /dev/null
