@@ -62,6 +62,12 @@ object JarvisKotlinBrain {
         if (q in acknowledgement) return "Je vous écoute. Quelle est votre prochaine demande ?"
         if (q in thanks) return "Avec plaisir. Je vous écoute."
 
+        // Vosk peut n'entendre que la fin d'un ordre après un refus de
+        // lecture RSS. Ne pas chercher « entier naturel » sur Internet.
+        if (q.matches(Regex("^(?:(?:de|des|dit|lire) )?en entier$")))
+            return "Quel article souhaitez-vous lire ? Dites le numéro de " +
+                "l'article du dernier bulletin, par exemple « article un »."
+
         // Une formule répétée sans action ne doit pas envoyer « suite » à Wikipédia.
         if (q == "tout de suite c est tout de suite")
             return "Que souhaitez-vous que je fasse immédiatement ? " +
