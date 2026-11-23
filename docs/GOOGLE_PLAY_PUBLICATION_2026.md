@@ -77,6 +77,11 @@ vérification `jarsigner -verify -strict` et SHA-256.
   la gestion de l'emplacement et la compatibilité multi-écrans.
 - **ARM64 uniquement** : vérifier que les appareils ciblés par le Play Store
   sont correctement pris en charge ; pas de promesse « tous téléphones ».
+- **Compatibilité 16 Ko** : le workflow vérifie les en-têtes ELF des bibliothèques
+  natives avec `scripts/check_play_16kb_elf.py`. Ce contrôle n'équivaut
+  pas à une installation Play sur un appareil utilisant des pages de 16 Ko.
+  Vérifier aussi l'alignement ZIP du bundle et tester sur un appareil compatible.
+  Référence Android : https://developer.android.com/guide/practices/page-sizes
 - **Permissions et vie privée** : les requêtes web et les demandes de
   commerces à proximité peuvent être envoyées à des prestataires ; les
   rapports de conversation sont exportables par consentement et contiennent
