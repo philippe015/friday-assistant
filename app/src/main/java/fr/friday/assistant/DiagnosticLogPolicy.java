@@ -38,7 +38,10 @@ public final class DiagnosticLogPolicy {
                     return "VOSK_FINAL";
                 if (v.contains("mot isolé") || v.contains("mot isole"))
                     return "VOSK_NOISE_IGNORED";
-                if (v.contains("pas envoyée") || v.contains("pas envoyee"))
+                // FridayService emits « non envoyée » after a rejected turn,
+                // not « pas envoyée ». Preserve both forms without logging speech.
+                if (v.contains("pas envoyée") || v.contains("pas envoyee")
+                        || v.contains("non envoyée") || v.contains("non envoyee"))
                     return "VOSK_NO_WAKE";
                 // « sans mot-clé » n'est PAS une activation de Jarvis !
                 if (v.startsWith("mot-clé jarvis reconnu")
