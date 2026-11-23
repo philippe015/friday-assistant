@@ -125,6 +125,7 @@ public final class JarvisWeather {
                     + "?latitude=" + String.format(Locale.ROOT, "%.5f", lat)
                     + "&longitude=" + String.format(Locale.ROOT, "%.5f", lon)
                     + "&current=temperature_2m,weather_code,wind_speed_10m"
+                    + "&hourly=temperature_2m,precipitation_probability,weather_code"
                     + "&daily=temperature_2m_max,temperature_2m_min,"
                     + "precipitation_probability_max,weather_code"
                     + "&forecast_days=2&timezone=auto");
@@ -135,6 +136,11 @@ public final class JarvisWeather {
             JSONArray days = daily.optJSONArray("time");
             if (days == null || days.length() <= day)
                 throw new IOException("date de prévision indisponible");
+            // « ce soir » / « demain soir » must use hourly data in the
+            // destination's local timezone, never today's daily min/max.
+            if (WeatherEveningPolicy.requested(question))
+                return eveningAnswer(name, country, forecast, days.optString(day),
+                        tomorrow);
             JSONArray high = daily.optJSONArray("temperature_2m_max");
             JSONArray low = daily.optJSONArray("temperature_2m_min");
             JSONArray rain = daily.optJSONArray("precipitation_probability_max");
@@ -168,6 +174,76 @@ public final class JarvisWeather {
                     + "Le service Open-Meteo ou la connexion HTTPS est indisponible. "
                     + "Je ne vais pas inventer de température.";
         }
+    }
+
+    /** Sources horaires Open-Meteo, sélectionnées dans le fuseau du lieu nommé. */
+    private static String eveningAnswer(String city, String country,
+                                        JSONObject forecast, String date,
+                                        boolean tomorrow) throws Exception {
+        String timezone = forecast.optString("timezone", "");
+        java.time.ZoneId zone;
+        try {
+            zone = java.time.ZoneId.of(timezone);
+        } catch (java.time.DateTimeException invalidZone) {
+            throw new IOException("fuseau de la commune non vérifiable", invalidZone);
+        }
+        JSONObject hourly = forecast.optJSONObject("hourly");
+        JSONArray times = hourly == null ? null : hourly.optJSONArray("time");
+        JSONArray temps = hourly == null ? null : hourly.optJSONArray("temperature_2m");
+        JSONArray rains = hourly == null ? null : hourly.optJSONArray("precipitation_probability");
+        JSONArray codes = hourly == null ? null : hourly.optJSONArray("weather_code");
+        if (times == null || temps == null || codes == null)
+            throw new IOException("météo horaire indisponible");
+        String[] stamps = new String[times.length()];
+        for (int i = 0; i < stamps.length; i++) stamps[i] = times.optString(i, "");
+        java.time.ZonedDateTime now = java.time.ZonedDateTime.now(zone);
+        int earliest = 18;
+        // For this evening, do not present yesterday's or already-passed hours.
+        if (!tomorrow && now.toLocalDate().toString().equals(date))
+            earliest = now.getHour() + (now.getMinute() > 0 ? 1 : 0);
+        int[] indexes = WeatherEveningPolicy.indices(stamps, date, earliest);
+        if (indexes.length == 0) {
+            return "La soirée du " + date + " est passée, ou le service météo "
+                    + "ne fournit plus de prévisions horaires futures pour "
+                    + city + ", " + country + ". Précisez une autre date.";
+        }
+        double minimum = Double.POSITIVE_INFINITY;
+        double maximum = Double.NEGATIVE_INFINITY;
+        int maxPrecip = -1;
+        int representative = -1;
+        for (int i : indexes) {
+            if (i >= temps.length() || i >= codes.length()
+                    || temps.isNull(i) || codes.isNull(i))
+                throw new IOException("prévision horaire incomplète");
+            double temperature = temps.optDouble(i, Double.NaN);
+            if (!Double.isFinite(temperature)) throw new IOException("température non vérifiable");
+            minimum = Math.min(minimum, temperature);
+            maximum = Math.max(maximum, temperature);
+            if (representative < 0) representative = codes.optInt(i, -1);
+            if (rains != null && i < rains.length() && !rains.isNull(i)) {
+                double precipitation = rains.optDouble(i, Double.NaN);
+                if (Double.isFinite(precipitation) && precipitation >= 0
+                        && precipitation <= 100)
+                    maxPrecip = Math.max(maxPrecip, (int) Math.round(precipitation));
+            }
+        }
+        String first = stamps[indexes[0]];
+        String last = stamps[indexes[indexes.length - 1]];
+        StringBuilder out = new StringBuilder("Prévisions horaires pour ")
+                .append(city).append(", ").append(country).append(", ")
+                .append(tomorrow ? "demain soir" : "ce soir")
+                .append(" (").append(date).append(", ")
+                .append(first.substring(11, 13)).append(" h à ")
+                .append(last.substring(11, 13)).append(" h, heure locale) : ")
+                .append(description(representative)).append(". ")
+                .append("Températures prévues entre ")
+                .append(Math.round(minimum)).append(" et ")
+                .append(Math.round(maximum)).append(" degrés. ");
+        if (maxPrecip >= 0)
+            out.append("Probabilité maximale de précipitations : ")
+               .append(maxPrecip).append(" %. ");
+        return out.append("Source : Open-Meteo, prévisions horaires ; "
+                + "la météo peut évoluer.").toString();
     }
 
     /** Correspondance stricte des noms sans espaces, tirets ou accents. */
