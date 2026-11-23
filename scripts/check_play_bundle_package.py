@@ -11,8 +11,8 @@ from pathlib import Path
 
 
 def check(path: Path, package: str) -> int:
-    if package != "jarvis.myapp":
-        print("FAIL: this Play workflow is reserved for jarvis.myapp", file=sys.stderr)
+    if package not in {"jarvis.myapp", "jatvis.app"}:
+        print("FAIL: unknown Play package", file=sys.stderr)
         return 1
     try:
         with zipfile.ZipFile(path) as z:
@@ -29,7 +29,7 @@ def check(path: Path, package: str) -> int:
         if component not in manifest:
             print("FAIL: AAB manifest missing full Android component name", file=sys.stderr)
             return 1
-    print("PASS: Play App Bundle has jarvis.myapp and resolved app component names.")
+    print(f"PASS: Play App Bundle has {package} and resolved app component names.")
     return 0
 
 
