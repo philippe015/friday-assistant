@@ -86,6 +86,9 @@ public class FridayService extends Service {
     private volatile boolean wakeArmed = false;  // shared with the Mistral response thread
     /** Fenetre courte apres un vrai mot-cle seul : Friday ... puis question. */
     private volatile long wakeOnlyUntil = 0;
+    /** Short local reply window after FRIDAY explicitly asks for a weather city.
+     * No global always-on direct-question bypass outside that conversation. */
+    private volatile long weatherCityFollowupUntil = 0L;
     private volatile long bargePendingUntil = 0;
     private volatile long lastSpeechEndedAt = 0;
     /** Protège la dictée normale des derniers sons TTS, même après la fin du tour. */
@@ -944,7 +947,11 @@ public class FridayService extends Service {
                 event("status", "Jarvis à l'écoute : posez votre question.");
                 return;
             }
-        } else if (acceptsDirectQuestion(now)) {
+        } else if (acceptsDirectQuestion(now)
+                || (now >= echoBlockUntil && now < weatherCityFollowupUntil
+                    && WeatherFollowUpPolicy.clearSpokenCityReply(heard))) {
+            // Hors du cockpit, les réponses explicites à notre question météo
+            // restent admises brièvement, sans transformer le bruit en question.
             // Hors du cockpit, une question directe n'est acceptée que
             // pendant la fenêtre post-réponse, pour limiter les faux positifs.
             // Dans le cockpit, conserver l'écoute même après cette fenêtre.
@@ -965,6 +972,7 @@ public class FridayService extends Service {
         }
         bargePendingUntil = 0;
         wakeOnlyUntil = 0;
+        weatherCityFollowupUntil = 0L;
         final String request = question;
         String anchor = "";
         if (!clarificationAnchor.isEmpty() && now < clarificationUntil
@@ -1191,6 +1199,11 @@ public class FridayService extends Service {
             boolean spoken = turn.streamedVoice ? turn.streamingVoiceSucceeded : speak(speechAnswer, turn);
             if (!live(turn)) return;
             lastReplyAt = SystemClock.elapsedRealtime();
+            weatherCityFollowupUntil = spoken
+                    && !"1".equals(settings.get("listen_once", "0"))
+                    && answer != null
+                    && answer.startsWith("Pour quelle ville souhaitez-vous la météo")
+                    ? lastReplyAt + 50_000L : 0L;
             if (spoken) {
                 if ("1".equals(settings.get("listen_once", "0")))
                     event("status", "Réponse terminée. Mode une question activé : "
