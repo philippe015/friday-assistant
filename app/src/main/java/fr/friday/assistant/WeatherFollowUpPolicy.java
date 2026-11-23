@@ -20,7 +20,7 @@ public final class WeatherFollowUpPolicy {
     // The speaker may answer with a city AND the time requested by Jarvis:
     // « Vitry-sur-Seine ce soir ». This time is not part of the city name.
     private static final Pattern REPLY_PERIOD = Pattern.compile(
-        "\\s+(?:ce soir|demain|demain matin|ce matin|cet apres midi|aujourd hui)$");
+        "\\s+(?:ce soir|demain soir|demain matin|demain|ce matin|cet apres midi|aujourd hui)$");
     // ASR may split « Seine » into « scène »; never geocode a guessed city.
     private static final Pattern UNCERTAIN_CITY_VOSK = Pattern.compile(
         "^(?:(?:c est|c|ce|sur)\\s+){1,3}.*\\b(?:scene|seine|vitry|france)\\b.*$");
