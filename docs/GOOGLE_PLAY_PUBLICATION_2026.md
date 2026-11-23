@@ -68,6 +68,38 @@ Run workflow, choisir la branche validée puis lancer manuellement.
 La tâche produit l'artifact `JARVIS-play-signed-aab` uniquement après
 vérification `jarsigner -verify -strict` et SHA-256.
 
+## 2 bis. Envoi direct depuis GitHub vers les tests internes Google Play
+
+Le workflow contient désormais un bouton manuel **`publish_to_internal`**
+(désactivé par défaut). L'activation téléverse un AAB signé sur
+**la piste `internal` uniquement**, jamais directement en production.
+
+Conditions supplémentaires impératives :
+- La branche GitHub `main` doit contenir la version vérifiée du workflow,
+  du code et des tests. Les branches de PR en brouillon ne publient pas.
+- Le secret GitHub Actions `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` doit être
+  renseigné avec les identifiants d'un **compte de service Google Cloud**
+  autorisé dans Google Play Console pour `jarvis.myapp` et les tests internes.
+  Activer l'API Google Play Android Developer pour ce projet et attribuer
+  les autorisations nécessaires dans la console Play.
+- Le jeu de secrets pour **la clé de téléversement** (ci-dessus) doit être
+  configuré ; le certificat doit être reconnu par Play App Signing.
+- Il faut vérifier les `versionCode` précédemment utilisés et les
+  déclarations de l'application dans la console.
+
+Dans GitHub : Actions > **JARVIS - Google Play signed AAB (manual)** >
+Run workflow (branche **main**) > cocher **publish_to_internal**.
+Le lancement de cette commande représente l'autorisation explicite
+de publier une **version de test interne** auprès de Google Play.
+
+Si la Console exige une première validation / revue manuelle de l'application,
+effectuer d'abord ses étapes dans l'interface privée de Google Play. Ne jamais
+publier les fichiers JSON du compte de service ou les clés de signature.
+
+L'état actuel de l'environnement ne permet pas de lire le tableau de bord
+privé, de configurer ces secrets ni d'effectuer l'action de publication à votre
+place depuis cette conversation.
+
 ## 3. Entrer les informations dans Play Console
 
 1. **Vérifier** dans Tableau de bord > Paramètres de l'application
