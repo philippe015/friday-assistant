@@ -8,11 +8,27 @@
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:#eef9ff}body{background:radial-gradient(ellipse at 50% 16%,#0b3e54 0%,#071a2b 31%,#020810 76%)}button,input,textarea,select{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
 .app{max-width:1100px;margin:0 auto;padding:12px 12px 80px;position:relative;overflow:hidden;min-height:100vh}.app:before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.15;background:repeating-linear-gradient(0deg,transparent 0px,transparent 3px,#84dbf50b 4px);z-index:0}.app>*{position:relative;z-index:1}
 .top{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid #23516d;padding:5px 2px 12px}.name{letter-spacing:.19em;color:var(--cyan);font-size:clamp(18px,5vw,26px);font-weight:800}.sub{font-size:11px;letter-spacing:.17em;color:var(--muted);text-transform:uppercase;margin-top:4px}.mono{font-variant-numeric:tabular-nums}.statuspill{border:1px solid #2c7692;border-radius:99px;padding:8px 11px;color:var(--green);background:#062c32;white-space:nowrap;font-size:12px}.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:currentColor;margin-right:6px;box-shadow:0 0 8px currentColor}
-.nav{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;padding:11px 0}.nav button,.action,.ghost{color:#d4f4ff;background:#0b293a;border:1px solid #2a6783;border-radius:11px;min-height:43px;padding:9px 12px;font-weight:700}.nav button.active{border-color:#60eaff;color:#64e9ff;background:#0d394b;box-shadow:inset 0 0 14px #29e7ff1a}.action.primary{background:linear-gradient(115deg,#087d98,#0b596e);border-color:#5ce3f9;color:#f3feff}.action.warning{border-color:#9a5164;background:#351926}.action:active,.nav button:active{transform:scale(.98)}
+.nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;padding:11px 0}.nav button,.action,.ghost{color:#d4f4ff;background:#0b293a;border:1px solid #2a6783;border-radius:11px;min-height:43px;padding:9px 12px;font-weight:700}.nav button.active{border-color:#60eaff;color:#64e9ff;background:#0d394b;box-shadow:inset 0 0 14px #29e7ff1a}.action.primary{background:linear-gradient(115deg,#087d98,#0b596e);border-color:#5ce3f9;color:#f3feff}.action.warning{border-color:#9a5164;background:#351926}.action:active,.nav button:active{transform:scale(.98)}
 .hero{display:grid;grid-template-columns: minmax(210px,1fr) minmax(230px,1fr);gap:14px;align-items:center;padding:8px 0}.corewrap{display:grid;place-items:center;min-height:300px;position:relative}.corewrap:before{content:"";position:absolute;width:min(98%,320px);aspect-ratio:1;border:1px solid #235d75;border-radius:50%;box-shadow:0 0 35px #13b6e725,inset 0 0 48px #008baf18}.core{position:relative;width:min(78vw,255px);aspect-ratio:1;display:grid;place-items:center;border-radius:50%;isolation:isolate;background:radial-gradient(circle at center,#093a52 0 19%,#071b2b 20% 34%,transparent 35%);filter:drop-shadow(0 0 18px #18c7fc45)}.core::before,.core::after{content:"";position:absolute;inset:0;border-radius:50%;border:3px solid transparent;pointer-events:none}.core::before{border-top-color:#74efff;border-bottom-color:#0d6b8c;box-shadow:0 0 22px #24cbe55a;animation:turn 11s linear infinite}.core::after{inset:15px;border:2px dashed #4ecae9;animation:turn 17s linear infinite reverse}.rings{position:absolute;inset:37px;border:1px solid #67c9e1;border-radius:50%;box-shadow:inset 0 0 15px #00cae54c,0 0 22px #00a3de25}.rings:after{content:"";position:absolute;inset:18px;border:2px dotted #57b8ce;border-radius:50%;animation:turn 7s linear infinite}.center{text-align:center;font-size:13px;letter-spacing:.16em;color:#d4fbff;z-index:1;text-shadow:0 0 10px #72dffa}.center b{font-size:23px;display:block;letter-spacing:.11em;margin-top:4px}.core.listening::before{border-top-color:#72ffc2;filter:drop-shadow(0 0 12px #5dffb4)}.core.thinking::before{border-top-color:#ffb56d;animation-duration:2s}.core.error::before{border-top-color:#ff6e85;animation-duration:20s}.beam{height:80px;width:100%;display:flex;align-items:end;justify-content:center;gap:3px;margin:0 auto;max-width:270px}.beam span{width:4px;border-radius:3px 3px 0 0;background:#2b91b2;opacity:.55;height:calc(9px + var(--i)*3px)}.listening .beam span,.speaking .beam span{background:#4ce5ff;opacity:.9;animation:wave .8s ease-in-out infinite alternate;animation-delay:calc(var(--i)*-80ms)}
 .panel{background:linear-gradient(140deg,#0c2738eb,#061320ec);border:1px solid #23566e;border-radius:16px;padding:15px;box-shadow:0 10px 26px #0006}.eyebrow{color:#76d6ef;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:800;margin:0 0 11px}.summary{display:grid;grid-template-columns:1fr 1fr;gap:9px}.mini{border:1px solid #1a506b;background:#071d2b;border-radius:10px;padding:9px}.mini strong{display:block;font-size:14px;margin-top:5px}.mini small{font-size:11px;color:#97b5c4}.statusline{font-size:13px;line-height:1.5;color:#d6f0f9;min-height:42px}.controls{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:11px}.full{grid-column:1/-1}.divider{height:1px;background:#22516a;margin:14px 0}.editor{display:flex;gap:8px;align-items:stretch}.editor textarea{flex:1;min-width:0;min-height:54px;max-height:190px;resize:vertical;border:1px solid #285b73;border-radius:11px;background:#051522;color:#eafaff;padding:12px;font-size:14px}.editor button{min-width:80px}.note{font-size:12px;color:var(--muted);line-height:1.55}.log{font-size:12px;line-height:1.5;word-break:break-word;color:#9ac7d9;max-height:112px;overflow:auto}.log p{margin:4px 0}.log p.bad{color:var(--red)}
 .messages{max-height:47vh;overflow-y:auto;display:grid;gap:9px;padding-right:4px}.message{border:1px solid #224f67;background:#0b2534;padding:12px;border-radius:13px;line-height:1.55;font-size:14px;overflow-wrap:anywhere;white-space:pre-wrap}.message.user{margin-left:12%;border-color:#307992;background:#093144}.message.assistant{margin-right:7%}.meta{font-weight:800;letter-spacing:.12em;text-transform:uppercase;font-size:10px;color:#5ad6f8;margin-bottom:5px}.message.assistant .meta{color:var(--green)}.empty{color:var(--muted);line-height:1.55;font-size:14px}.chiprow{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}.chip{padding:7px 9px;border:1px solid #32758c;background:#0b2839;color:#bceefa;border-radius:99px;font-size:12px}
 .hidden{display:none!important}section{animation:fade .23s ease}.personaform{display:grid;gap:11px}.fieldlabel{display:block;color:#a7d6e8;font-size:13px;font-weight:650;margin-bottom:4px}.textbox{width:100%;border:1px solid #2c5a75;background:#061725;border-radius:10px;color:#ecf9ff;padding:12px}.personaform textarea{min-height:195px;resize:vertical;line-height:1.55}.buttonrow{display:flex;gap:8px;flex-wrap:wrap}.buttonrow>*{flex:1}.hint{font-size:12px;color:#87b5c9}.notice{font-size:12px;color:#b9efff;min-height:20px}
+
+/* Matrix is a local FRIDAY chat surface, not a shell or command interpreter. */
+.matrix-shell{--mx:#68ff92;--mx-dim:#369e59;position:relative;isolation:isolate;background:radial-gradient(ellipse at 55% 20%,#052b10 0,#010b05 56%,#000602 100%);border:1px solid #277e42;border-radius:14px;padding:13px;color:var(--mx);box-shadow:inset 0 0 20px #14763825,0 0 24px #00ff5014;overflow:hidden;font:14px/1.55 ui-monospace,Consolas,"Courier New",monospace}
+.matrix-shell::before{content:"01010011010110100110101001001101010110100110010101010100110010";white-space:normal;overflow-wrap:anywhere;position:absolute;inset:0;opacity:.07;pointer-events:none;font-size:35px;letter-spacing:17px;line-height:2.3;animation:matrix-drift 20s linear infinite}
+.matrix-shell>*{position:relative;z-index:1}.matrix-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;border-bottom:1px solid #246b3c;padding-bottom:10px;margin-bottom:12px;font-weight:bold;letter-spacing:.07em}.matrix-hint{color:#96cda4;font-size:12px;line-height:1.55;margin:7px 0 12px}
+.matrix-screen{height:min(50vh,440px);min-height:205px;overflow:auto;overscroll-behavior:contain;padding:5px 4px 10px;scrollbar-color:#206d39 #031007;word-break:break-word}
+.matrix-line{padding:7px 5px;border-bottom:1px solid #13451f;white-space:pre-wrap;overflow-wrap:anywhere}
+.matrix-line.matrix-user{color:#c3ffd3}.matrix-line.matrix-assistant{color:#69ff92;text-shadow:0 0 4px #08a83f45}
+.matrix-line.matrix-error{color:#ff9d9d}.matrix-line.matrix-pending{color:#c0e6b8}
+.matrix-prompt{display:block;color:#3edc69;font-size:11px;letter-spacing:.04em;font-weight:700;margin-bottom:3px}
+.matrix-controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}.matrix-controls button{min-height:43px;background:#062310;border:1px solid #348d4a;border-radius:9px;padding:8px 12px;color:#8fffad;font-family:inherit;font-weight:700;flex:1}
+.matrix-editor{display:flex;gap:8px;align-items:stretch;margin-top:10px}.matrix-editor textarea{flex:1;min-width:0;min-height:66px;max-height:180px;resize:vertical;background:#020d06;color:#9affaf;border:1px solid #32904b;border-radius:8px;padding:11px;font-family:inherit;font-size:16px}.matrix-editor textarea::placeholder{color:#61a46f}.matrix-editor button{background:#08431c;color:#b4ffbf;border:1px solid #43d36e;border-radius:8px;font-weight:800;padding:11px;min-width:88px}
+.matrix-shell button:focus-visible,.matrix-shell textarea:focus-visible{outline:2px solid #78ff9e;outline-offset:2px}
+.matrix-state{min-height:25px;margin-top:10px;font-size:12px;color:#b5e6bd}
+@keyframes matrix-drift{from{transform:translateY(-25px)}to{transform:translateY(25px)}}
+@media(max-width:660px){.nav{grid-template-columns:repeat(2,minmax(0,1fr))}.nav button{padding:8px 4px;font-size:14px}.matrix-shell{padding:10px}.matrix-editor{flex-wrap:wrap}.matrix-editor button{min-height:45px}.matrix-screen{height:48vh}}
 footer{font-size:11px;color:#659ab1;padding:15px 0;text-align:center;letter-spacing:.06em}
 .immersive .top,.immersive .nav{display:none}.immersive .hero{min-height:57vh}.immersive .core{width:min(80vw,350px)}.immersive .corewrap{min-height:60vh}.immersive .corewrap:before{width:min(90vw,420px)}
 @keyframes turn{to{transform:rotate(360deg)}}@keyframes wave{to{height:8px;opacity:.4}}@keyframes fade{from{opacity:.6;transform:translateY(3px)}to{opacity:1;transform:none}}
@@ -46,7 +62,7 @@ footer{font-size:11px;color:#659ab1;padding:15px 0;text-align:center;letter-spac
 <body>
 <div class="app" id="app">
  <header class="top"><div><div class="name">J.A.R.V.I.S.</div><div class="sub">JARVIS LOCAL · INTELLIGENCE+ · MEMORY+ CHIFFRÉE · INTERNET · v3.14.18</div></div><div class="statuspill" id="livePill"><i class="dot"></i><span id="liveText">INITIALISATION</span></div></header>
- <nav class="nav" aria-label="Navigation"><button class="active" id="tabCockpit">◈ Cockpit</button><button id="tabHistory">☰ Dialogue</button><button id="tabPersona">✧ Personnalité</button></nav>
+ <nav class="nav" aria-label="Navigation"><button class="active" id="tabCockpit">◈ Cockpit</button><button id="tabHistory">☰ Dialogue</button><button id="tabPersona">✧ Personnalité</button><button id="tabMatrix">▦ Terminal Matrix</button></nav>
  <section id="cockpitPage">
   <div class="hero"><div class="corewrap"><div class="core" id="core"><div class="rings"></div><div class="center">MOTEUR<b>JARVIS</b><span id="coreStatus">PRÊT</span></div></div></div>
    <div class="panel"><p class="eyebrow">Télémétrie · J.A.R.V.I.S.</p><div class="summary">
@@ -83,7 +99,20 @@ footer{font-size:11px;color:#659ab1;padding:15px 0;text-align:center;letter-spac
   </div>
  </section>
  <section id="historyPage" class="hidden"><div class="panel"><p class="eyebrow">Historique des échanges vocaux · stockage local</p><div id="allMessages" class="messages" style="max-height:66vh"></div><p class="note">L'historique vocal local est limité par l’application. Son effacement est disponible dans les réglages natifs.</p></div></section>
- <section id="personaPage" class="hidden"><div class="panel personaform">
+ 
+  <section id="matrixPage" class="hidden" aria-label="Terminal Matrix pour dialoguer avec FRIDAY">
+   <div class="matrix-shell">
+    <div class="matrix-head"><span>FRIDAY://MATRIX.CONSOLE</span><span id="matrixConnection">● ANDROID LOCAL</span></div>
+    <p class="matrix-hint">Dialogue Matrix · questions et réponses écrites en vert. Les réponses sont aussi prononcées par la voix Android si elle est activée. Même IA, même mémoire locale chiffrée et mêmes autorisations Web que le cockpit.</p>
+    <div id="matrixScreen" class="matrix-screen" role="log" aria-label="Historique du terminal Matrix" aria-live="polite" aria-relevant="additions text"><div class="matrix-line">[FRIDAY] Terminal Matrix prêt. Posez une question.</div></div>
+    <label for="matrixInput" class="matrix-prompt">vous@friday:~$ QUESTION</label>
+    <div class="matrix-editor"><textarea id="matrixInput" maxlength="5000" rows="2" aria-label="Votre question pour FRIDAY" placeholder="Posez une question… (Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne)"></textarea><button type="button" id="matrixSend">ENVOYER ↵</button></div>
+    <div class="matrix-controls"><button type="button" id="matrixMic">◉ Écoute vocale</button><button type="button" id="matrixReplay">▸ Lire la réponse</button><button type="button" id="matrixSilence">■ Stop voix</button></div>
+    <div class="matrix-state" id="matrixState" role="status" aria-live="polite">FRIDAY prêt · aucune commande système n'est exécutée.</div>
+    <p class="matrix-hint">Terminal de conversation uniquement : aucune commande Linux/Android n'est exécutée. L'écran reprend l'historique de dialogue de l'appareil ; les questions utilisent le traitement Android habituel.</p>
+   </div>
+  </section>
+  <section id="personaPage" class="hidden"><div class="panel personaform">
   <p class="eyebrow">Personnalité de JARVIS · Jarvis local</p><p class="note">Écris les consignes de ton profil, puis appuie sur <strong>Enregistrer</strong>. Les réponses de Gemma 4 (questions vocales et écrites) appliqueront ce prompt dès la question suivante, sans redémarrage. Les profils restent chiffrés sur Android et ne sont pas envoyés aux flux RSS ou moteurs Web.</p>
   <div><label class="fieldlabel" for="personaProfiles">Profil actif</label><select id="personaProfiles" class="textbox"></select></div>
   <div><label class="fieldlabel" for="personaName">Nom du profil</label><input class="textbox" id="personaName" maxlength="70" placeholder="J.A.R.V.I.S."></div>
@@ -105,15 +134,15 @@ const templates={
  coach:'Tu es J.A.R.V.I.S., assistante claire et pragmatique. Tu écoutes la question en entier, réponds directement et proposes des étapes d’action concrètes. Tu restes polie, neutre et concise à l’oral.',
  detail:'Tu es J.A.R.V.I.S., assistante analytique francophone. Tu développes les réponses avec des faits, méthodes, hypothèses et limites. Quand des informations sont récentes, utilise la recherche Internet autorisée et cite les sources.'
 };
-const state={tab:'cockpit',messages:[],profile:null,active:'',immersive:false,visionBusy:false,lastStatus:'',voiceActive:false};
+const state={tab:'cockpit',messages:[],profile:null,active:'',immersive:false,visionBusy:false,lastStatus:'',voiceActive:false,matrixBusy:false,matrixError:'',matrixLastAnswer:''};
 function call(method,...args){try{const api=bridge();if(api&&typeof api[method]==='function')return api[method](...args);}catch(e){log('Commande Android : '+e.message,true);}return null;}
 function log(msg,bad=false){const p=document.createElement('p');p.textContent='['+new Date().toLocaleTimeString('fr-FR')+'] '+msg;if(bad)p.className='bad';$('diagLog').prepend(p);while($('diagLog').children.length>20)$('diagLog').lastElementChild.remove();}
 function status(text,type='ready'){$('statusMessage').textContent=text;state.lastStatus=text;const core=$('core');core.className='core '+(type==='listen'?'listening':type==='wait'?'thinking':type==='error'?'error':'');$('coreStatus').textContent=type==='listen'?'ÉCOUTE':type==='wait'?'ANALYSE':type==='error'?'ERREUR':'PRÊT';}
 function refreshNative(){const on=call('isListening');const muted=!!call('isMicSilenced');state.voiceActive=!!on;$('microState').textContent=muted?'MUET (ANDROID)':on?'Actif':'Arrêté';$('liveText').textContent=muted?'MICRO BLOQUÉ':on?'ÉCOUTE ACTIVE':'EN ATTENTE';const version=call('currentVersion');if(version)$('versionState').textContent=version;const others=call('otherVersionsCount');if(typeof others==='number'){$('versionsState').textContent=others?others+' installée(s)':'Aucune connue';}$('voiceMode').textContent='Android standard';$('webState').textContent=call('webTelemetry')||'Indisponible';const mode=call('listeningMode');$('listeningModeState').textContent=mode||'Continu';$('startBtn').textContent=mode==='Une question'?'◉ Écouter une question':'◉ Activer écoute';const asr=call('vocabularyMode');$('vocabularyModeState').textContent=asr||'Vosk libre';const barge=call('voiceInterruptTelemetry');$('bargeState').textContent=barge||'Diagnostic indisponible';const gps=call('gpsTelemetry');$('gpsState').textContent=typeof gps==='string'?gps:'Indisponible';$('gpsShareState').textContent='Aucun partage';const activeProfileName=call('activeProfileName');$('personaState').textContent=typeof activeProfileName==='string'&&activeProfileName?activeProfileName:'Non déterminé';const place=call('locationText');if(place!==null)$('locationText').textContent=place||'Aucune mesure GPS effectuée · bouton Tester GPS';}
 window.fridayRefreshNative = refreshNative;
 function clock(){const d=new Date();$('clock').textContent=d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
-function showTab(tab){state.tab=tab;for(const name of ['cockpit','history','persona']){$(name+'Page').classList.toggle('hidden',name!==tab);$('tab'+name[0].toUpperCase()+name.slice(1)).classList.toggle('active',name===tab);}if(tab==='persona')loadProfiles();}
-function drawMessages(){for(const [target,n] of [['recentMessages',4],['allMessages',40]]){const host=$(target);host.replaceChildren();const items=state.messages.slice(-n);if(items.length===0){const p=document.createElement('p');p.className='empty';p.textContent='Aucune conversation enregistrée pour le moment.';host.append(p);continue;}for(const item of items){const box=document.createElement('div');box.className='message '+(item.kind==='user'?'user':'assistant');const meta=document.createElement('div');meta.className='meta';meta.textContent=item.kind==='user'?'Vous':(call('activeProfileName')||'J.A.R.V.I.S.');const content=document.createElement('div');content.textContent=String(item.text||'');box.append(meta,content);host.append(box);}host.scrollTop=host.scrollHeight;}}
+function showTab(tab){state.tab=tab;for(const name of ['cockpit','history','persona','matrix']){$(name+'Page').classList.toggle('hidden',name!==tab);$('tab'+name[0].toUpperCase()+name.slice(1)).classList.toggle('active',name===tab);}if(tab==='persona')loadProfiles();}
+function drawMessages(){for(const [target,n] of [['recentMessages',4],['allMessages',40]]){const host=$(target);host.replaceChildren();const items=state.messages.slice(-n);if(items.length===0){const p=document.createElement('p');p.className='empty';p.textContent='Aucune conversation enregistrée pour le moment.';host.append(p);continue;}for(const item of items){const box=document.createElement('div');box.className='message '+(item.kind==='user'?'user':'assistant');const meta=document.createElement('div');meta.className='meta';meta.textContent=item.kind==='user'?'Vous':(call('activeProfileName')||'J.A.R.V.I.S.');const content=document.createElement('div');content.textContent=String(item.text||'');box.append(meta,content);host.append(box);}host.scrollTop=host.scrollHeight;}drawMatrix();}
 window.fridayTypedReply=function(question,answer){
   try{
     state.messages.push({kind:'user',text:String(question||'')});
@@ -128,6 +157,56 @@ window.fridayNativeReceive=function(kind,text){const s=String(text||'');if(kind=
 window.fridayLocationSync=function(){const value=call('locationText');if(value!==null)$('locationText').textContent=value||'Aucune mesure GPS · bouton Tester GPS';};
 window.fridayNativeReady=function(){refreshNative();log('Connexion au moteur Android natif établie.');};
 function ask(text){const q=String(text||'').trim();if(!q)return;if(q.length>5000){status('Question limitée à 5 000 caractères.','error');return;}if(!bridge()){status('Ouvrez J.A.R.V.I.S. dans son APK Android.','error');return;}call('ask',q);$('questionInput').value='';status('Question envoyée à Jarvis local, sans utiliser le micro…','wait');}
+
+
+function matrixLine(kind,heading,body){
+ const line=document.createElement('div');line.className='matrix-line '+kind;
+ const label=document.createElement('span');label.className='matrix-prompt';label.textContent=heading;
+ const value=document.createElement('span');value.textContent=String(body||'');
+ line.append(label,value);return line;
+}
+function drawMatrix(){
+ const host=$('matrixScreen');if(!host)return;
+ host.replaceChildren();
+ const visible=state.messages.slice(-30);
+ if(!visible.length)host.append(matrixLine('matrix-assistant','[SYSTEM]','Terminal Matrix connecté au dialogue local. Envoyez une question.'));
+ for(const item of visible)host.append(matrixLine(item.kind==='user'?'matrix-user':'matrix-assistant',item.kind==='user'?'vous@friday:~$':'FRIDAY >',item.text));
+ if(state.matrixBusy)host.append(matrixLine('matrix-pending','[ANALYSE]','FRIDAY traite votre question…'));
+ if(state.matrixError)host.append(matrixLine('matrix-error','[ERREUR]',state.matrixError));
+ host.scrollTop=host.scrollHeight;
+}
+function matrixState(message,error=false){
+ $('matrixState').textContent=message;
+ $('matrixState').style.color=error?'#ff9d9d':'#b5e6bd';
+}
+function matrixAsk(){
+ const q=$('matrixInput').value.trim();
+ if(!q){matrixState('Saisissez une question avant l’envoi.',true);return;}
+ if(q.length>5000){matrixState('Question trop longue (5 000 caractères maximum).',true);return;}
+ if(state.matrixBusy){matrixState('Question précédente en cours de traitement.',true);return;}
+ if(!bridge()||typeof bridge().askMatrix!=='function'){matrixState('Terminal disponible uniquement dans l’application Android mise à jour.',true);return;}
+ state.matrixBusy=true;state.matrixError='';
+ matrixState('FRIDAY analyse la question… la réponse sera écrite puis prononcée si la voix est activée.');
+ drawMatrix();
+ // Calls the existing Android Q&A pipeline; no JavaScript command execution.
+ call('askMatrix',q);
+ $('matrixInput').value='';
+}
+window.fridayMatrixComplete=function(question,answer,error){
+ state.matrixBusy=false;
+ state.matrixError=String(error||'');
+ if(!state.matrixError && answer)state.matrixLastAnswer=String(answer);
+ if(state.matrixError)matrixState('Erreur : '+state.matrixError,true);
+ else matrixState('Réponse affichée · synthèse vocale Android selon les réglages.');
+ drawMatrix();
+};
+function matrixReplay(){
+ const last=state.matrixLastAnswer||[...state.messages].reverse().find(x=>x.kind==='assistant')?.text;
+ if(!last){matrixState('Aucune réponse à relire.',true);return;}
+ if(!bridge()){matrixState('Voix Android non disponible dans le navigateur.',true);return;}
+ call('speakNative',last);matrixState('Lecture de la dernière réponse avec la voix Android.');
+}
+window.fridayOpenMatrix=()=>showTab('matrix');
 function start(){if(!bridge()){status('Application Android nécessaire pour le microphone.','error');return;}call('start');setTimeout(refreshNative,850);status('Démarrage de la reconnaissance vocale…','wait');}
 function stop(){call('stop');setTimeout(refreshNative,450);status('Écoute désactivée.');}
 function interrupt(){call('interrupt');status('Réponse interrompue. Micro toujours actif : pose ta question.','listen');}
@@ -148,7 +227,12 @@ function deleteProfile(){if(state.profile.profiles.length===1){notice('Un profil
 function importProfiles(){const field=$('personaBackup');if(field.classList.contains('hidden')){field.classList.remove('hidden');field.focus();notice('Collez le JSON puis appuyez une deuxième fois sur « Importer JSON ».');return;}try{const parsed=validateProfiles(JSON.parse(field.value));const result=call('savePersonalityProfiles',JSON.stringify(parsed));if(result!=='OK')throw Error(result||'Enregistrement impossible.');state.profile=parsed;state.active=parsed.active;renderProfiles();field.classList.add('hidden');field.value='';notice('Profils importés et chiffrés.');}catch(e){notice('Importation refusée : '+e.message,true);}}
 function exportProfiles(){try{const data=JSON.stringify(validateProfiles(state.profile));if(bridge()&&typeof bridge().sharePersonalityProfiles==='function'){call('sharePersonalityProfiles',data);notice('Partage Android ouvert.');}else{$('personaBackup').value=JSON.stringify(state.profile,null,2);$('personaBackup').classList.remove('hidden');notice('Copiez le JSON de sauvegarde.');}}catch(e){notice(e.message,true);}}
 window.fridayOpenPersonality=()=>showTab('persona');
-function init(){for(const [tab,id] of [['cockpit','tabCockpit'],['history','tabHistory'],['persona','tabPersona']])$(id).onclick=()=>showTab(tab);
+function init(){for(const [tab,id] of [['cockpit','tabCockpit'],['history','tabHistory'],['persona','tabPersona'],['matrix','tabMatrix']])$(id).onclick=()=>showTab(tab);
+ $('matrixSend').onclick=matrixAsk;
+ $('matrixInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();matrixAsk();}});
+ $('matrixMic').onclick=()=>{start();matrixState('Écoute vocale Android demandée.');};
+ $('matrixReplay').onclick=matrixReplay;
+ $('matrixSilence').onclick=()=>{call('stopSpeakingNative');matrixState('Lecture vocale interrompue ; microphone inchangé.');};
  $('startBtn').onclick=start;$('stopBtn').onclick=stop;$('interruptBtn').onclick=interrupt;$('nativeSettingsBtn').onclick=()=>call('configure');$('sendBtn').onclick=()=>ask($('questionInput').value);$('questionInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ask($('questionInput').value);}});
  for(const b of document.querySelectorAll('[data-question]'))b.onclick=()=>ask(b.dataset.question);$('gpsBtn').onclick=()=>{call('gpsCheck');status('Vérification GPS Android…','wait');};$('gpsConsentBtn').onclick=()=>call('gpsConsent');$('fullscreenBtn').onclick=toggleImmersive;$('versionsBtn').onclick=()=>call('manageVersions');$('diagnosticViewBtn').onclick=()=>call('showDiagnosticLogs');$('diagnosticExportBtn').onclick=()=>call('exportDiagnosticLogs');$('diagnosticGithubBtn').onclick=()=>call('reportDiagnosticGitHub');$('diagnosticClearBtn').onclick=()=>call('clearDiagnosticLogs');
  $('personaVerify').onclick=verifySavedProfile;$('personaSave').onclick=saveProfiles;$('personaTest').onclick=testProfile;$('personaNew').onclick=()=>newProfile(false);$('personaDuplicate').onclick=()=>newProfile(true);$('personaDelete').onclick=deleteProfile;$('personaImport').onclick=importProfiles;$('personaExport').onclick=exportProfiles;$('personaClose').onclick=()=>showTab('cockpit');$('personaPrompt').oninput=countPrompt;$('personaProfiles').onchange=e=>{const selected=e.target.value,previous=state.active;try{const p=activeProfile();p.name=$('personaName').value.trim();p.prompt=$('personaPrompt').value.trim();state.profile.active=selected;validateProfiles(state.profile);const result=call('savePersonalityProfiles',JSON.stringify(state.profile));if(result!=='OK')throw Error(result||'Activation impossible');state.active=selected;renderProfiles();refreshNative();notice('Profil « '+activeProfile().name+' » activé et enregistré pour les prochaines réponses.');}catch(err){state.profile.active=previous;state.active=previous;renderProfiles();notice('Échec activation : '+err.message,true);}};$('personaTemplate').onchange=e=>{if(templates[e.target.value]){$('personaPrompt').value=templates[e.target.value];countPrompt();notice('Modèle chargé, enregistrez pour l’appliquer.');}};
