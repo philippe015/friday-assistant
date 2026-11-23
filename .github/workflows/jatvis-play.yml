@@ -1,0 +1,85 @@
+name: JARVIS 3.14.18 - jatvis.app
+on:
+  push:
+    branches: ['play/jatvis-app-31418']
+    paths: ['.github/workflows/jatvis-play.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  build-play:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Python 3.14 for Chaquopy
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Android SDK
+        run: |
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+      - name: Rust Android target
+        run: |
+          rustup target add aarch64-linux-android
+          cargo install cargo-ndk --locked
+
+      - name: Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Build Rust JNI
+        run: |
+          cd native
+          cargo ndk -t arm64-v8a -o ../app/src/main/jniLibs build --release
+
+      - name: Build and verify Play bundle
+        run: |
+          gradle --no-daemon -PjarvisPlayPackage=jatvis.app :app:bundleRelease
+          cp app/build/outputs/bundle/release/app-release.aab JARVIS-jatvis.app-unsigned.aab
+          python3 scripts/check_play_bundle_package.py JARVIS-jatvis.app-unsigned.aab jatvis.app
+          python3 scripts/check_play_16kb_elf.py JARVIS-jatvis.app-unsigned.aab
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-jatvis.app-unsigned
+          path: JARVIS-jatvis.app-unsigned.aab
+
+      - name: Sign with verified Play upload key
+        env:
+          STORE: ${{ secrets.PLAY_UPLOAD_KEYSTORE_BASE64 }}
+          STORE_PASS: ${{ secrets.PLAY_UPLOAD_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.PLAY_UPLOAD_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.PLAY_UPLOAD_KEY_PASSWORD }}
+          EXPECTED: ${{ vars.PLAY_UPLOAD_SHA256 }}
+        run: |
+          set -euo pipefail
+          : "${STORE:?Configure PLAY_UPLOAD_KEYSTORE_BASE64}" "${EXPECTED:?Configure PLAY_UPLOAD_SHA256 from Play Console}"
+          umask 077
+          ks=$(mktemp)
+          trap 'rm -f "$ks"' EXIT
+          printf %s "$STORE" | base64 -d > "$ks"
+          fingerprint=$(keytool -exportcert -keystore "$ks" -alias "$KEY_ALIAS" -storepass:env STORE_PASS | sha256sum | cut -d' ' -f1)
+          test "$fingerprint" = "$(printf %s "$EXPECTED" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          jarsigner -keystore "$ks" -storepass:env STORE_PASS -keypass:env KEY_PASS -signedjar JARVIS-jatvis.app.aab JARVIS-jatvis.app-unsigned.aab "$KEY_ALIAS"
+          jarsigner -verify JARVIS-jatvis.app.aab
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-jatvis.app-signed
+          path: JARVIS-jatvis.app.aab
