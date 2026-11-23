@@ -28,7 +28,7 @@
         android:name="com.chaquo.python.android.PyApplication"
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
-        android:label="JARVIS · Vocal Fix"
+        android:label="JARVIS · Assistant IA"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:icon="@drawable/friday_icon">
         <!-- LiteRT-LM GPU needs access to the Android vendor OpenCL libraries. -->
