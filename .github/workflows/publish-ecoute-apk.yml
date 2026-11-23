@@ -1,0 +1,45 @@
+name: Publier JARVIS 3.14.18 Écoute
+on:
+  push:
+    branches: [publication/apk-3.14.18-ecoute]
+    paths: ['.github/workflows/publish-ecoute-apk.yml']
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publier:
+    runs-on: ubuntu-latest
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+      TAG: v3.14.18-ecoute
+      APK: JARVIS-3.14.18-Ecoute.apk
+      BUILD_SHA: 641908f78201213d296a613650785727d874ae6b
+      APK_SHA256: 269d669e4f608dd7d8c369a3ca58fae298e7af6d7f2e91ec90b2390d1f04d84a
+    steps:
+      - name: Vérifier et publier l’APK testé
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh run download 45181405633 --name FRIDAY-pr-debug-apk --dir build
+          mv build/app-debug.apk "$APK"
+          printf '%s  %s\n' "$APK_SHA256" "$APK" > SHA256SUMS.txt
+          sha256sum --check SHA256SUMS.txt
+
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            cat > notes.md <<'NOTES'
+          JARVIS · Écoute est une version de test pour les téléphones Android 8 ou ultérieur avec processeur ARM64. Téléchargez le fichier APK dans les pièces jointes et ouvrez-le sur votre téléphone.
+
+          JARVIS comprend mieux les demandes d’actualités en français. Si la dictée reste incertaine, il vous invite à répéter et le cockpit reste en mode Écoute.
+
+          Cette édition peut s’installer à côté de JARVIS · Vocal Fix. Si l’ancienne édition écoute encore, appuyez sur Stop avant d’ouvrir JARVIS · Écoute.
+          NOTES
+            gh release create "$TAG" "$APK" SHA256SUMS.txt --target "$BUILD_SHA" \
+              --prerelease --title "JARVIS · Écoute 3.14.18 — APK Android" --notes-file notes.md
+          fi
+
+          url="https://github.com/$GH_REPO/releases/download/$TAG/$APK"
+          curl --fail --silent --show-error --location --retry 4 --retry-all-errors "$url" -o public.apk
+          printf '%s  public.apk\n' "$APK_SHA256" | sha256sum --check
