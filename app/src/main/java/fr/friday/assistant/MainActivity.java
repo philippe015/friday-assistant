@@ -1211,8 +1211,11 @@ public class MainActivity extends Activity {
         // via PythonBrain et ne validait donc pas Jarvis local.
         testLocalJarvis();
     }
-    /** Questions écrites : Jarvis local exclusif, sans microphone requis. */
+    /** Questions écrites et terminal Matrix : même route locale/mémoire/voix. */
     private void sendQuestion(String question) {
+        sendQuestion(question, false);
+    }
+    private void sendQuestion(String question, boolean fromMatrixTerminal) {
         String cleaned = question == null ? "" : VoiceText.withoutWakeWord(question.trim());
         if (cleaned.isEmpty()) {
             status.setText("Saisissez une question pour le test."); return;
@@ -1221,7 +1224,10 @@ public class MainActivity extends Activity {
             status.setText("Question trop longue (5 000 caractères maximum)."); return;
         }
         if (!typedQuestionRunning.compareAndSet(false, true)) {
-            status.setText("Une question écrite est déjà en cours. Attendez sa réponse."); return;
+            status.setText("Une question écrite est déjà en cours. Attendez sa réponse.");
+            if (fromMatrixTerminal) matrixTerminalComplete(cleaned, "",
+                    "Une question est déjà en cours. Attendez la réponse.");
+            return;
         }
         String engineName = "Jarvis local";
         status.setText("Question écrite envoyée à " + engineName + " (microphone non utilisé).");
@@ -1350,8 +1356,22 @@ public class MainActivity extends Activity {
                     if ("1".equals(prefs.get("voice_enabled", "1")))
                         playWebVoice(spokenResult);
                 }
+                // Completion is separate from the encrypted-history callback:
+                // the terminal can clear its spinner even if history cannot be saved.
+                if (fromMatrixTerminal)
+                    matrixTerminalComplete(request, result == null ? "" : result,
+                            error == null ? "" : error);
             });
         }, "friday-typed-request-no-mic").start();
+    }
+    /** UI callback only; user text is not written to technical diagnostics. */
+    private void matrixTerminalComplete(String question, String answer, String error) {
+        if (pageReady && hud != null) {
+            hud.evaluateJavascript("window.fridayMatrixComplete&&window.fridayMatrixComplete("
+                    + org.json.JSONObject.quote(question) + ","
+                    + org.json.JSONObject.quote(answer) + ","
+                    + org.json.JSONObject.quote(error) + ");", null);
+        }
     }
     private void testVoice() {
         if (testTts != null) { testTts.shutdown(); testTts = null; }
@@ -2067,6 +2087,11 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void ask(String question) {
             if (question == null || question.length() > 15000) return;
             runOnUiThread(() -> sendQuestion(question));
+        }
+        /** Matrix is a chat UI, never an Android or Linux command shell. */
+        @JavascriptInterface public void askMatrix(String question) {
+            if (question == null || question.length() > 5000) return;
+            runOnUiThread(() -> sendQuestion(question, true));
         }
         @JavascriptInterface public void sharePersonalityProfiles(String json) {
             try {
