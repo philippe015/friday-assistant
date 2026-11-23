@@ -48,7 +48,7 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/friday_file_paths" />
         </provider>
-        <service android:name=".FridayService"
+        <service android:name="fr.friday.assistant.FridayService"
             android:exported="false"
             android:foregroundServiceType="microphone|location" />
     </application>
