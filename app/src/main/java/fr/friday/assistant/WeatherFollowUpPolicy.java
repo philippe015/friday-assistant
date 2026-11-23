@@ -42,6 +42,26 @@ public final class WeatherFollowUpPolicy {
         return UNCERTAIN_CITY_VOSK.matcher(q).matches();
     }
 
+    /** Accept an unmistakable spoken city reply for a short, explicit
+     * follow-up window. A one-word background sound NEVER counts as a place. */
+    public static boolean clearSpokenCityReply(String question) {
+        String text = WeatherQueryPolicy.fold(question);
+        if (text.isEmpty() || text.length() > 75
+                || WeatherQueryPolicy.isWeather(question)) return false;
+        text = text.replaceFirst("^(?:jarvis|jervis|friday|fraday)\\s+", "");
+        text = REPLY_PERIOD.matcher(text).replaceFirst("").trim();
+        Matcher match = CITY_REPLY.matcher(text);
+        if (!match.matches()) return false;
+        String city = match.group(1).trim();
+        if (city.matches("^(?:bonjour|merci|bonne|bonsoir|comment|pourquoi|qui|"
+                + "quelle|quel|combien|ceci|cela|je|tu|nous|on|oui|non)\\b.*"))
+            return false;
+        // A city with a country/comma, hyphen, at least two place components,
+        // or an explicit « pour ... » prefix is intentional enough to accept.
+        return text.startsWith("pour ") || city.contains("-")
+                || city.contains(",") || city.split("\\s+").length >= 2;
+    }
+
     public static String enrich(String question, String previousAssistant) {
         String q = WeatherQueryPolicy.fold(question).replaceFirst(
                 "^(?:jarvis|jervis|friday|fraday)\\s+", "").trim();
