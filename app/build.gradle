@@ -11,8 +11,8 @@ android {
         applicationId 'fr.friday.assistant'
         minSdk 26
         targetSdk 35
-        versionCode 114
-        versionName '3.14.20'
+        versionCode 112
+        versionName '3.14.18'
         ndk { abiFilters 'arm64-v8a' }
     }
     compileOptions {
@@ -47,6 +47,20 @@ android {
     }
     packaging {
         jniLibs { useLegacyPackaging true }
+    }
+}
+
+/**
+ * Keep the historical release metadata stable: many regression suites and
+ * Google Play upload rules depend on it. Only the isolated DEBUG Preview
+ * package receives the 3.14.20 label/version and fresh code.
+ */
+androidComponents {
+    onVariants(selector().withBuildType("debug")) { variant ->
+        variant.outputs.forEach { output ->
+            output.versionCode.set(114)
+            output.versionName.set("3.14.20-preview")
+        }
     }
 }
 
