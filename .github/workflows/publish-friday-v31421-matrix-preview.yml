@@ -1,0 +1,97 @@
+name: Publier FRIDAY 3.14.21 Terminal Matrix Preview
+
+on:
+  push:
+    branches: [publication/friday-v31421-matrix-preview-20261123]
+    paths:
+      - '.github/workflows/publish-friday-v31421-matrix-preview.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: release-friday-v31421-matrix-preview
+  cancel-in-progress: false
+
+jobs:
+  github-release:
+    name: Vérifier et publier APK Preview
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: v3.14.21-matrix-preview
+      APK: FRIDAY-3.14.21-Matrix-Preview.apk
+      SOURCE_SHA: e22b1c578a72cce4cd9dcb4fe14de9fb1a73d8e0
+      TEST_RUN: '45262715502'
+      APK_RUN: '45262715464'
+      APK_SHA256: 5ee438987a219db09db90317a7c72d46c9227de013418f97444660ebe4c44442
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Contrôler les deux validations du même commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
+            echo "::error::La prerelease $TAG existe déjà. Aucun écrasement."
+            exit 1
+          fi
+          for id in "$TEST_RUN" "$APK_RUN"; do
+            source="$(gh api "repos/$GH_REPO/actions/runs/$id" --jq '.head_sha')"
+            result="$(gh api "repos/$GH_REPO/actions/runs/$id" --jq '.conclusion')"
+            if [ "$source" != "$SOURCE_SHA" ] || [ "$result" != success ]; then
+              echo "::error::Tests et compilation doivent réussir sur le même commit vérifié."
+              exit 1
+            fi
+          done
+
+      - name: Récupérer la compilation Android testée
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh run download "$APK_RUN" --repo "$GH_REPO" --name FRIDAY-pr-debug-apk --dir build
+          test -s build/app-debug.apk
+          mv build/app-debug.apk "$APK"
+          printf '%s  %s\n' "$APK_SHA256" "$APK" > SHA256SUMS.txt
+          sha256sum --check SHA256SUMS.txt
+
+      - name: Vérifier APK, version et signature Android
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          "$SDKMANAGER" "build-tools;35.0.0"
+          badging="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
+          printf '%s\n' "$badging" | grep -F \
+            "package: name='fr.friday.assistant.v31421matrix' versionCode='115' versionName='3.14.21-matrix-preview'"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile
+          apk=Path("FRIDAY-3.14.21-Matrix-Preview.apk")
+          with zipfile.ZipFile(apk) as z:
+              assert z.testzip() is None
+              manifest=z.read("AndroidManifest.xml")
+              assert "FRIDAY · Terminal Matrix".encode("utf-16le") in manifest
+          assert b"APK Sig Block 42" in apk.read_bytes()[-250000:]
+          print("APK intact, identité distincte et bloc de signature Android présents")
+          PY
+
+      - name: Publier une prerelease téléchargeable sur GitHub
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" "$APK" SHA256SUMS.txt \
+            --repo "$GH_REPO" --target "$SOURCE_SHA" --prerelease \
+            --title "FRIDAY Intelligence+ 3.14.21 — Terminal Matrix APK Preview" \
+            --notes-file docs/RELEASE_FRIDAY_3_14_21_MATRIX.md
+          mkdir -p verification
+          gh release download "$TAG" --repo "$GH_REPO" \
+            --pattern "$APK" --dir verification
+          cmp "$APK" "verification/$APK"
+          echo "APK GitHub Releases vérifié : https://github.com/$GH_REPO/releases/tag/$TAG"
