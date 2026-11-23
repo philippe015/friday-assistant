@@ -38,7 +38,8 @@ public final class RecentNewsPolicy {
             + "|\\b(?:dernieres?|recents?|recentes?|nouveautes?)\\s+"
             + "(?:infos?|informations?|evenements?)\\b"
             + "|\\b(?:infos?|informations?|evenements?)\\s+"
-            + "(?:du jour|d aujourd hui|de ce matin|recents?|recentes?)\\b");
+            + "(?:du jour|d aujourd hui|de ce matin|de la nuit|de cette nuit|"
+            + "recents?|recentes?)\\b");
     private static final Pattern HOURS = Pattern.compile(
             "\\b(\\d{1,2}|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|vingt quatre)"
             + "(?:\\s+(?:derniers?|dernieres?|precedents?|precedentes?)){0,3}\\s+heures?\\b");
@@ -56,6 +57,19 @@ public final class RecentNewsPolicy {
         return Normalizer.normalize(value == null ? "" : value, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}+", "").toLowerCase(Locale.FRENCH)
                 .replaceAll("[^a-z0-9 ]+", " ").replaceAll("\\s+", " ").trim();
+    }
+
+    /** Nettoie UNIQUEMENT les amorces vocales incohérentes précédant une
+     * demande de bulletin récent. Une véritable recherche thématique,
+     * comme « actualités sur le manque d'envie », reste inchangée. */
+    public static String cleanVoiceNewsRequest(String question) {
+        String q = fold(question);
+        if (newsWindowHours(q) == 0) return q;
+        return q.replaceFirst(
+                "^(?:(?:jarvis|friday)\\s+)?j\\s+ai\\s+envie\\s+"
+                + "(?:(?:d\\s+un\\s+mode|de\\s+moi|donne)\\s+)?"
+                + "(?=(?:les\\s+)?(?:dernieres\\s+)?(?:actualites|infos|informations)\\b)",
+                "").trim();
     }
 
     public static boolean isNews(String question) {
