@@ -14,7 +14,8 @@ INTERNET=(JAVA/"JarvisInternet.java").read_text()
 class RssRealConversationRecovery(unittest.TestCase):
     def test_explicit_article_number_beats_wrong_speech_verb(self):
         self.assertIn("COMPLETE_READING", RSS)
-        self.assertIn("boolean completeNumbered = numbered && COMPLETE_READING.matcher(text).find()", RSS)
+        self.assertIn("boolean completeNumbered = numbered && (COMPLETE_READING.matcher(text).find()", RSS)
+        self.assertIn("ARTICLE_COMPLETE_BEFORE_NUMBER.matcher(text).find()", RSS)
         self.assertIn("RssArticleIntent.wantsFullText(question)", INTERNET)
         self.assertIn("RssArticleIntent.isRequest(question)", INTERNET)
         self.assertIn("RssArticleIntent.ambiguousVoiceReading(question)", SERVICE)

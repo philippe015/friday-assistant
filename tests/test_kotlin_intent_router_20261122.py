@@ -48,6 +48,9 @@ fun main() {
         "No repeated dismissal Web search")
     expect(JarvisKotlinBrain.localClarification("tout de suite c'est tout de suite", noContext) != null,
         "Repeated phrase requires an action")
+    expect(JarvisKotlinBrain.localClarification("de en entier", noContext)
+        ?.contains("Quel article") == true,
+        "Clipped article instruction stays local without Wikipedia")
     expect(JarvisKotlinBrain.localClarification("notre article un humain", noContext) != null,
         "Ambiguous article clarifies")
     expect(JarvisKotlinBrain.localClarification("Merci", noContext) != null,

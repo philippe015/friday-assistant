@@ -1380,7 +1380,8 @@ public final class JarvisInternet {
     /** Retire le bruit de la dictée et les expressions temporelles pour une
      * recherche de titres récents. Ne modifie jamais le journal utilisateur. */
     private static String recentNewsTopic(String question) {
-        String words = VoiceText.normalize(question).replaceAll("[^a-z0-9 ]+", " ")
+        String words = VoiceText.normalize(RecentNewsPolicy.cleanVoiceNewsRequest(question))
+                .replaceAll("[^a-z0-9 ]+", " ")
                 .replaceAll("\\s+", " ").trim();
         // Le rapport v3.14.14 a capturé « j'ai envie de moi les
         // dernières actualités six ». Vosk a déformé une amorce vocale
@@ -1391,6 +1392,11 @@ public final class JarvisInternet {
         words = words.replaceFirst(
                 "^(?:jarvis\\s+)?j\\s+ai\\s+envie\\s+de\\s+moi\\s+(?=(?:les\\s+)?dernieres\\s+actualites\\b)",
                 "");
+        // « les informations de la nuit » demande un bulletin général,
+        // pas des articles portant sur le terme « nuit ».
+        words = words.replaceAll(
+                "\\b(?:informations?|infos?)\\s+de\\s+(?:la\\s+|cette\\s+)?nuit\\b",
+                "informations");
         // Vosk peut transcrire « les frappes » comme « les disputes frappe ».
         // N'appliquer cette réparation qu'à cette succession anormale exacte.
         words = words.replaceAll("\\bdisputes?\\s+frappes?\\b", "frappes");

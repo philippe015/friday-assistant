@@ -16,6 +16,14 @@ public final class RssFollowupV31418Test {
             ok(RssArticleIntent.index(prompt) == 2,
                     "Mauvais index conservé : " + prompt);
         }
+        ok(RssArticleIntent.isRequest("dit l'article entier numéro un"),
+                "Vosk : lire l'article entier numéro un");
+        ok(RssArticleIntent.index("dit l'article entier numéro un") == 1,
+                "L'article numéro un doit être conservé");
+        ok(RssArticleIntent.wantsFullText("dit l'article entier numéro un"),
+                "Lecture intégrale demandée par l'utilisateur");
+        ok(!RssArticleIntent.isRequest("de en entier"),
+                "Sans numéro, ne jamais deviner l'article à lire");
         ok(RssArticleIntent.isBareReference("Actualités 2"),
                 "Sélection courte du second titre");
         ok(RssArticleIntent.index("articles trois en entier") == 3,

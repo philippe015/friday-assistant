@@ -20,6 +20,12 @@ public final class JarvisAndroidTools {
 
     public static String answer(Context context, SecurePrefs settings, String utterance) {
         if (utterance == null || utterance.trim().length() > 5000) return null;
+        // Réponse sur notre identité/configuration 100 % sur l'appareil :
+        // « Comment tu t'appelles ? » ne cherche plus « Appelles » sur Wikidata.
+        String identity = AssistantIdentity.reply(utterance,
+                PersonalityProfiles.activeName(settings),
+                PersonalityProfiles.activePrompt(settings));
+        if (identity != null) return identity;
         // L'utilisateur n'a pas indiqué quelle présidentielle. Ne pas faire
         // une longue recherche Web aveugle ni inventer des candidats.
         String clarification = ElectionQuestionPolicy.clarification(utterance);

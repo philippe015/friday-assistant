@@ -7,7 +7,8 @@ final class FridayVersionPolicy {
         "fr.friday.assistant.preview",
         "fr.friday.assistant.smartpreview",
         "fr.friday.assistant.readerfixpreview",
-        "fr.friday.assistant.v31418preview"
+        "fr.friday.assistant.v31418preview",
+        "fr.friday.assistant.v31418logfix"
     };
     private FridayVersionPolicy() { }
 

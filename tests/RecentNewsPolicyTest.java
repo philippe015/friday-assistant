@@ -16,6 +16,20 @@ public final class RecentNewsPolicyTest {
                 "période 12h");
         ok(!RecentNewsPolicy.requiresRecentNews("quelle heure est-il ?"), "question locale");
         ok(!RecentNewsPolicy.requiresRecentNews("actualités du jour"), "pas de période horaire");
+        ok(RecentNewsPolicy.newsWindowHours(
+                "j'ai envie d'un mode les informations de la nuit") == 24,
+                "Bulletin de nuit reconnu malgré transcription imparfaite");
+        ok(RecentNewsPolicy.cleanVoiceNewsRequest(
+                "j'ai envie d'un mode les informations de la nuit")
+                .equals("les informations de la nuit"),
+                "L'amorce envie n'est pas un sujet de bulletin");
+        ok(RecentNewsPolicy.cleanVoiceNewsRequest(
+                "j'ai envie donne les informations les dernières informations")
+                .equals("les informations les dernieres informations"),
+                "La demande de nouvelles générales ne doit pas devenir envie");
+        ok(RecentNewsPolicy.cleanVoiceNewsRequest(
+                "actualités sur le manque d'envie").contains("envie"),
+                "Ne pas effacer un vrai sujet parlant d'envie");
         ok(RecentNewsPolicy.newsWindowHours("actualités du jour") == 24,
                 "Les actualités du jour déclenchent un flux daté sur 24 h");
         ok(RecentNewsPolicy.newsWindowHours("Journal des nouvelles") == 24,

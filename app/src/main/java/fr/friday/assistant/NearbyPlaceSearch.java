@@ -138,6 +138,19 @@ public final class NearbyPlaceSearch {
                     + "Source : OpenStreetMap via Overpass.").toString();
         } catch (Exception unavailable) {
             DiagnosticLog.record(ctx, "NEARBY_REMOTE_FAILED");
+            // Diagnostic catégoriel uniquement : jamais d'IP, d'URL, de
+            // latitude/longitude, ni de message brut d'exception.
+            if (unavailable instanceof java.net.SocketTimeoutException) {
+                DiagnosticLog.record(ctx, "NEARBY_REMOTE_TIMEOUT");
+            } else if (unavailable instanceof java.net.UnknownHostException) {
+                DiagnosticLog.record(ctx, "NEARBY_REMOTE_DNS_FAILED");
+            } else if (unavailable instanceof javax.net.ssl.SSLException) {
+                DiagnosticLog.record(ctx, "NEARBY_REMOTE_TLS_FAILED");
+            } else if (unavailable instanceof java.io.IOException) {
+                DiagnosticLog.record(ctx, "NEARBY_REMOTE_HTTP_OR_IO");
+            } else {
+                DiagnosticLog.record(ctx, "NEARBY_REMOTE_UNEXPECTED");
+            }
             return "Votre GPS est disponible, mais la recherche OpenStreetMap n'a pas abouti "
                     + "(" + unavailable.getClass().getSimpleName() + "). "
                     + "Réessayez ultérieurement. Aucun établissement n'a été inventé.";
