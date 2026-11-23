@@ -34,7 +34,10 @@ android {
 
     buildTypes {
         // Installe la v2.0 à côté de la v1.x, sans effacer ses clés ni son modèle Vosk.
-        debug { applicationIdSuffix '.v31418voicefix' }
+        debug {
+            applicationIdSuffix '.v31418ecoute'
+            versionNameSuffix '-ecoute'
+        }
         release {
             minifyEnabled false
             if (System.getenv("KEYSTORE_PATH") != null) {

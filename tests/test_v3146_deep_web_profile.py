@@ -55,7 +55,7 @@ class JarvisDeepWebRegression(unittest.TestCase):
     def test_version_and_voice_not_rewritten(self):
         gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
         self.assertIn("versionName '3.14.18'", gradle)
-        self.assertIn("applicationIdSuffix '.v31418voicefix'", gradle)
+        self.assertIn("applicationIdSuffix '.v31418ecoute'", gradle)
         self.assertTrue((JAVA / "FridayService.java").exists())
 
 

@@ -9,7 +9,8 @@ final class FridayVersionPolicy {
         "fr.friday.assistant.readerfixpreview",
         "fr.friday.assistant.v31418preview",
         "fr.friday.assistant.v31418logfix",
-        "fr.friday.assistant.v31418voicefix"
+        "fr.friday.assistant.v31418voicefix",
+        "fr.friday.assistant.v31418ecoute"
     };
     private FridayVersionPolicy() { }
 

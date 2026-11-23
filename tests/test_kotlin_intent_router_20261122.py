@@ -34,6 +34,17 @@ class KotlinIntelligenceRegression(unittest.TestCase):
         self.assertLess(typed.index("JarvisKotlinBrain.localClarification("),
                         typed.index("WebSearch.assistantAnswer(request"))
 
+    def test_uncertain_dictation_is_a_listening_event(self):
+        voice = (JAVA / "FridayService.java").read_text(encoding="utf-8")
+        unclear = voice.split("if (unclear) {", 1)[1].split("} else {", 1)[0]
+        self.assertIn('asrDiagnostic("Dictée incertaine', unclear)
+        self.assertIn("acceptsDirectQuestion(now)", unclear)
+        self.assertNotIn('event("error"', unclear)
+        self.assertNotIn('event("user"', unclear)
+        self.assertNotIn("handlePhrase(", unclear)
+        self.assertIn('return "VOSK_CLARIFICATION"',
+                      (JAVA / "DiagnosticLogPolicy.java").read_text(encoding="utf-8"))
+
     def test_jvm_logic(self):
         if not (shutil.which("kotlinc") and shutil.which("java")):
             self.skipTest("Kotlin CLI absent; Android CI Gradle still compiles source")
@@ -75,6 +86,15 @@ fun main() {
         "unknown confidence not treated as failure")
     expect(!JarvisKotlinBrain.needsVoiceClarification("météo pour Lyon", 0.54, true),
         "explicit wake uses lower threshold")
+    val news = "les dernières informations scientifiques"
+    expect(!JarvisKotlinBrain.needsVoiceClarification(news, 0.49, false),
+        "complete news request passes at moderate confidence")
+    expect(JarvisKotlinBrain.needsVoiceClarification(news, 0.30, false),
+        "very low confidence still needs a repeat")
+    expect(JarvisKotlinBrain.needsVoiceClarification("il parle des dernières informations scientifiques", 0.49, false),
+        "ambient phrase mentioning the news does not qualify")
+    expect(JarvisKotlinBrain.needsVoiceClarification("des fragments incertains", 0.49, false),
+        "other uncertain requests still need a repeat")
     println("KotlinBrainSmoke OK")
 }
 """

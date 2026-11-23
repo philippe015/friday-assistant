@@ -12,6 +12,12 @@ object JarvisKotlinBrain {
     private val repeatedReject = setOf("non non", "non merci", "pas du tout", "deux fois non")
     private val acknowledgement = setOf("ok", "okay", "d accord", "entendu", "tres bien", "oui d accord")
     private val thanks = setOf("merci", "merci beaucoup", "merci jarvis")
+    // Une demande complète de bulletin reste identifiable même avec une voix peu nette.
+    private val newsRequest = Regex(
+        "(?:(?:donne moi|quelles sont) )?(?:les )?(?:dernieres (?:informations|infos|actualites|nouvelles)|actualites)" +
+            "(?: scientifiques| sportives| economiques| politiques| internationales| locales)?" +
+            "(?: (?:du jour|d aujourd hui))?"
+    )
     private val bareCity = Regex("^[a-z][a-z-]+(?: [a-z][a-z-]+){1,3}(?: [0-9]{2,5})?$")
     private val cityBadStart = setOf("je", "tu", "il", "elle", "nous", "vous", "et",
         "quel", "quelle", "quels", "quelles", "comment", "pourquoi", "cherche",
@@ -29,10 +35,13 @@ object JarvisKotlinBrain {
     @JvmStatic
     fun needsVoiceClarification(heard: String?, confidence: Double, explicitWake: Boolean): Boolean {
         if (!confidence.isFinite() || confidence <= 0.0 || confidence >= 1.0) return false
-        val words = fold(heard).split(' ').filter { it.isNotBlank() }
-        if (words.size < 2 || words.size > 48) return false
-        val threshold = if (explicitWake) 0.40 else 0.62
-        return confidence < threshold
+        val phrase = fold(heard)
+        if (confidence >= 0.45 && newsRequest.matches(phrase)) return false
+        val words = phrase.split(' ').count { it.isNotBlank() }
+        if (words in 2..48) return confidence < (if (explicitWake) 0.40 else 0.62)
+        // Conserver le filtre historique des longues dictées ou des fragments mal formés.
+        return heard.orEmpty().trim().split(Regex("\\s+")).size >= 3 &&
+            confidence < (if (explicitWake) 0.35 else 0.55)
     }
 
     /**
