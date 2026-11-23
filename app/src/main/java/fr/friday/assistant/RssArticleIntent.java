@@ -30,6 +30,16 @@ public final class RssArticleIntent {
             "\\b(?:lis|lit|lire|lecture|ouvre|ouvrir|raconte|raconter|"
             + "resume|resumer|synthese|analyse|analyser|analyses|"
             + "explique|expliquer|exposes?|detaille|details?)\\b");
+    // Une transcription « article numéro de » ou « article entier numéro de »
+    // n'a PAS de numéro fiable. Vosk entend parfois « article » comme
+    // « arctique » : cette confusion n'autorise JAMAIS à deviner « deux ».
+    private static final Pattern MISSING_SPOKEN_NUMBER = Pattern.compile(
+            "\\barticle\\s+(?:entier\\s+)?numero\\s+(?:de|du|des)\\b");
+    private static final Pattern MISHEARD_ARCTIQUE_ARTICLE = Pattern.compile(
+            "^(?:(?:jarvis|friday|lily|lis|dit|dis)\\s+){0,2}"
+            + "(?:l\\s+)?arctique\\s+(?:entier\\s+)?numero\\s+"
+            + "(?:de|du|des|un|deux|trois|[1-7])\\s+en\\s+entier$");
+
     // Le dernier bulletin mentionne un numéro clair et « en entier » :
     // une dictée « lily l'article numéro deux en entier » reste une demande
     // explicite de lecture, même si Vosk déforme « lis » en « lily ».
@@ -101,17 +111,22 @@ public final class RssArticleIntent {
     public static boolean ambiguousVoiceReading(String question) {
         String q = VoiceText.normalize(question);
         return !isRequest(question) && !isBareReference(question)
-                && q.matches(".*\\barticle\\b.*")
-                && (q.matches(".*\\b(?:adsl|entier|entiere|integralement)\\b.*")
-                    || q.matches("^(?:c est|ces|cet) l article.*"));
+                && ((q.matches(".*\\barticle\\b.*")
+                    && (q.matches(".*\\b(?:adsl|entier|entiere|integralement)\\b.*")
+                        || q.matches("^(?:c est|ces|cet) l article.*")))
+                    || MISHEARD_ARCTIQUE_ARTICLE.matcher(q).matches());
     }
 
     /** A command naming an article number but missing a valid value.
      * Never infer « deux » from « de »: ask for a number explicitly. */
     public static boolean missingNumber(String question) {
         String q = VoiceText.normalize(question);
-        return q.matches(".*\\barticle\\s+numero\\s+(?:de|des|du)\\b.*")
-                && !REFERENCE.matcher(q).find();
+        return (MISSING_SPOKEN_NUMBER.matcher(q).find()
+                    || MISHEARD_ARCTIQUE_ARTICLE.matcher(q).matches()
+                        && q.matches(".*\\bnumero\\s+(?:de|du|des)\\b.*"))
+                && !REFERENCE.matcher(q).find()
+                && !NEWS_NUMBER.matcher(q).find()
+                && !ARTICLE_COMPLETE_BEFORE_NUMBER.matcher(q).find();
     }
 
     public static int index(String question) {
