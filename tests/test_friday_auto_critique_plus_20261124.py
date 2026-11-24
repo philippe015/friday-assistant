@@ -114,8 +114,8 @@ public final class AutoCritiqueSmoke {
 
     def test_no_changes_to_play_release(self):
         gradle=(ROOT/"app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("output.versionCode.set(122)",gradle)
-        self.assertIn('output.versionName.set("3.14.28-voice-web-reliability-preview")',gradle)
+        self.assertIn("output.versionCode.set(123)",gradle)
+        self.assertIn('output.versionName.set("3.14.29-voice-response-optimizer-preview")',gradle)
         self.assertIn("applicationIdSuffix '.v31421matrix'",gradle)
         self.assertIn("versionCode 112",gradle)
         self.assertIn("versionName '3.14.18'",gradle)
