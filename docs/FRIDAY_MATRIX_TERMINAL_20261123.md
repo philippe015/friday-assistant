@@ -19,11 +19,14 @@ jamais interprétés comme du HTML ni des commandes JavaScript.
 
 ## Plein écran et mode normal (nouveau correctif)
 
-Le bouton **⛶ Plein écran**, placé en haut à droite du Terminal Matrix,
-agrandit le terminal à toute la surface disponible du téléphone. La barre de
-navigation et la barre d'état Android sont temporairement masquées sur l'APK.
-L'historique occupe l'espace libre ; les champs de saisie, les commandes
-vocales et **↙ Mode normal** restent accessibles.
+Le bouton **⛶ Plein écran total**, placé en haut à droite du Terminal Matrix,
+agrandit le terminal sur **100 % de l'écran Android** : plus de bandeau
+JARVIS natif, boutons Réglages/Versions, ni barres d'état et de navigation
+pendant ce mode. La WebView se redimensionne réellement et ne garde
+pas les anciennes marges système. L'historique utilise l'espace libre,
+tandis que le champ de saisie, les commandes vocales et **↙ Mode normal**
+restent accessibles. Le clavier Android peut temporairement occuper l'écran
+lors de la saisie ; des ajustements préservent le champ de question.
 
 - Appuyez sur **↙ Mode normal** pour revenir à la présentation habituelle.
 - La touche **Retour Android** (ou **Échap** avec un clavier physique)
