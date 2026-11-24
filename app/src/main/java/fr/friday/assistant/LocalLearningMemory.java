@@ -35,8 +35,13 @@ public final class LocalLearningMemory {
         boolean upgraded = false;
         for (int i = 0; i < records.length(); i++) {
             JSONObject item = records.getJSONObject(i);
-            if (!item.has("question") || !item.has("correction"))
+            if (!item.has("question"))
                 throw new IllegalStateException("Entrée de mémoire incomplète");
+            // The v1 feedback-only records have no correction property.
+            if (!item.has("correction")) {
+                item.put("correction", "");
+                upgraded = true;
+            }
             if (item.optString("id").isEmpty()) {
                 item.put("id", UUID.randomUUID().toString());
                 upgraded = true;
