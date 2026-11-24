@@ -54,8 +54,8 @@ class VerifiedConnectivity(unittest.TestCase):
     def test_existing_news_and_web_routes_remain(self):
         self.assertIn("public static String probeRecentNews()", SEARCH)
         self.assertIn("RecentNewsPolicy.newsWindowHours(q)", SEARCH)
-        self.assertIn("JarvisInternet.shouldResearch(settings, question)", VOICE)
-        self.assertIn("JarvisInternet.shouldResearch(prefs, request)", TEXT)
+        self.assertIn("JarvisInternet.shouldResearch(settings, question, privateDialogue)", VOICE)
+        self.assertIn("JarvisInternet.shouldResearch(prefs, request, privateDialogue)", TEXT)
         self.assertIn("this, settings, question, privateDialogue, turn.api)", VOICE)
         self.assertIn("JarvisInternet.answer(", TEXT)
 
