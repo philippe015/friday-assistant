@@ -43,7 +43,7 @@ class MatrixTerminalTest(unittest.TestCase):
         self.assertEqual(len(tags.ids), len(set(tags.ids)), "Duplicate HTML ids")
         for name in ("tabMatrix", "matrixPage", "matrixScreen", "matrixInput",
                      "matrixSend", "matrixMic", "matrixReplay",
-                     "matrixSilence", "matrixState"):
+                     "matrixSilence", "matrixState", "matrixFullscreen"):
             self.assertIn(name, tags.ids)
         self.assertIn('aria-label="Terminal Matrix', self.html)
         self.assertIn('role="log"', self.html)
@@ -82,6 +82,27 @@ class MatrixTerminalTest(unittest.TestCase):
         self.assertIn('matrixTerminalComplete("", "",', self.java)
         self.assertIn("if (fromMatrixTerminal)\n                    matrixTerminalComplete(request", self.java)
         self.assertIn("typedQuestionRunning.compareAndSet(false, true)", self.java)
+
+    def test_matrix_fullscreen_toggle_and_restore(self):
+        for marker in (
+            'id="matrixFullscreen"', 'aria-pressed="false"',
+            'matrix-expanded', 'matrix-fullscreen-active',
+            'height:100dvh', 'flex:1 1 auto;height:auto',
+            'function setMatrixFullscreen(enabled)',
+            "call('setMatrixFullscreen',next)",
+            "window.fridayMatrixExitFullscreen=()=>setMatrixFullscreen(false)",
+            "if(tab!=='matrix'&&state.matrixFullscreen)setMatrixFullscreen(false)",
+            "e.key==='Escape'&&state.matrixFullscreen",
+        ):
+            self.assertIn(marker, self.html)
+        for marker in (
+            "private void setMatrixFullscreenMode(boolean enabled)",
+            "@JavascriptInterface public void setMatrixFullscreen(boolean enabled)",
+            "View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY",
+            "if (matrixFullscreenActive)",
+            "window.fridayMatrixExitFullscreen&&window.fridayMatrixExitFullscreen()",
+        ):
+            self.assertIn(marker, self.java)
 
     def test_javascript_parses(self):
         node = shutil.which("node")
