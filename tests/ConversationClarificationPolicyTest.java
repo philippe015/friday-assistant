@@ -25,8 +25,8 @@ public final class ConversationClarificationPolicyTest {
                 "City without topic -> clarify");
         ok(ConversationClarificationPolicy.missingContextQuestion(
                 "Et le deuxième ?",
-                "[ÉCHANGES LES PLUS RÉCENTS]\\nUtilisateur : Donne deux étapes\\n"
-                + "Jarvis : Première étape, seconde étape\\n[FIN CONTEXTE PRIVÉ]") == null,
+                "[ÉCHANGES LES PLUS RÉCENTS]\nUtilisateur : Donne deux étapes\n"
+                + "Jarvis : Première étape, seconde étape\n[FIN CONTEXTE PRIVÉ]") == null,
                 "Existing conversation -> let model resolve referent");
         ok(ConversationClarificationPolicy.missingContextQuestion(
                 "Analyse l'article numéro deux en entier", "") == null,
