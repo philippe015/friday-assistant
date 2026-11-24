@@ -1375,13 +1375,15 @@ public class MainActivity extends Activity {
                 if (answer == null)
                     answer = WebSearch.assistantAnswer(request, JarvisInternet.enabled(prefs));
                 if (answer == null) {
-                    if (JarvisInternet.shouldResearch(prefs, request)) {
+                    if (JarvisInternet.shouldResearch(prefs, request, privateDialogue)) {
                         JarvisInternet.Result researched = JarvisInternet.answer(
                                 getApplicationContext(), prefs, request,
                                 privateDialogue, new NativeAI.CancelToken());
                         answer = researched.text;
                         speechAnswer = researched.speech;
                     } else {
+                        if (ConversationTurnPolicy.shouldUseLocalModel(request, privateDialogue))
+                            DiagnosticLog.record(getApplicationContext(), "DIALOGUE_LOCAL_FOLLOW_UP");
                         answer = LocalJarvisEngine.answer(getApplicationContext(), prefs, request,
                                 privateDialogue, new NativeAI.CancelToken());
                     }
