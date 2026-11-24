@@ -141,6 +141,8 @@ public final class JarvisInternet {
                 || RssArticleIntent.isBareReference(question)
                 || RssArticleIntent.isPluralBulletinFollowUp(question)) return true;
         if (!enabled(settings)) return false;
+        // Specialized verified TV guide, not a generic dictionary/Wikipedia search.
+        if (TvGuidePolicy.isRequest(question)) return true;
         // Ne jamais envoyer commandes de mémoire ni données de position
         // aux moteurs de recherche publics, même en mode « toujours ».
         if (MemoryIntent.kind(question) != MemoryIntent.NONE
@@ -163,6 +165,42 @@ public final class JarvisInternet {
         return shouldResearch(settings, question);
     }
 
+    /**
+     * One HTTPS guide access instead of 3-5 search providers and 2 extra pages.
+     * Page facts must have the date, channel, title and hour; no invented TV slots.
+     * Does not send GPS, conversations, personal memories or prompts to the guide.
+     */
+    private static Result tvSchedule(String question, SecurePrefs settings) {
+        if (!enabled(settings)) {
+            String notice = "Internet Jarvis est désactivé : je ne peux pas vérifier "
+                    + "les programmes TV de ce soir.";
+            return new Result(notice, notice, false, "");
+        }
+        if (TvGuidePolicy.asksOtherCountry(question)) {
+            String notice = "Le guide TV automatique disponible ici couvre les "
+                    + "chaînes françaises. Pour un autre pays, indiquez une "
+                    + "chaîne précise et consultez son guide officiel. "
+                    + "Je ne vais pas présenter la TNT française comme la "
+                    + "programmation de votre pays.";
+            return new Result(notice, notice, false, "");
+        }
+        try {
+            WebPageReader.Page guide = WebPageReader.read(TvGuidePolicy.GUIDE_URL);
+            String response = TvGuidePolicy.describe(
+                    guide.text, question, System.currentTimeMillis());
+            String sources = "[1] Guide public Télé-Loisirs — grille consultée — "
+                    + TvGuidePolicy.GUIDE_URL;
+            return new Result(response, response, true, sources);
+        } catch (Exception inaccessible) {
+            String notice = "Je n'ai pas pu lire la grille TV ce soir : "
+                    + "le site peut refuser l'accès automatisé ou ne pas "
+                    + "fournir de programmes lisibles. "
+                    + "Aucun horaire inventé. Consultez directement "
+                    + TvGuidePolicy.GUIDE_URL;
+            return new Result(notice, notice, false, "");
+        }
+    }
+
     /** Appelé sur un thread d'arrière-plan, jamais le thread Android UI. */
     public static Result answer(Context context, SecurePrefs settings, String question,
                                 NativeAI.CancelToken cancellation) throws Exception {
@@ -178,6 +216,8 @@ public final class JarvisInternet {
             return readRememberedRssArticle(context, settings, question, cancellation);
         if (RssArticleIntent.isPluralBulletinFollowUp(question))
             return listRememberedArticles(settings);
+        if (TvGuidePolicy.isRequest(question))
+            return tvSchedule(question, settings);
         if (!shouldResearch(settings, question, privateDialogue)) {
             String answer = LocalJarvisEngine.answer(
                     context, settings, question, privateDialogue, cancellation);
