@@ -29,9 +29,10 @@
 .matrix-state{min-height:25px;margin-top:10px;font-size:12px;color:#b5e6bd}
 
 /* Maximise the Matrix panel without recreating the WebView or its conversation state. */
-body.matrix-fullscreen-active{overflow:hidden}
-#matrixPage.matrix-expanded{position:fixed;inset:0;z-index:9999;width:100%;height:100vh;height:100dvh;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);background:#000602;overflow:hidden}
-#matrixPage.matrix-expanded .matrix-shell{height:100%;min-height:0;display:flex;flex-direction:column;border:0;border-radius:0;padding:12px;box-shadow:none;overflow:hidden}
+html.matrix-fullscreen-active,body.matrix-fullscreen-active{margin:0;padding:0;width:100%;height:100%;overflow:hidden}
+body.matrix-fullscreen-active .app{max-width:none;width:100%;height:100%;min-height:0;padding:0;overflow:visible}
+#matrixPage.matrix-expanded{position:fixed;inset:0;z-index:9999;width:100vw;max-width:none;height:100vh;height:100dvh;height:var(--matrix-visual-height,100dvh);margin:0;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);background:#000602;overflow:hidden}
+#matrixPage.matrix-expanded .matrix-shell{height:100%;width:100%;min-height:0;display:flex;flex-direction:column;border:0;border-radius:0;padding:12px;box-shadow:none;overflow:hidden}
 #matrixPage.matrix-expanded .matrix-screen{flex:1 1 auto;height:auto;max-height:none;min-height:0;overflow-y:auto}
 #matrixPage.matrix-expanded .matrix-hint{display:none}
 #matrixPage.matrix-expanded .matrix-head,#matrixPage.matrix-expanded .matrix-editor,#matrixPage.matrix-expanded .matrix-controls,#matrixPage.matrix-expanded .matrix-state,#matrixPage.matrix-expanded .matrix-prompt{flex-shrink:0}
@@ -114,7 +115,7 @@ footer{font-size:11px;color:#659ab1;padding:15px 0;text-align:center;letter-spac
  
   <section id="matrixPage" class="hidden" aria-label="Terminal Matrix pour dialoguer avec FRIDAY">
    <div class="matrix-shell">
-    <div class="matrix-head"><span>FRIDAY://MATRIX.CONSOLE</span><div class="matrix-head-actions"><span id="matrixConnection">● ANDROID LOCAL</span><button type="button" id="matrixFullscreen" class="matrix-toggle" aria-label="Afficher le terminal Matrix en plein écran" aria-pressed="false">⛶ Plein écran</button></div></div>
+    <div class="matrix-head"><span>FRIDAY://MATRIX.CONSOLE</span><div class="matrix-head-actions"><span id="matrixConnection">● ANDROID LOCAL</span><button type="button" id="matrixFullscreen" class="matrix-toggle" aria-label="Afficher le terminal Matrix en plein écran" aria-pressed="false">⛶ Plein écran total</button></div></div>
     <p class="matrix-hint">Dialogue Matrix · questions et réponses écrites en vert. Les réponses sont aussi prononcées par la voix Android si elle est activée. Même IA, même mémoire locale chiffrée et mêmes autorisations Web que le cockpit.</p>
     <div id="matrixScreen" class="matrix-screen" role="log" aria-label="Historique du terminal Matrix" aria-live="polite" aria-relevant="additions text"><div class="matrix-line">[FRIDAY] Terminal Matrix prêt. Posez une question.</div></div>
     <label for="matrixInput" class="matrix-prompt">vous@friday:~$ QUESTION</label>
@@ -153,14 +154,24 @@ function status(text,type='ready'){$('statusMessage').textContent=text;state.las
 function refreshNative(){const on=call('isListening');const muted=!!call('isMicSilenced');state.voiceActive=!!on;$('microState').textContent=muted?'MUET (ANDROID)':on?'Actif':'Arrêté';$('liveText').textContent=muted?'MICRO BLOQUÉ':on?'ÉCOUTE ACTIVE':'EN ATTENTE';const version=call('currentVersion');if(version){$('versionState').textContent=version;$('webVersion').textContent=version;}const others=call('otherVersionsCount');if(typeof others==='number'){$('versionsState').textContent=others?others+' installée(s)':'Aucune connue';}$('voiceMode').textContent='Android standard';$('webState').textContent=call('webTelemetry')||'Indisponible';const mode=call('listeningMode');$('listeningModeState').textContent=mode||'Continu';$('startBtn').textContent=mode==='Une question'?'◉ Écouter une question':'◉ Activer écoute';const asr=call('vocabularyMode');$('vocabularyModeState').textContent=asr||'Vosk libre';const barge=call('voiceInterruptTelemetry');$('bargeState').textContent=barge||'Diagnostic indisponible';const gps=call('gpsTelemetry');$('gpsState').textContent=typeof gps==='string'?gps:'Indisponible';$('gpsShareState').textContent='Aucun partage';const activeProfileName=call('activeProfileName');$('personaState').textContent=typeof activeProfileName==='string'&&activeProfileName?activeProfileName:'Non déterminé';const place=call('locationText');if(place!==null)$('locationText').textContent=place||'Aucune mesure GPS effectuée · bouton Tester GPS';}
 window.fridayRefreshNative = refreshNative;
 function clock(){const d=new Date();$('clock').textContent=d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
+function matrixUpdateViewport(){
+ if(!state.matrixFullscreen)return;
+ // Use the actually visible WebView height when the keyboard opens.
+ const height=window.visualViewport?window.visualViewport.height:window.innerHeight;
+ if(Number.isFinite(height)&&height>0)
+   $('matrixPage').style.setProperty('--matrix-visual-height',height+'px');
+}
+window.fridayMatrixViewportChanged=matrixUpdateViewport;
 function setMatrixFullscreen(enabled){
  const next=!!enabled;
  if(state.matrixFullscreen===next)return;
  state.matrixFullscreen=next;
  $('matrixPage').classList.toggle('matrix-expanded',next);
  document.body.classList.toggle('matrix-fullscreen-active',next);
+ document.documentElement.classList.toggle('matrix-fullscreen-active',next);
+ if(next)matrixUpdateViewport();else $('matrixPage').style.removeProperty('--matrix-visual-height');
  const button=$('matrixFullscreen');
- button.textContent=next?'↙ Mode normal':'⛶ Plein écran';
+ button.textContent=next?'↙ Mode normal':'⛶ Plein écran total';
  button.setAttribute('aria-pressed',String(next));
  button.setAttribute('aria-label',next?'Revenir à la taille normale du terminal Matrix':'Afficher le terminal Matrix en plein écran');
  // Android hides system bars; CSS remains a functional fallback in browsers.
@@ -255,6 +266,8 @@ function exportProfiles(){try{const data=JSON.stringify(validateProfiles(state.p
 window.fridayOpenPersonality=()=>showTab('persona');
 function init(){for(const [tab,id] of [['cockpit','tabCockpit'],['history','tabHistory'],['persona','tabPersona'],['matrix','tabMatrix']])$(id).onclick=()=>showTab(tab);
  $('matrixFullscreen').onclick=()=>setMatrixFullscreen(!state.matrixFullscreen);
+ window.addEventListener('resize',matrixUpdateViewport);
+ if(window.visualViewport)window.visualViewport.addEventListener('resize',matrixUpdateViewport);
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&state.matrixFullscreen){e.preventDefault();setMatrixFullscreen(false);}});
  $('matrixSend').onclick=matrixAsk;
  $('matrixInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();matrixAsk();}});
