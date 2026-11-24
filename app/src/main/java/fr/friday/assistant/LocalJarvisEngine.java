@@ -177,15 +177,45 @@ public final class LocalJarvisEngine {
             throw new IOException("Aucun modèle IA local importé. "
                     + "Réglages → Jarvis local → Importer un modèle .task ou .litertlm.");
         if (cancellation != null) cancellation.check();
+        String raw = generateRaw(context, cfg,
+                buildLocalPrompt(cfg, cleaned, privateDialogue), cancellation);
+        return AssistantResponseIdentityGuard.correct(cleaned, raw,
+                AssistantIdentity.displayName(PersonalityProfiles.activeName(cfg),
+                        PersonalityProfiles.activePrompt(cfg)));
+    }
+
+    /**
+     * Dedicated local audit path: NO normal-chat prompt, persona, encrypted
+     * conversation replay, approved memory, Web snippets or identity guard.
+     * The self-critique only sees the bounded question/answer explicitly passed
+     * by the caller. The model's output is not trusted as a verified fact.
+     */
+    public static String reviewRaw(Context context, SecurePrefs cfg,
+                                   String auditPrompt, NativeAI.CancelToken cancellation)
+            throws Exception {
+        if (!"1".equals(cfg.get("local_jarvis_enabled", "0")))
+            throw new IOException("Activez le moteur IA local dans les réglages.");
+        if (!ready(context))
+            throw new IOException("Modèle IA local absent : importez et testez un modèle compatible.");
+        if (auditPrompt == null || auditPrompt.length() < 40 || auditPrompt.length() > 6500)
+            throw new IOException("Analyse trop longue ou incomplète : aucune partie n'est tronquée.");
+        return generateRaw(context, cfg, auditPrompt, cancellation);
+    }
+
+    /** The only shared inference primitive for chat and supervised audit. */
+    private static String generateRaw(Context context, SecurePrefs cfg,
+                                      String prompt, NativeAI.CancelToken cancellation)
+            throws Exception {
+        if (cancellation != null) cancellation.check();
         if ("litertlm".equals(format(context))) {
-            String response = LiteRtJarvisEngine.answer(context, modelFile(context),
-                    buildLocalPrompt(cfg, cleaned, privateDialogue), cancellation);
-            return AssistantResponseIdentityGuard.correct(cleaned, response,
-                    AssistantIdentity.displayName(PersonalityProfiles.activeName(cfg),
-                            PersonalityProfiles.activePrompt(cfg)));
+            String result = LiteRtJarvisEngine.answer(
+                    context, modelFile(context), prompt, cancellation);
+            if (result == null || result.trim().isEmpty())
+                throw new IOException("Le modèle LiteRT local n'a produit aucun texte.");
+            return result.trim();
         }
         if (!LOCK.tryLock(3, TimeUnit.SECONDS))
-            throw new IOException("Jarvis local traite déjà une demande. La prochaine pourra être posée dès la fin.");
+            throw new IOException("Le modèle IA local traite déjà une demande.");
         try {
             if (cancellation != null) cancellation.check();
             File model = modelFile(context);
@@ -203,32 +233,27 @@ public final class LocalJarvisEngine {
                     closeCached();
                     throw new IOException("Impossible de charger le modèle local MediaPipe : "
                             + unavailable.getClass().getSimpleName()
-                            + ". Utilisez un modèle compatible et vérifiez la RAM.", unavailable);
+                            + ". Vérifiez le format et la mémoire RAM.", unavailable);
                 } catch (OutOfMemoryError memory) {
                     closeCached();
-                    throw new IOException("Mémoire RAM insuffisante pour ce modèle. "
-                            + "Choisissez un modèle plus léger.", memory);
+                    throw new IOException("Mémoire RAM insuffisante pour le modèle IA local.", memory);
                 }
             }
-            String prompt = buildLocalPrompt(cfg, cleaned, privateDialogue);
             String response;
             try {
                 response = cached.generateResponse(prompt);
             } catch (OutOfMemoryError memory) {
                 closeCached();
-                throw new IOException("Modèle local trop gourmand pour la RAM du téléphone.", memory);
+                throw new IOException("Mémoire RAM insuffisante pour cette analyse.", memory);
             } catch (Exception | LinkageError failure) {
                 closeCached();
                 throw new IOException("Échec d'inférence locale : "
-                        + failure.getClass().getSimpleName()
-                        + ". Changez de modèle ou testez les réglages.", failure);
+                        + failure.getClass().getSimpleName(), failure);
             }
             if (cancellation != null) cancellation.check();
             if (response == null || response.trim().isEmpty())
-                throw new IOException("Le modèle local n'a généré aucun texte.");
-            return AssistantResponseIdentityGuard.correct(cleaned, response.trim(),
-                    AssistantIdentity.displayName(PersonalityProfiles.activeName(cfg),
-                            PersonalityProfiles.activePrompt(cfg)));
+                throw new IOException("Le modèle IA local n'a généré aucun texte.");
+            return response.trim();
         } finally {
             LOCK.unlock();
         }
