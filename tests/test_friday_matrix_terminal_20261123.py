@@ -104,6 +104,38 @@ class MatrixTerminalTest(unittest.TestCase):
         ):
             self.assertIn(marker, self.java)
 
+    def test_true_edge_to_edge_native_fullscreen(self):
+        # Do not settle for only a fullscreen HTML element inside a WebView
+        # with Android's header, settings, buttons and insets still taking space.
+        for marker in (
+            "private LinearLayout matrixRoot;",
+            "matrixRoot = outer;",
+            "if (child != hud)",
+            "matrixSavedNativeVisibility.put(child, child.getVisibility())",
+            "child.setVisibility(View.GONE)",
+            "item.getKey().setVisibility(item.getValue())",
+            "if (matrixFullscreenActive) view.setPadding(0, 0, 0, 0)",
+            "View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN",
+            "View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION",
+            "controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars())",
+            "controller.show(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars())",
+            "matrixRoot.requestApplyInsets()",
+            "matrixRoot.requestLayout()",
+            "SOFT_INPUT_ADJUST_RESIZE",
+        ):
+            self.assertIn(marker, self.java)
+        for marker in (
+            "body.matrix-fullscreen-active .app{max-width:none",
+            "#matrixPage.matrix-expanded{position:fixed;inset:0",
+            "width:100vw;max-width:none",
+            "height:var(--matrix-visual-height,100dvh)",
+            "document.documentElement.classList.toggle('matrix-fullscreen-active',next)",
+            "window.fridayMatrixViewportChanged=matrixUpdateViewport",
+            "window.visualViewport.addEventListener('resize',matrixUpdateViewport)",
+            "↙ Mode normal",
+        ):
+            self.assertIn(marker, self.html)
+
     def test_javascript_parses(self):
         node = shutil.which("node")
         if not node:
