@@ -2233,6 +2233,28 @@ public class MainActivity extends Activity {
                 return "Impossible d'effacer la mémoire chiffrée.";
             }
         }
+        /** Local-only memory administration: never exported to Web search. */
+        @JavascriptInterface public String learningEntries() {
+            try {
+                return LocalLearningMemory.listJson(prefs);
+            } catch (Exception unavailable) {
+                return "{\"error\":\"Mémoire chiffrée indisponible.\"}";
+            }
+        }
+        @JavascriptInterface public String learningResolveConflict(String id, boolean acceptNew) {
+            try {
+                return LocalLearningMemory.resolve(prefs, id, acceptNew);
+            } catch (Exception unavailable) {
+                return "Résolution impossible : mémoire chiffrée indisponible.";
+            }
+        }
+        @JavascriptInterface public String learningDeleteEntry(String id) {
+            try {
+                return LocalLearningMemory.delete(prefs, id);
+            } catch (Exception unavailable) {
+                return "Suppression impossible : mémoire chiffrée indisponible.";
+            }
+        }
         /** Review runs on a separate thread and never uploads conversations. */
         @JavascriptInterface public void learningReview(String question, String answer) {
             if (question == null || question.length() < 4 || question.length() > 260
