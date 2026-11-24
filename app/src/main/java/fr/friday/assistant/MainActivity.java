@@ -52,6 +52,9 @@ public class MainActivity extends Activity {
     private final AtomicBoolean localJarvisTesting = new AtomicBoolean(false);
     /** Explicit offline benchmark; volatile progress and AES-GCM result only. */
     private final LocalModelBenchmark.Session localBenchmark = new LocalModelBenchmark.Session();
+    /** Optional six-turn synthetic continuity test; separate from user history. */
+    private final LocalDialogueBenchmark.Session dialogueBenchmark =
+            new LocalDialogueBenchmark.Session();
     /** Empêche les téléchargements Vosk concurrents et reprend la demande d'écoute. */
     private final AtomicBoolean voskDownloadRunning = new AtomicBoolean(false);
     private volatile boolean startAfterVoskDownload = false;
@@ -2287,6 +2290,36 @@ public class MainActivity extends Activity {
                         + "le presse-papiers n'est pas un stockage chiffré.";
             } catch (Exception unavailable) {
                 return "Rapport indisponible : aucun texte copié.";
+            }
+        }
+        /** A six-turn synthetic conversation executed on the installed LLM only. */
+        @JavascriptInterface public String dialogueBenchStart() {
+            return dialogueBenchmark.start(getApplicationContext(), prefs);
+        }
+        @JavascriptInterface public String dialogueBenchStatus() {
+            return dialogueBenchmark.status(prefs);
+        }
+        @JavascriptInterface public String dialogueBenchCancel() {
+            return dialogueBenchmark.stop();
+        }
+        @JavascriptInterface public String dialogueBenchCopy() {
+            try {
+                org.json.JSONObject obj = new org.json.JSONObject(
+                        dialogueBenchmark.status(prefs));
+                org.json.JSONObject report = obj.optJSONObject("report");
+                if (report == null) return "Aucun rapport de dialogue à copier.";
+                String content = report.toString(2);
+                runOnUiThread(() -> {
+                    android.content.ClipboardManager clipboard =
+                            (android.content.ClipboardManager)
+                                    getSystemService(CLIPBOARD_SERVICE);
+                    if (clipboard != null)
+                        clipboard.setPrimaryClip(ClipData.newPlainText(
+                                "FRIDAY test dialogue local", content));
+                });
+                return "Rapport copié sur demande. Le presse-papiers n'est pas chiffré.";
+            } catch (Exception unavailable) {
+                return "Impossible de copier le rapport de dialogue.";
             }
         }
         /** Review runs on a separate thread and never uploads conversations. */
