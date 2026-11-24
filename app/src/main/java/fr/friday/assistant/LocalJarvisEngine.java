@@ -221,6 +221,26 @@ public final class LocalJarvisEngine {
         return generateRaw(context, cfg, fixedPrompt, cancellation);
     }
 
+    /**
+     * Purely synthetic six-turn benchmark. No personal context, no profile,
+     * no memory and no automatic arithmetic or Internet. The only callers
+     * supply fixed public questions and earlier synthetic model responses.
+     */
+    public static String dialogueTestRaw(Context context, SecurePrefs cfg,
+                                         String syntheticPrompt,
+                                         NativeAI.CancelToken cancellation)
+            throws Exception {
+        if (!"1".equals(cfg.get("local_jarvis_enabled", "0")))
+            throw new IOException("Le modèle IA local est désactivé.");
+        if (!ready(context))
+            throw new IOException("Modèle IA local absent : importez un modèle compatible.");
+        if (syntheticPrompt == null || syntheticPrompt.length() < 110
+                || syntheticPrompt.length() > 4500
+                || !syntheticPrompt.startsWith(DialogueTestPolicy.prefix()))
+            throw new IOException("Conversation de test fictive invalide.");
+        return generateRaw(context, cfg, syntheticPrompt, cancellation);
+    }
+
     /** The only shared inference primitive for chat and supervised audit. */
     private static String generateRaw(Context context, SecurePrefs cfg,
                                       String prompt, NativeAI.CancelToken cancellation)
@@ -351,7 +371,9 @@ public final class LocalJarvisEngine {
         // Ce contexte vient UNIQUEMENT de l'historique AES-GCM sur Android.
         // Il n'est pas ajouté aux mots-clés ou aux URLs des moteurs Web.
         if (privateDialogue != null && !privateDialogue.trim().isEmpty()) {
-            int limit = hasWebSources ? 800 : 2200;
+            int limit = hasWebSources ? 800
+                    : ConversationTurnPolicy.shouldUseLocalModel(cleaned, privateDialogue)
+                        ? 3100 : 2200;
             String compact = privateDialogue.length() <= limit
                     ? privateDialogue : privateDialogue.substring(
                             privateDialogue.length() - limit);
@@ -364,6 +386,9 @@ public final class LocalJarvisEngine {
                             + "Réponds à la demande ACTUELLE, "
                             + "sans inventer de souvenirs.\n[FIN DU CONTEXTE PRIVÉ]");
         }
+        if (!hasWebSources && !rssTranslationOnly
+                && ConversationTurnPolicy.shouldUseLocalModel(cleaned, privateDialogue))
+            prompt.append(ConversationTurnPolicy.localInstruction(cleaned));
         int maxQuestion = rssTranslationOnly ? 3400 : (hasWebSources ? 3900 : 1200);
         prompt.append("\nDemande ACTUELLE : ").append(cleaned.length() > maxQuestion
                 ? cleaned.substring(0, maxQuestion) : cleaned).append("\nJARVIS :");

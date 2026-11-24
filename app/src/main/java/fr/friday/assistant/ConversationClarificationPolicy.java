@@ -9,6 +9,11 @@ public final class ConversationClarificationPolicy {
     private ConversationClarificationPolicy() {}
 
     public static String missingContextQuestion(String question, String privateDialogue) {
+        // A non-empty historical recall is not proof that the current
+        // referent was identified. Ask before a short ambiguous follow-up.
+        String conversation = ConversationTurnPolicy.clarification(
+                question, privateDialogue);
+        if (conversation != null) return conversation;
         if (privateDialogue != null && !privateDialogue.trim().isEmpty()) return null;
         String q = DialogueMemoryPolicy.fold(question);
         if (q.isEmpty() || q.length() > 125) return null;

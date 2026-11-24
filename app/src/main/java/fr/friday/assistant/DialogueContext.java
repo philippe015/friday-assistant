@@ -15,9 +15,9 @@ import java.util.List;
 public final class DialogueContext {
     private DialogueContext() { }
 
-    private static final int MAX_DIALOGUE_MESSAGES = 10;
+    private static final int MAX_DIALOGUE_MESSAGES = 16;
     private static final int MAX_RECALLED_TOPICS = 4;
-    private static final int MAX_DIALOGUE_CHARACTERS = 3600;
+    private static final int MAX_DIALOGUE_CHARACTERS = 4200;
 
     /** Évite d'utiliser deux fois la question que le service vient d'enregistrer. */
     private static int previousEnd(JSONArray events, String currentQuestion) {
@@ -53,12 +53,19 @@ public final class DialogueContext {
         int end = previousEnd(events, currentQuestion);
         ArrayDeque<String> chosen = new ArrayDeque<>();
         int chars = 0;
-        for (int i = end - 1; i >= 0 && chosen.size() < MAX_DIALOGUE_MESSAGES; i--) {
+        // Short follow-ups benefit from a 5-8 turn window; normal requests
+        // keep a smaller snapshot. Both remain bounded, read only from AES-GCM.
+        int messageLimit = ConversationTurnPolicy.isContextual(currentQuestion)
+                ? MAX_DIALOGUE_MESSAGES : 10;
+        for (int i = end - 1; i >= 0 && chosen.size() < messageLimit; i--) {
             JSONObject obj = events.optJSONObject(i);
             if (obj == null) continue;
             String kind = obj.optString("kind", "");
             if (!"user".equals(kind) && !"assistant".equals(kind)) continue;
-            String text = clip(obj.optString("text", ""), "user".equals(kind) ? 380 : 490);
+            String text = clip(obj.optString("text", ""),
+                    ConversationTurnPolicy.isContextual(currentQuestion)
+                            ? ("user".equals(kind) ? 220 : 270)
+                            : ("user".equals(kind) ? 380 : 490));
             if (text.isEmpty()) continue;
             String line = ("user".equals(kind) ? "Utilisateur : " : "Jarvis : ")
                     + text;
@@ -134,7 +141,8 @@ public final class DialogueContext {
                     + " question(s) précédentes et " + answers
                     + " réponse(s) dans un historique chiffré "
                     + "(maximum 240 messages, selon la taille des réponses). "
-                    + "Je peux relier jusqu'à dix messages récents et "
+                    + "Je peux relier jusqu'à seize messages récents pour "
+                    + "une relance courte (dix pour une question ordinaire) et "
                     + "retrouver quatre anciens sujets par pertinence, "
                     + "sans transmettre ce contexte à un moteur Web. "
                     + "Le modèle local reçoit une sélection réduite : "

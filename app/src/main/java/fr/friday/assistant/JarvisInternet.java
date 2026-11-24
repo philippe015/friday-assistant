@@ -151,6 +151,18 @@ public final class JarvisInternet {
                 : WebSearch.needsWeb(question);
     }
 
+    /**
+     * A short continuation of an existing conversation must be resolved by
+     * the on-device LLM; Web keywords would expose an orphaned fragment.
+     * Explicit news, météo, RSS, URL and searches keep their normal route.
+     */
+    public static boolean shouldResearch(SecurePrefs settings, String question,
+                                         String privateDialogue) {
+        if (ConversationTurnPolicy.shouldUseLocalModel(question, privateDialogue))
+            return false;
+        return shouldResearch(settings, question);
+    }
+
     /** Appelé sur un thread d'arrière-plan, jamais le thread Android UI. */
     public static Result answer(Context context, SecurePrefs settings, String question,
                                 NativeAI.CancelToken cancellation) throws Exception {
@@ -166,7 +178,7 @@ public final class JarvisInternet {
             return readRememberedRssArticle(context, settings, question, cancellation);
         if (RssArticleIntent.isPluralBulletinFollowUp(question))
             return listRememberedArticles(settings);
-        if (!shouldResearch(settings, question)) {
+        if (!shouldResearch(settings, question, privateDialogue)) {
             String answer = LocalJarvisEngine.answer(
                     context, settings, question, privateDialogue, cancellation);
             return new Result(answer, answer, false, "");

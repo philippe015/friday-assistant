@@ -27,9 +27,9 @@ class EnhancedConversationMemory(unittest.TestCase):
         self.assertNotIn("github.com", HISTORY)
 
     def test_retrieval_is_selected_not_all_240_messages(self):
-        self.assertIn("MAX_DIALOGUE_MESSAGES = 10", CONTEXT)
+        self.assertIn("MAX_DIALOGUE_MESSAGES = 16", CONTEXT)
         self.assertIn("MAX_RECALLED_TOPICS = 4", CONTEXT)
-        self.assertIn("MAX_DIALOGUE_CHARACTERS = 3600", CONTEXT)
+        self.assertIn("MAX_DIALOGUE_CHARACTERS = 4200", CONTEXT)
         self.assertIn("ConversationRecallPolicy.score", CONTEXT)
         self.assertIn("MAX_JSON_CHARS", HISTORY)
         self.assertIn("lastBytes(privatePart, contextBudget)", LITERT)

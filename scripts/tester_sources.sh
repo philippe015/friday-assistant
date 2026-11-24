@@ -20,6 +20,8 @@ trap 'rm -rf "$TMP_TEST"' EXIT
 javac -encoding UTF-8 -d "$TMP_TEST" \
   app/src/main/java/fr/friday/assistant/VoiceText.java \
   app/src/main/java/fr/friday/assistant/DialogueMemoryPolicy.java \
+  app/src/main/java/fr/friday/assistant/ConversationTurnPolicy.java \
+  app/src/main/java/fr/friday/assistant/DialogueTestPolicy.java \
   app/src/main/java/fr/friday/assistant/ConversationClarificationPolicy.java \
   app/src/main/java/fr/friday/assistant/ConversationRecallPolicy.java \
   app/src/main/java/fr/friday/assistant/VoiceUtteranceTiming.java \

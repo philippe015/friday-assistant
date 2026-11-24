@@ -66,9 +66,9 @@ class OpenJarvisAndroidTools(unittest.TestCase):
         self.assertIn("JarvisAndroidTools.answer(", MAIN)
         voice_answer = SERVICE.split("private void answerTurn(", 1)[1]
         self.assertLess(voice_answer.index("JarvisAndroidTools.answer(this, settings, question)"),
-                        voice_answer.index("JarvisInternet.shouldResearch(settings, question)"))
+                        voice_answer.index("JarvisInternet.shouldResearch(settings, question, privateDialogue)"))
         self.assertLess(MAIN.index("answer = JarvisAndroidTools.answer("),
-                        MAIN.index("JarvisInternet.shouldResearch(prefs, request)"))
+                        MAIN.index("JarvisInternet.shouldResearch(prefs, request, privateDialogue)"))
         self.assertIn("DialogueContext.memoryStatus(this, settings, question)", SERVICE)
         self.assertIn("DialogueContext.memoryStatus(", MAIN)
 
