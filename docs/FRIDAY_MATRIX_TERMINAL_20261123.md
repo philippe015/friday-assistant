@@ -17,6 +17,24 @@ de conversation Android : pas de base de données parallèle non chiffrée.
 Les textes des questions et réponses sont insérés avec `textContent`,
 jamais interprétés comme du HTML ni des commandes JavaScript.
 
+## Plein écran et mode normal (nouveau correctif)
+
+Le bouton **⛶ Plein écran**, placé en haut à droite du Terminal Matrix,
+agrandit le terminal à toute la surface disponible du téléphone. La barre de
+navigation et la barre d'état Android sont temporairement masquées sur l'APK.
+L'historique occupe l'espace libre ; les champs de saisie, les commandes
+vocales et **↙ Mode normal** restent accessibles.
+
+- Appuyez sur **↙ Mode normal** pour revenir à la présentation habituelle.
+- La touche **Retour Android** (ou **Échap** avec un clavier physique)
+  ferme le plein écran sans quitter FRIDAY.
+- Un changement d'onglet rétablit également le mode normal.
+- Les messages déjà affichés, l'analyse en cours et la synthèse vocale
+  ne sont pas réinitialisés lors du changement de taille.
+- L'état plein écran n'est pas sauvegardé : il ne s'impose pas au redémarrage.
+- Sur un navigateur hors Android, le terminal occupe la fenêtre même si
+  le navigateur ne permet pas de masquer les barres système.
+
 ## Poser des questions
 
 1. Ouvrir **▦ Terminal Matrix**.
