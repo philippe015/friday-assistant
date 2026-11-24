@@ -41,6 +41,8 @@ public final class JarvisInternet {
     private static final int MAX_RSS_ITEMS = 40;
     /** Liste publique du dernier bulletin, uniquement dans Android Keystore. */
     private static final String LAST_RSS_KEY = "rss_last_articles_v3144";
+    /** Public TV titles only, encrypted and never uploaded. */
+    private static final String LAST_TV_KEY = "tv_last_verified_31429";
     private static final Pattern RSS_ITEM =
             Pattern.compile("(?is)<item\\b[^>]*>(.*?)</item>");
     private static final Pattern DDG_RESULT =
@@ -140,6 +142,9 @@ public final class JarvisInternet {
         if (RssArticleIntent.isRequest(question)
                 || RssArticleIntent.isBareReference(question)
                 || RssArticleIntent.isPluralBulletinFollowUp(question)) return true;
+        // A follow-up is resolved against the last locally encrypted guide,
+        // including when Internet has since been disabled.
+        if (!TvGuidePolicy.followUpChannel(question).isEmpty()) return true;
         if (!enabled(settings)) return false;
         // Specialized verified TV guide, not a generic dictionary/Wikipedia search.
         if (TvGuidePolicy.isRequest(question)) return true;
@@ -160,9 +165,86 @@ public final class JarvisInternet {
      */
     public static boolean shouldResearch(SecurePrefs settings, String question,
                                          String privateDialogue) {
+        if (!TvGuidePolicy.followUpChannel(question).isEmpty()) return true;
         if (ConversationTurnPolicy.shouldUseLocalModel(question, privateDialogue))
             return false;
         return shouldResearch(settings, question);
+    }
+
+    private static void rememberTvGuide(SecurePrefs settings, String pageText,
+                                        long checkedAt) {
+        try {
+            List<TvGuidePolicy.Entry> entries = TvGuidePolicy.extract(
+                    pageText, false, checkedAt);
+            if (entries.isEmpty()) return;
+            JSONObject cache = new JSONObject();
+            cache.put("checked_at", checkedAt);
+            cache.put("paris_date", TvGuidePolicy.expectedDate(checkedAt));
+            JSONArray rows = new JSONArray();
+            for (TvGuidePolicy.Entry entry : entries) {
+                JSONObject row = new JSONObject();
+                row.put("channel", entry.channel);
+                row.put("hour", entry.hour);
+                row.put("title", entry.title);
+                row.put("movie", entry.movie);
+                rows.put(row);
+            }
+            cache.put("rows", rows);
+            // No unencrypted fallback; failures don't affect the current answer.
+            settings.setSecret(LAST_TV_KEY, cache.toString());
+        } catch (Exception storageUnavailable) {
+            Log.w("FRIDAY_TV", "Guide public récent non mémorisé en coffre local");
+        }
+    }
+
+    private static Result tvFollowUp(String question, SecurePrefs settings) {
+        String requested = TvGuidePolicy.followUpChannel(question);
+        String unavailable = "Je n'ai pas de grille TV vérifiée récemment pour "
+                + "cette chaîne. Demandez d'abord « programme TV de ce soir » "
+                + "pour actualiser le guide ; aucun horaire n'est inventé.";
+        if (requested.isEmpty())
+            return new Result(unavailable, unavailable, false, "");
+        try {
+            String saved = settings.secret(LAST_TV_KEY);
+            if (saved == null || saved.isEmpty())
+                return new Result(unavailable, unavailable, false, "");
+            JSONObject cache = new JSONObject(saved);
+            long observed = cache.optLong("checked_at", 0);
+            long now = System.currentTimeMillis();
+            // Six-hour freshness and matching Paris date. An old cached
+            // broadcast can never silently turn into today's listing.
+            if (observed <= 0 || now < observed || now - observed > 21_600_000L
+                    || !TvGuidePolicy.expectedDate(now).equals(
+                            cache.optString("paris_date", "")))
+                return new Result(unavailable, unavailable, false, "");
+            JSONArray rows = cache.optJSONArray("rows");
+            if (rows == null) return new Result(unavailable, unavailable, false, "");
+            for (int i = 0; i < rows.length(); i++) {
+                JSONObject item = rows.optJSONObject(i);
+                if (item == null) continue;
+                String channel = item.optString("channel", "");
+                if (!TvGuidePolicy.sameChannel(requested, channel)) continue;
+                String hour = item.optString("hour", "");
+                String title = TvGuidePolicy.decodeEntities(item.optString("title", ""));
+                if (!hour.matches("(?:20|21|22)h[0-5][0-9]")
+                        || title.length() < 3 || title.length() > 110) break;
+                String plain = "D'après le guide TV consulté ce soir, "
+                        + channel + " propose à " + hour + " : " + title
+                        + (item.optBoolean("movie", false) ? " (film)." : ".")
+                        + " Je n'ai pas de synopsis vérifié pour cette émission. "
+                        + "Le détail disponible est sur " + TvGuidePolicy.GUIDE_URL;
+                String spoken = channel + ", à " + hour + " : " + title
+                        + ". Je n'ai pas de synopsis vérifié ; "
+                        + "le lien figure dans le dialogue.";
+                return new Result(plain, spoken, false, "");
+            }
+            String notPresent = "Cette chaîne n'apparaît pas dans les programmes "
+                    + "extraits du guide ce soir. Je ne peux pas confirmer "
+                    + "l'émission ou l'heure. Consultez " + TvGuidePolicy.GUIDE_URL;
+            return new Result(notPresent, notPresent, false, "");
+        } catch (Exception cacheUnreadable) {
+            return new Result(unavailable, unavailable, false, "");
+        }
     }
 
     /**
@@ -186,11 +268,13 @@ public final class JarvisInternet {
         }
         try {
             WebPageReader.Page guide = WebPageReader.readLargeText(TvGuidePolicy.GUIDE_URL);
-            String response = TvGuidePolicy.describe(
-                    guide.text, question, System.currentTimeMillis());
+            long checkedAt = System.currentTimeMillis();
+            String response = TvGuidePolicy.describe(guide.text, question, checkedAt);
+            String speech = TvGuidePolicy.shortSpeech(guide.text, question, checkedAt);
+            rememberTvGuide(settings, guide.text, checkedAt);
             String sources = "[1] Guide public Télé-Loisirs — grille consultée — "
                     + TvGuidePolicy.GUIDE_URL;
-            return new Result(response, response, true, sources);
+            return new Result(response, speech, true, sources);
         } catch (Exception inaccessible) {
             String notice = "Je n'ai pas pu lire la grille TV ce soir : "
                     + "le site peut refuser l'accès automatisé ou ne pas "
@@ -216,6 +300,8 @@ public final class JarvisInternet {
             return readRememberedRssArticle(context, settings, question, cancellation);
         if (RssArticleIntent.isPluralBulletinFollowUp(question))
             return listRememberedArticles(settings);
+        if (!TvGuidePolicy.followUpChannel(question).isEmpty())
+            return tvFollowUp(question, settings);
         if (TvGuidePolicy.isRequest(question))
             return tvSchedule(question, settings);
         if (!shouldResearch(settings, question, privateDialogue)) {

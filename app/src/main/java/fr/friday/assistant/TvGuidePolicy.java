@@ -56,6 +56,73 @@ public final class TvGuidePolicy {
         return schedule || eveningMovie;
     }
 
+    /** Strict TV-specific follow-ups, never a general person/place search. */
+    public static String followUpChannel(String question) {
+        String q = fold(question);
+        Matcher match = Pattern.compile("^(?:(?:et )?(?:detaille|detailler|"
+                + "precise|parle moi de|et sur|pour|sur|"
+                + "que passe t il sur|qu y a t il sur|"
+                + "donne moi le detail de|plus de details sur) )"
+                + "(tf1|france [2345]|m6|arte|w9|tmc|tfx|gulli)$").matcher(q);
+        if (!match.matches()) return "";
+        return match.group(1);
+    }
+
+    /** HTML entities visible in TV titles, including &#039; in the actual log. */
+    public static String decodeEntities(String source) {
+        if (source == null || source.isEmpty()) return "";
+        String input = source.replace("&amp;", "&")
+                .replace("&apos;", "'").replace("&quot;", "\"")
+                .replace("&nbsp;", " ").replace("&eacute;", "é")
+                .replace("&egrave;", "è").replace("&ecirc;", "ê")
+                .replace("&agrave;", "à").replace("&ccedil;", "ç")
+                .replace("&ocirc;", "ô").replace("&ucirc;", "û");
+        Matcher numeric = Pattern.compile("&#(?:x([0-9a-fA-F]{1,6})|([0-9]{1,7}));")
+                .matcher(input);
+        StringBuffer output = new StringBuffer(input.length());
+        while (numeric.find()) {
+            String value = numeric.group(1) != null ? numeric.group(1) : numeric.group(2);
+            int base = numeric.group(1) != null ? 16 : 10;
+            String replacement = " ";
+            try {
+                int cp = Integer.parseInt(value, base);
+                if (Character.isValidCodePoint(cp)
+                        && !Character.isSurrogate((char) cp)
+                        && cp >= 32 && cp != 127)
+                    replacement = new String(Character.toChars(cp));
+            } catch (NumberFormatException ignored) { }
+            numeric.appendReplacement(output, Matcher.quoteReplacement(replacement));
+        }
+        numeric.appendTail(output);
+        return output.toString();
+    }
+
+    /** Only verified entries are spoken, and at most two to avoid minute-long TTS. */
+    public static String shortSpeech(String pageText, String question, long epochMillis) {
+        List<Entry> entries = extract(pageText, filmsOnly(question), epochMillis);
+        if (entries.isEmpty()) return "Je n'ai pas de programme TV suffisamment "
+                + "vérifiable pour ce soir. Le guide est indiqué dans le dialogue.";
+        StringBuilder answer = new StringBuilder("J'ai trouvé ")
+                .append(entries.size()).append(filmsOnly(question)
+                        ? " film(s) pour ce soir. " : " programme(s) pour ce soir. ");
+        int spoken = Math.min(2, entries.size());
+        for (int i = 0; i < spoken; i++) {
+            Entry item = entries.get(i);
+            String title = item.title;
+            if (title.length() > 72) title = title.substring(0, 72) + "…";
+            answer.append(item.channel).append(", ").append(item.hour)
+                    .append(" : ").append(title).append(". ");
+        }
+        answer.append("La liste complète est affichée. "
+                + "Dites « détaille France 4 » pour une chaîne.");
+        return answer.toString();
+    }
+
+    /** Avoid comparing French channel names by substring. */
+    public static boolean sameChannel(String request, String displayedChannel) {
+        return !fold(request).isEmpty() && fold(request).equals(fold(displayedChannel));
+    }
+
     public static boolean filmsOnly(String question) {
         String q = fold(question);
         return q.matches(".*\\b(?:film|films|cinema)\\b.*");
@@ -103,6 +170,8 @@ public final class TvGuidePolicy {
         ArrayList<Entry> result = new ArrayList<>();
         if (pageText == null || !confirmsEveningDate(pageText, epochMillis))
             return result;
+        // The website can expose &#039; or &#8217; even after HTML tag removal.
+        pageText = decodeEntities(pageText);
         Matcher channels = CHANNEL.matcher(pageText);
         ArrayList<Integer> starts = new ArrayList<>();
         ArrayList<String> names = new ArrayList<>();
