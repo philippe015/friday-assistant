@@ -100,8 +100,8 @@ public final class ConversationSmoke {
         self.assertIn("versionCode 112",gradle)
         self.assertIn("versionName '3.14.18'",gradle)
         self.assertIn("applicationIdSuffix '.v31421matrix'",gradle)
-        self.assertIn("output.versionCode.set(119)",gradle)
-        self.assertIn('output.versionName.set("3.14.25-conversation-plus-preview")',gradle)
+        self.assertIn("output.versionCode.set(120)",gradle)
+        self.assertIn('output.versionName.set("3.14.26-local-benchmark-preview")',gradle)
 
 if __name__=="__main__":
     unittest.main()
