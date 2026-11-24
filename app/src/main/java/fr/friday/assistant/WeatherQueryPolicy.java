@@ -14,7 +14,8 @@ public final class WeatherQueryPolicy {
 
     private static final Pattern WEATHER = Pattern.compile(
         "\\b(?:meteo|previsions? meteo|temperature|temperatures|"
-      + "quel temps fait|quel temps va faire|temps qu il fait)\\b");
+      + "quel temps fait|quel temps va faire|temps qu il fait|"
+      + "la metaux (?:(?:sur|dans|en|pour|a)))\\b");
     // « Météo Joinville-le-Pont 94 » contient un numéro départemental,
     // non une partie du nom de la commune.
     private static final Pattern DESTINATION = Pattern.compile(
