@@ -47,6 +47,25 @@ public final class VoiceInputQualityPolicy {
         return true;
     }
 
+    /**
+     * A very narrow Vosk TV-specific prefix repair. "Service donne-moi le
+     * programme TV" was observed for a direct question; this is NOT a
+     * substitute for Friday/Jarvis wake word recognition and cannot arm it.
+     * Written input is never modified.
+     */
+    public static String cleanDirectTvUtterance(String recognized) {
+        if (recognized == null) return "";
+        String utterance = recognized.trim();
+        if (!fold(utterance).startsWith("service ")) return utterance;
+        String without = utterance.replaceFirst("(?i)^service\\s+", "");
+        String q = fold(without);
+        if (TvGuidePolicy.isRequest(without)
+                && q.matches("^(?:donne moi|donnez moi|quels?|quelles?|"
+                        + "je voudrais|je veux|montre moi)\\b.*"))
+            return without;
+        return utterance;
+    }
+
     public static String clarification() {
         return "J'ai entendu une longue phrase difficile à interpréter. "
                 + "Pouvez-vous reformuler votre demande en une question courte ? "
