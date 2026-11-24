@@ -14,7 +14,8 @@ public final class WeatherQueryPolicy {
 
     private static final Pattern WEATHER = Pattern.compile(
         "\\b(?:meteo|previsions? meteo|temperature|temperatures|"
-      + "quel temps fait|quel temps va faire|temps qu il fait)\\b");
+      + "quel temps fait|quel temps va faire|temps qu il fait|"
+      + "la metaux (?:(?:sur|dans|en|pour|a)))\\b");
     // « Météo Joinville-le-Pont 94 » contient un numéro départemental,
     // non une partie du nom de la commune.
     private static final Pattern DESTINATION = Pattern.compile(
@@ -29,7 +30,10 @@ public final class WeatherQueryPolicy {
       + "la maison|ma position|proximite|ici|ma localisation|"
       + "quel endroit|quel pays|maintenant|aujourd hui|demain|journee|la journee|"
       + "toute la journee|dans la journee|pour la journee|la matinee|le matin|"
-      + "le soir|en ce moment|les prochaines heures)$");
+      + "le soir|en ce moment|les prochaines heures|"
+      + "(?:le )?temps que fait il|(?:le )?temps qu il fait|"
+      + "quel temps fait il|quelle temperature|quel temps|"
+      + "le temps qu il fait)$");
 
     public static String fold(String input) {
         return Normalizer.normalize(input == null ? "" : input, Normalizer.Form.NFD)
@@ -72,9 +76,21 @@ public final class WeatherQueryPolicy {
         if (!match.matches()) return "";
         String name = match.group(1).trim();
         if (name.length() < 3 || name.length() > 65
-                || INVALID_CITY.matcher(name).matches()) return "";
+                || INVALID_CITY.matcher(name.replace('-', ' ')).matches()) return "";
         String country = match.group(3);
         return country == null ? name : name + ", " + country.trim();
+    }
+
+    /** Public geographic units are not communes: never geocode them by name. */
+    public static String region(String question) {
+        if (!isWeather(question)) return null;
+        String text = fold(question).replace('-', ' ').replace(',', ' ')
+                .replaceAll("\\s+", " ");
+        if (text.matches(".*\\b(?:val de marne|departement du val de marne|"
+                + "departement 94)\\b.*")) return "Val-de-Marne";
+        if (text.matches(".*\\b(?:ile de france|region parisienne)\\b.*"))
+            return "Île-de-France";
+        return null;
     }
 
     public static boolean department94(String question) {

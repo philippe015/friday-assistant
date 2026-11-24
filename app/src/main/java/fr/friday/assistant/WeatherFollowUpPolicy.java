@@ -19,6 +19,12 @@ public final class WeatherFollowUpPolicy {
       + "(?:\\s*,\\s*[a-z-]{2,})?)$");
     // The speaker may answer with a city AND the time requested by Jarvis:
     // « Vitry-sur-Seine ce soir ». This time is not part of the city name.
+    // Vosk may prepend « doyle » before « à Vitry-sur-Seine » right
+    // after JARVIS explicitly asked for the city. Use ONLY this context,
+    // never forward the misheard prefix to the public search engine.
+    private static final Pattern ASR_NOISY_CITY = Pattern.compile(
+        "^(?:doyle|voila|alors|donc|oui)\\s+a\\s+"
+      + "([a-z][a-z0-9-]{2,}(?:\\s+[a-z][a-z0-9-]{1,}){0,4})$");
     private static final Pattern REPLY_PERIOD = Pattern.compile(
         "\\s+(?:ce soir|demain soir|demain matin|demain|ce matin|cet apres midi|aujourd hui)$");
     // ASR may split « Seine » into « scène »; never geocode a guessed city.
@@ -81,6 +87,8 @@ public final class WeatherFollowUpPolicy {
         }
         // Réponse à la question directe « Pour quelle ville ? »
         if (previousAssistant.startsWith("Pour quelle ville souhaitez-vous la météo")) {
+            Matcher noisy = ASR_NOISY_CITY.matcher(q);
+            if (noisy.matches()) return "météo pour " + noisy.group(1);
             Matcher period = REPLY_PERIOD.matcher(q);
             boolean hasPeriod = period.find();
             String periodText = hasPeriod ? period.group().trim() : "";

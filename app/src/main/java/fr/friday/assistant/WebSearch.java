@@ -168,6 +168,20 @@ public final class WebSearch {
         if (q.isEmpty() || firstUrl(question).length() > 0
                 || q.matches("^(?:cherche|recherche|verifie|consulte|trouve)\\b.*"))
             return null;
+        // A question about JARVIS coding ability is about this device,
+        // not the French word « sais » or a live Internet fact. Do not
+        // search Johns Hopkins SAIS, an auction house or unrelated pages.
+        if (q.matches("^(?:(?:est ce que|dis moi|peux tu me dire)\\s+)?"
+                + "(?:(?:tu|vous)\\s+)?(?:sais|savez|peux|pouvez)\\s+"
+                + "(?:(?:tu|vous)\\s+)?(?:coder|code|programmer|developper)\\b.*")
+                || q.matches("^(?:(?:est ce que|dis moi)\\s+)?(?:tu|vous)\\s+"
+                + "(?:peux|pouvez)\\s+(?:coder|programmer|developper)\\b.*")) {
+            return "Oui, je peux vous aider à concevoir, écrire, expliquer et corriger "
+                    + "du code informatique en français, selon les capacités du modèle "
+                    + "installé. Je ne compile ni ne publie automatiquement un projet "
+                    + "depuis cette conversation sans outil spécifique. "
+                    + "Quel langage ou quelle application souhaitez-vous développer ?";
+        }
         boolean refersToAssistant = q.matches(".*\\b(?:tu|toi|ton|ta|tes|vous|votre|vos|jarvis|friday|fraday)\\b.*");
         boolean ability = q.matches(".*\\b(?:capacites?|fonctionnalites?|possibilites?|competences?|capable)\\b.*")
                 || q.matches("^(?:que|qu est ce que) (?:peux tu|sais tu|pouvez vous) faire.*")
