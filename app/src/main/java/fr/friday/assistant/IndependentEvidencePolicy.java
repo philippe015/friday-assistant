@@ -16,7 +16,7 @@ public final class IndependentEvidencePolicy {
     private IndependentEvidencePolicy() { }
 
     private static final Pattern SENSITIVE = Pattern.compile(
-            "(?:^| )(?:je|j|moi|me|mon|ma|mes|notre|nos|votre|vos|"
+            "(?:^| )(?:je|j|moi|me|mon|ma|mes|ton|ta|tes|notre|nos|votre|vos|"
             + "personnel|prive|privee|confidentiel|confidentielle|"
             + "memoire|conversations|historique|souvenirs|"
             + "identifiant|identifiants|mot de passe|secret|"
