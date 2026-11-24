@@ -72,6 +72,8 @@ public class MainActivity extends Activity {
     private LinearLayout config;
     private ScrollView configScroll;
     private WebView hud;
+    private boolean matrixFullscreenActive = false;
+    private int matrixSavedSystemUiVisibility;
     private TextToSpeech testTts;
     private EditText manualQuestion;
     private TextView manualAnswerLabel;
@@ -552,6 +554,23 @@ public class MainActivity extends Activity {
         hud.loadUrl("file:///android_asset/index.html");
         configScroll.setVisibility(View.GONE);
     }
+    /** Keep Android status/navigation bars in sync with the Matrix overlay. */
+    private void setMatrixFullscreenMode(boolean enabled) {
+        if (matrixFullscreenActive == enabled) return;
+        View decor = getWindow().getDecorView();
+        if (enabled) {
+            matrixSavedSystemUiVisibility = decor.getSystemUiVisibility();
+            matrixFullscreenActive = true;
+            decor.setSystemUiVisibility(matrixSavedSystemUiVisibility
+                    | View.SYSTEM_UI_FLAG_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+        } else {
+            matrixFullscreenActive = false;
+            decor.setSystemUiVisibility(matrixSavedSystemUiVisibility);
+        }
+    }
+
     private void save() {
         try {
             prefs.put("mode", "jarvis_local");
@@ -2099,6 +2118,9 @@ public class MainActivity extends Activity {
             if (question == null || question.length() > 5000) return;
             runOnUiThread(() -> sendQuestion(question, true));
         }
+        @JavascriptInterface public void setMatrixFullscreen(boolean enabled) {
+            runOnUiThread(() -> setMatrixFullscreenMode(enabled));
+        }
         @JavascriptInterface public void sharePersonalityProfiles(String json) {
             try {
                 String safe = PersonalityProfiles.validated(json).toString(2);
@@ -2147,6 +2169,16 @@ public class MainActivity extends Activity {
         @JavascriptInterface public boolean locationEnabled() {
             return "1".equals(prefs.get("location_enabled", "0")) && FridayLocation.hasPermission(MainActivity.this);
         }
+    }
+    @Override public void onBackPressed() {
+        if (matrixFullscreenActive) {
+            setMatrixFullscreenMode(false);
+            if (hud != null) {
+                hud.evaluateJavascript("window.fridayMatrixExitFullscreen&&window.fridayMatrixExitFullscreen();", null);
+            }
+            return;
+        }
+        super.onBackPressed();
     }
     @Override public void onDestroy() {
         hudCloneSpeaking.set(false);
