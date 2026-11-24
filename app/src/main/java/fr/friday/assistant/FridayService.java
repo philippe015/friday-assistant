@@ -964,7 +964,11 @@ public class FridayService extends Service {
             // pendant la fenêtre post-réponse, pour limiter les faux positifs.
             // Dans le cockpit, conserver l'écoute même après cette fenêtre.
             if (heard.trim().split("\\s+").length < 2) return;
-            question = heard;
+            // Correction uniquement dans une fenêtre de question déjà acceptée.
+            // « service » n'est jamais ajouté aux vrais mots de réveil.
+            question = VoiceInputQualityPolicy.cleanDirectTvUtterance(heard);
+            if (!question.equals(heard.trim()))
+                DiagnosticLog.record(this, "VOSK_TV_PREFIX_REPAIRED");
         } else {
             // Le PCM est présent, Vosk comprend une phrase, mais aucun mot-clé :
             // ce n'est pas une panne de Jarvis ou du microphone.
