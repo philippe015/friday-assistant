@@ -1166,6 +1166,80 @@ public final class JarvisInternet {
                 speech.toString(), true, references.toString());
     }
 
+    /**
+     * Explicit, source-based verification of a PUBLIC factual question.
+     * A manual click and the Internet preference are both required. Only the
+     * question is sent as a search query: answer, private dialogue, memories
+     * and previous model review are NEVER sent. Results are ephemeral.
+     *
+     * A citation is evidence to compare, not automatic proof of correctness.
+     */
+    public static String independentEvidence(SecurePrefs settings, String question,
+                                             NativeAI.CancelToken cancellation)
+            throws Exception {
+        if (!IndependentEvidencePolicy.eligible(question, enabled(settings), true)
+                || !WebSearch.safeForGeneralSearch(question))
+            throw new IOException("Vérification Web refusée : question non publique, "
+                    + "recherche désactivée ou informations personnelles. "
+                    + "Aucune question n'a été envoyée.");
+        if (cancellation != null) cancellation.check();
+        List<Source> found = research(question, cancellation);
+        JSONArray evidence = new JSONArray();
+        java.util.HashSet<String> hosts = new java.util.HashSet<>();
+        int freshHours = RecentNewsPolicy.newsWindowHours(question);
+        int pagesRead = 0;
+        int institutions = 0;
+        int dated = 0;
+        for (Source source : found) {
+            if (cancellation != null) cancellation.check();
+            if (evidence.length() >= 4) break;
+            if (!IndependentEvidencePolicy.safeReference(source.url)) continue;
+            if (!WebSearch.relevantResult(question, source.title, source.summary)
+                    && !WebSearch.relevantResult(question, source.title, source.page))
+                continue;
+            if (freshHours > 0 && !RssFreshness.withinHours(
+                    source.publishedAt, System.currentTimeMillis(), freshHours)) continue;
+            String host;
+            try { host = URI.create(source.url).getHost().toLowerCase(Locale.ROOT); }
+            catch (Exception malformed) { continue; }
+            // Avoid presenting four links from the same publisher as
+            // four independent confirmations.
+            if (!hosts.add(host)) continue;
+            boolean readPage = source.page != null && !source.page.trim().isEmpty();
+            String excerpt = clip(readPage ? source.page : source.summary, 440);
+            if (excerpt.trim().isEmpty()) continue;
+            boolean institution = IndependentEvidencePolicy.institutionalCandidate(source.url);
+            JSONObject item = new JSONObject()
+                    .put("titre", clip(source.title, 140))
+                    .put("url", source.url)
+                    .put("domaine", host)
+                    .put("extrait", excerpt)
+                    .put("pageLue", readPage)
+                    .put("institutionCandidate", institution)
+                    .put("horodatageRssUtc", source.publishedAt > 0 ? source.publishedAt : 0);
+            evidence.put(item);
+            if (readPage) pagesRead++;
+            if (institution) institutions++;
+            if (source.publishedAt > 0) dated++;
+        }
+        String motif = evidence.length() == 0
+                ? "Aucune page ou publication HTTPS suffisamment pertinente et lisible "
+                  + "n'a été retrouvée. La réponse n'est pas vérifiée."
+                : evidence.length() + " source(s) HTTPS publiques à examiner, dont "
+                  + pagesRead + " page(s) réellement lue(s), "
+                  + institutions + " domaine(s) institutionnel(s) potentiel(s) et "
+                  + dated + " source(s) avec horodatage RSS. "
+                  + "Les extraits et résultats indexés ne démontrent pas à eux seuls "
+                  + "que les affirmations de JARVIS sont exactes.";
+        return new JSONObject()
+                .put("verdict", evidence.length() > 0
+                        ? "SOURCES_A_COMPARER" : "SOURCES_INSUFFISANTES")
+                .put("motif", motif)
+                .put("verificationOutil", false)
+                .put("mode", "recherche_publique_explicite")
+                .put("sources", evidence).toString();
+    }
+
     private static List<Source> research(String question, NativeAI.CancelToken cancellation)
             throws Exception {
         String direct = WebSearch.firstUrl(question);

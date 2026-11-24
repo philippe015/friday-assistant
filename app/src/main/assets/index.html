@@ -45,6 +45,11 @@ body.matrix-fullscreen-active .app{max-width:none;width:100%;height:100%;min-hei
 .matrix-learning-actions button{border:1px solid #338d51;background:#082d15;color:#b4ffcd;min-height:38px;padding:6px 9px;border-radius:7px;font-size:12px}
 .matrix-learning-actions button:disabled{opacity:.45}
 .matrix-learning-status{margin-top:7px;color:#b3dfbf;font-size:11px;overflow-wrap:anywhere}
+.matrix-learning-sources{display:flex;flex-direction:column;gap:6px;margin-top:7px}
+.matrix-learning-sources a{color:#b4ffd2;text-decoration:underline;overflow-wrap:anywhere}
+.matrix-source-item{border:1px solid #286d43;border-radius:6px;padding:7px;font-size:12px}
+.matrix-source-meta{display:block;color:#c3dacb;font-size:11px;margin-top:3px}
+.matrix-source-excerpt{display:block;color:#a5dab6;font-size:11px;margin-top:5px;white-space:pre-wrap;overflow-wrap:anywhere}
 #learningCorrectionPanel{margin-top:8px}
 #learningCorrectionText{width:100%;box-sizing:border-box;background:#001308;color:#c6ffdc;min-height:56px;max-height:110px;border:1px solid #3bb569;border-radius:6px;padding:7px;font-size:14px;resize:vertical}
 #learningCorrectionPanel button{margin-top:5px;padding:8px;background:#06391b;color:#b9ffd2;border:1px solid #3bb569;border-radius:6px}
@@ -139,6 +144,7 @@ footer{font-size:11px;color:#659ab1;padding:15px 0;text-align:center;letter-spac
         <button type="button" id="learningToggle" aria-pressed="false">Apprentissage : OFF</button>
         <button type="button" id="learningAuto" aria-pressed="false">Auto-analyse : OFF</button>
         <button type="button" id="learningReview">IA locale : analyser</button>
+        <button type="button" id="learningVerifySources">Vérifier sources Web</button>
         <button type="button" id="learningGood">✓ Utile</button>
         <button type="button" id="learningBad">✕ Insuffisant</button>
         <button type="button" id="learningCorrect">✎ Corriger</button>
@@ -147,6 +153,10 @@ footer{font-size:11px;color:#659ab1;padding:15px 0;text-align:center;letter-spac
       <div id="learningAuditResult" class="matrix-learning-status" role="status" aria-live="polite">
         L’auto-critique signale des anomalies possibles ; seule la vérification arithmétique locale peut confirmer un calcul.
       </div>
+      <div id="learningEvidenceResult" class="matrix-learning-status" role="status" aria-live="polite">
+        Sources : consultation manuelle seulement. Le bouton envoie une question publique, jamais votre réponse ni l'historique privé.
+      </div>
+      <div id="learningSourcesList" class="matrix-learning-sources" aria-label="Sources publiques du contrôle indépendant"></div>
       <div class="hidden" id="learningCorrectionPanel">
         <label for="learningCorrectionText">Suggestion de l'IA locale, non vérifiée. Modifiez-la et approuvez-la avant mémorisation :</label>
         <textarea id="learningCorrectionText" maxlength="600" placeholder="Correction validée pour une question identique"></textarea>
@@ -180,7 +190,7 @@ const templates={
  coach:'Tu es J.A.R.V.I.S., assistante claire et pragmatique. Tu écoutes la question en entier, réponds directement et proposes des étapes d’action concrètes. Tu restes polie, neutre et concise à l’oral.',
  detail:'Tu es J.A.R.V.I.S., assistante analytique francophone. Tu développes les réponses avec des faits, méthodes, hypothèses et limites. Quand des informations sont récentes, utilise la recherche Internet autorisée et cite les sources.'
 };
-const state={tab:'cockpit',messages:[],profile:null,active:'',immersive:false,visionBusy:false,lastStatus:'',voiceActive:false,matrixBusy:false,matrixError:'',matrixLastAnswer:'',matrixFullscreen:false,learningQuestion:'',learningLastAnswer:'',learningBusy:false,learningEraseArmed:false,learningProposalQuestion:'',learningProposalAnswer:''};
+const state={tab:'cockpit',messages:[],profile:null,active:'',immersive:false,visionBusy:false,lastStatus:'',voiceActive:false,matrixBusy:false,matrixError:'',matrixLastAnswer:'',matrixFullscreen:false,learningQuestion:'',learningLastAnswer:'',learningBusy:false,learningEraseArmed:false,learningProposalQuestion:'',learningProposalAnswer:'',evidenceBusy:false};
 function call(method,...args){try{const api=bridge();if(api&&typeof api[method]==='function')return api[method](...args);}catch(e){log('Commande Android : '+e.message,true);}return null;}
 function log(msg,bad=false){const p=document.createElement('p');p.textContent='['+new Date().toLocaleTimeString('fr-FR')+'] '+msg;if(bad)p.className='bad';$('diagLog').prepend(p);while($('diagLog').children.length>20)$('diagLog').lastElementChild.remove();}
 function status(text,type='ready'){$('statusMessage').textContent=text;state.lastStatus=text;const core=$('core');core.className='core '+(type==='listen'?'listening':type==='wait'?'thinking':type==='error'?'error':'');$('coreStatus').textContent=type==='listen'?'ÉCOUTE':type==='wait'?'ANALYSE':type==='error'?'ERREUR':'PRÊT';}
@@ -258,6 +268,8 @@ function matrixAsk(){
  state.matrixBusy=true;state.matrixError='';
  // A new turn invalidates any unapproved proposal for the previous answer.
  state.learningProposalQuestion='';state.learningProposalAnswer='';
+ $('learningSourcesList').replaceChildren();
+ $('learningEvidenceResult').textContent='Sources précédentes masquées : une nouvelle question commence.';
  $('learningCorrectionPanel').classList.add('hidden');
  matrixState('FRIDAY analyse la question… la réponse sera écrite puis prononcée si la voix est activée.');
  drawMatrix();
@@ -302,6 +314,63 @@ function learningRefresh(message){
    $(id).disabled=!enabled;
  $('learningStatus').textContent=message||(call('learningStatus')||'Non disponible dans ce navigateur.');
 }
+function verifySources(){
+ if(state.evidenceBusy){$('learningEvidenceResult').textContent='Une vérification Web est déjà en cours.';return;}
+ const [question,answer]=learningContext();
+ if(question.length<12||question.length>260||answer.length<5||answer.length>1500){
+   $('learningEvidenceResult').textContent='La question et la réponse doivent être complètes et de longueur limitée.';
+   return;
+ }
+ if(!bridge()||typeof bridge().verifyIndependentEvidence!=='function'){
+   $('learningEvidenceResult').textContent='Vérification disponible uniquement dans la nouvelle APK Android.';return;
+ }
+ state.evidenceBusy=true;
+ $('learningVerifySources').disabled=true;
+ $('learningSourcesList').replaceChildren();
+ $('learningEvidenceResult').textContent='Recherche HTTPS publique en cours. Seule votre question est envoyée aux moteurs, jamais la réponse ni la mémoire.';
+ call('verifyIndependentEvidence',question,answer);
+}
+window.fridayIndependentEvidence=function(question,answer,report,error){
+ state.evidenceBusy=false;
+ $('learningVerifySources').disabled=false;
+ const host=$('learningSourcesList');
+ host.replaceChildren();
+ const [current,currentAnswer]=learningContext();
+ if(question!==current||answer!==currentAnswer){
+   $('learningEvidenceResult').textContent='Résultats ignorés : une nouvelle réponse est arrivée.';
+   return;
+ }
+ if(error){
+   $('learningEvidenceResult').textContent='Vérification Web indisponible : '+String(error);
+   return;
+ }
+ let audit;
+ try{audit=JSON.parse(String(report||''));}catch(_){
+   $('learningEvidenceResult').textContent='Résultat des sources non interprétable.';return;
+ }
+ $('matrixLearning').open=true;
+ const raw=Array.isArray(audit.sources)?audit.sources:[];
+ $('learningEvidenceResult').textContent='SOURCES · '+String(audit.verdict||'SOURCES_INSUFFISANTES').replaceAll('_',' ')
+    +' · '+String(audit.motif||'Aucune preuve indépendante.');
+ for(const item of raw.slice(0,4)){
+   if(!item||typeof item!=='object')continue;
+   let url;
+   try{
+     url=new URL(String(item.url||''));
+     if(url.protocol!=='https:'||url.username||url.password)continue;
+   }catch(_){continue;}
+   const line=document.createElement('div');line.className='matrix-source-item';
+   const link=document.createElement('a');link.textContent=String(item.titre||item.domaine||'Source publique');
+   link.href=url.href;link.target='_blank';link.rel='noopener noreferrer';
+   const meta=document.createElement('span');meta.className='matrix-source-meta';
+   const origin=item.institutionCandidate===true?'Domaine institutionnel potentiel':'Source publique';
+   const reading=item.pageLue===true?'Page consultée':'Extrait indexé/RSS seulement';
+   meta.textContent=origin+' · '+reading+' · '+String(item.domaine||'');
+   const excerpt=document.createElement('span');excerpt.className='matrix-source-excerpt';
+   excerpt.textContent=String(item.extrait||'').slice(0,440);
+   line.append(link,meta,excerpt);host.append(line);
+ }
+};
 function learningReview(){
  if(state.learningBusy){learningRefresh('Une analyse IA locale est déjà en cours.');return;}
  if(call('learningEnabled')!==true){learningRefresh('Activez d’abord l’apprentissage local.');return;}
@@ -405,6 +474,7 @@ function init(){for(const [tab,id] of [['cockpit','tabCockpit'],['history','tabH
  $('learningGood').onclick=()=>learningVote('good');
  $('learningBad').onclick=()=>learningVote('bad');
  $('learningReview').onclick=learningReview;
+ $('learningVerifySources').onclick=verifySources;
  $('learningCorrect').onclick=()=>{
    const [question]=learningContext();
    if(!question){learningRefresh('Aucune réponse à corriger.');return;}
