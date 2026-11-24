@@ -33,7 +33,7 @@ android {
     }
 
     buildTypes {
-        // Installe la v2.0 à côté de la v1.x, sans effacer ses clés ni son modèle Vosk.
+        // Identifiant DEBUG stable pour conserver la mémoire privée de Matrix entre préversions.
         debug {
             applicationIdSuffix '.v31421matrix'
             versionNameSuffix '-preview'
@@ -51,15 +51,14 @@ android {
 }
 
 /**
- * Keep the historical release metadata stable: many regression suites and
- * Google Play upload rules depend on it. Only the isolated DEBUG Preview
- * package receives the 3.14.20 label/version and fresh code.
+ * Keep historical RELEASE metadata stable: only this isolated DEBUG preview
+ * receives the new version marker for the local audit build.
  */
 androidComponents {
     onVariants(selector().withBuildType("debug")) { variant ->
         variant.outputs.forEach { output ->
-            output.versionCode.set(115)
-            output.versionName.set("3.14.21-matrix-preview")
+            output.versionCode.set(116)
+            output.versionName.set("3.14.22-auto-critique-preview")
         }
     }
 }
