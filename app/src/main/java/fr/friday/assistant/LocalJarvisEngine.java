@@ -351,7 +351,9 @@ public final class LocalJarvisEngine {
         // Ce contexte vient UNIQUEMENT de l'historique AES-GCM sur Android.
         // Il n'est pas ajouté aux mots-clés ou aux URLs des moteurs Web.
         if (privateDialogue != null && !privateDialogue.trim().isEmpty()) {
-            int limit = hasWebSources ? 800 : 2200;
+            int limit = hasWebSources ? 800
+                    : ConversationTurnPolicy.shouldUseLocalModel(cleaned, privateDialogue)
+                        ? 3100 : 2200;
             String compact = privateDialogue.length() <= limit
                     ? privateDialogue : privateDialogue.substring(
                             privateDialogue.length() - limit);
@@ -364,6 +366,9 @@ public final class LocalJarvisEngine {
                             + "Réponds à la demande ACTUELLE, "
                             + "sans inventer de souvenirs.\n[FIN DU CONTEXTE PRIVÉ]");
         }
+        if (!hasWebSources && !rssTranslationOnly
+                && ConversationTurnPolicy.shouldUseLocalModel(cleaned, privateDialogue))
+            prompt.append(ConversationTurnPolicy.localInstruction(cleaned));
         int maxQuestion = rssTranslationOnly ? 3400 : (hasWebSources ? 3900 : 1200);
         prompt.append("\nDemande ACTUELLE : ").append(cleaned.length() > maxQuestion
                 ? cleaned.substring(0, maxQuestion) : cleaned).append("\nJARVIS :");
