@@ -118,6 +118,11 @@ public final class TvGuidePolicy {
         return answer.toString();
     }
 
+    /** Avoid comparing French channel names by substring. */
+    public static boolean sameChannel(String request, String displayedChannel) {
+        return !fold(request).isEmpty() && fold(request).equals(fold(displayedChannel));
+    }
+
     public static boolean filmsOnly(String question) {
         String q = fold(question);
         return q.matches(".*\\b(?:film|films|cinema)\\b.*");
