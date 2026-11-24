@@ -50,6 +50,8 @@ public class MainActivity extends Activity {
     private TextView localJarvisStatus;
     private final AtomicBoolean localJarvisImporting = new AtomicBoolean(false);
     private final AtomicBoolean localJarvisTesting = new AtomicBoolean(false);
+    /** Explicit offline benchmark; volatile progress and AES-GCM result only. */
+    private final LocalModelBenchmark.Session localBenchmark = new LocalModelBenchmark.Session();
     /** Empêche les téléchargements Vosk concurrents et reprend la demande d'écoute. */
     private final AtomicBoolean voskDownloadRunning = new AtomicBoolean(false);
     private volatile boolean startAfterVoskDownload = false;
@@ -2253,6 +2255,36 @@ public class MainActivity extends Activity {
                 return LocalLearningMemory.delete(prefs, id);
             } catch (Exception unavailable) {
                 return "Suppression impossible : mémoire chiffrée indisponible.";
+            }
+        }
+        /** 3.14.26: user-started ten-question OFFLINE benchmark, no private prompts. */
+        @JavascriptInterface public String benchmarkStart() {
+            return localBenchmark.start(getApplicationContext(), prefs);
+        }
+        @JavascriptInterface public String benchmarkStatus() {
+            return localBenchmark.status(prefs);
+        }
+        @JavascriptInterface public String benchmarkCancel() {
+            return localBenchmark.stop();
+        }
+        /** Clipboard export is initiated by a tap; no automatic sharing. */
+        @JavascriptInterface public String benchmarkCopy() {
+            try {
+                org.json.JSONObject snapshot = new org.json.JSONObject(localBenchmark.status(prefs));
+                org.json.JSONObject report = snapshot.optJSONObject("report");
+                if (report == null) return "Aucun rapport local disponible.";
+                String reportText = report.toString(2);
+                runOnUiThread(() -> {
+                    android.content.ClipboardManager clipboard =
+                            (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                    if (clipboard != null)
+                        clipboard.setPrimaryClip(
+                                ClipData.newPlainText("FRIDAY rapport IA local", reportText));
+                });
+                return "Rapport copié sur demande. Vérifiez-le avant de le partager : "
+                        + "le presse-papiers n'est pas un stockage chiffré.";
+            } catch (Exception unavailable) {
+                return "Rapport indisponible : aucun texte copié.";
             }
         }
         /** Review runs on a separate thread and never uploads conversations. */

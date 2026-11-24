@@ -181,6 +181,18 @@ footer{font-size:11px;color:#659ab1;padding:15px 0;text-align:center;letter-spac
       </div>
       <div id="learningStatus" class="matrix-learning-status" role="status" aria-live="polite">Désactivé par défaut. Aucun modèle n'est réentraîné automatiquement.</div>
     </details>
+    <details class="matrix-learning" id="modelBenchmarkPanel">
+      <summary>◈ INTELLIGENCE LOCALE PRO+ · BANC D'ESSAI HORS LIGNE</summary>
+      <p class="matrix-hint">Lancez volontairement 10 questions publiques sur le modèle réellement chargé. Aucune conversation, note, identité, GPS ni question personnelle n'entre dans ce test. Aucune connexion Web ne sert à générer les réponses. Préférez arrêter les autres générations pendant le test.</p>
+      <div class="matrix-learning-actions">
+        <button type="button" id="benchmarkStart">▶ Tester le modèle local (10 questions)</button>
+        <button type="button" id="benchmarkCancel" disabled>■ Interrompre</button>
+        <button type="button" id="benchmarkCopy">Copier le rapport volontairement</button>
+      </div>
+      <div id="benchmarkStatus" class="matrix-learning-status" role="status" aria-live="polite">Aucun test lancé. La durée dépend de la puissance et de la température du téléphone.</div>
+      <pre id="benchmarkReport" class="matrix-learning-status" aria-label="Résultats du banc d'essai hors ligne" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:45vh;overflow:auto"></pre>
+      <p class="matrix-hint">Les indicateurs automatiques ne prouvent pas qu'un modèle raisonne correctement. Les réponses doivent être relues. Seule la dernière analyse est enregistrée dans la mémoire AES-GCM du téléphone ; le presse-papiers n'est pas chiffré.</p>
+    </details>
     <p class="matrix-hint">Terminal de conversation uniquement : aucune commande Linux/Android n'est exécutée. L'écran reprend l'historique de dialogue de l'appareil ; les questions utilisent le traitement Android habituel.</p>
    </div>
   </section>
@@ -391,6 +403,56 @@ function learningMemoryRefresh(){
    host.prepend(msg);
  }
 }
+function benchmarkRender(){
+ const raw=call('benchmarkStatus');
+ let data;
+ try{data=JSON.parse(String(raw||''));}catch(_){
+   $('benchmarkStatus').textContent='Banc d’essai non disponible : APK Android incompatible.';return;
+ }
+ const working=data.state==='running';
+ $('benchmarkStart').disabled=working;
+ $('benchmarkCancel').disabled=!working;
+ $('benchmarkStatus').textContent=(data.message||'')
+   +' · '+(Number(data.done)||0)+' / '+(Number(data.total)||10)+' questions';
+ const report=data.report;
+ if(!report || !Array.isArray(report.details))return;
+ const results=report.details.map((item,i)=>
+   (i+1)+'. '+String(item.categorie||'Question')+' · '+String(item.verdict_indicatif||'?')
+   +' · '+String(item.duree_ms??'?')+' ms\n'
+   +'Question : '+String(item.question_publique||'')+'\n'
+   +'Réponse brute : '+String(item.reponse||'(aucune)')+'\n'
+   +(item.erreur?'Erreur : '+String(item.erreur)+'\n':'')
+ ).join('\n');
+ const mem=report.ram_libre_depart_mo===null?'indisponible':String(report.ram_libre_depart_mo)+' Mo';
+ $('benchmarkReport').textContent='FRIDAY 3.14.26 · Diagnostic IA local — '
+   +(report.complet?'COMPLET':'PARTIEL')+'\n'
+   +'Moteur : '+String(report.moteur||'indisponible')+'\n'
+   +'Indicateurs positifs (non certifiés) : '+String(report.indices_positifs??0)
+   +' · Réponses non confirmées : '+String(report.non_confirmes??0)
+   +' · Lecture manuelle : '+String(report.lecture_manuelle??0)
+   +' · Erreurs : '+String(report.erreurs_inference??0)+'\n'
+   +'Durée médiane de génération réussie : '+String(report.duree_mediane_ms??'?')+' ms\n'
+   +'RAM libre Android au départ : '+mem
+   +' (ne mesure pas l’utilisation mémoire du modèle).\n\n'
+   +results+'\n'
+   +String(report.avertissement||'Les résultats restent indicatifs.');
+}
+function benchmarkStart(){
+ if(!bridge() || typeof bridge().benchmarkStart!=='function'){
+   $('benchmarkStatus').textContent='Fonction disponible dans la nouvelle APK Android.';return;
+ }
+ const notice=call('benchmarkStart');
+ $('modelBenchmarkPanel').open=true;
+ $('benchmarkStatus').textContent=String(notice||'Commande non aboutie.');
+ benchmarkRender();
+}
+function benchmarkCancel(){
+ $('benchmarkStatus').textContent=String(call('benchmarkCancel')||'Interruption demandée.');
+ benchmarkRender();
+}
+function benchmarkCopy(){
+ $('benchmarkStatus').textContent=String(call('benchmarkCopy')||'Rapport non disponible.');
+}
 function verifySources(){
  if(state.evidenceBusy){$('learningEvidenceResult').textContent='Une vérification Web est déjà en cours.';return;}
  const [question,answer]=learningContext();
@@ -540,6 +602,10 @@ function init(){for(const [tab,id] of [['cockpit','tabCockpit'],['history','tabH
  $('matrixMic').onclick=()=>{start();matrixState('Écoute vocale Android demandée.');};
  $('matrixReplay').onclick=matrixReplay;
  $('matrixSilence').onclick=()=>{call('stopSpeakingNative');matrixState('Lecture vocale interrompue ; microphone inchangé.');};
+ $('benchmarkStart').onclick=benchmarkStart;
+ $('benchmarkCancel').onclick=benchmarkCancel;
+ $('benchmarkCopy').onclick=benchmarkCopy;
+ setInterval(()=>{if($('modelBenchmarkPanel').open)benchmarkRender();},1800);
  $('learningToggle').onclick=()=>{
    const enabled=call('learningEnabled')!==true;
    learningRefresh(call('learningSetEnabled',enabled));
@@ -594,7 +660,7 @@ function init(){for(const [tab,id] of [['cockpit','tabCockpit'],['history','tabH
  $('startBtn').onclick=start;$('stopBtn').onclick=stop;$('interruptBtn').onclick=interrupt;$('nativeSettingsBtn').onclick=()=>call('configure');$('sendBtn').onclick=()=>ask($('questionInput').value);$('questionInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ask($('questionInput').value);}});
  for(const b of document.querySelectorAll('[data-question]'))b.onclick=()=>ask(b.dataset.question);$('gpsBtn').onclick=()=>{call('gpsCheck');status('Vérification GPS Android…','wait');};$('gpsConsentBtn').onclick=()=>call('gpsConsent');$('fullscreenBtn').onclick=toggleImmersive;$('versionsBtn').onclick=()=>call('manageVersions');$('diagnosticViewBtn').onclick=()=>call('showDiagnosticLogs');$('diagnosticExportBtn').onclick=()=>call('exportDiagnosticLogs');$('diagnosticGithubBtn').onclick=()=>call('reportDiagnosticGitHub');$('diagnosticClearBtn').onclick=()=>call('clearDiagnosticLogs');
  $('personaVerify').onclick=verifySavedProfile;$('personaSave').onclick=saveProfiles;$('personaTest').onclick=testProfile;$('personaNew').onclick=()=>newProfile(false);$('personaDuplicate').onclick=()=>newProfile(true);$('personaDelete').onclick=deleteProfile;$('personaImport').onclick=importProfiles;$('personaExport').onclick=exportProfiles;$('personaClose').onclick=()=>showTab('cockpit');$('personaPrompt').oninput=countPrompt;$('personaProfiles').onchange=e=>{const selected=e.target.value,previous=state.active;try{const p=activeProfile();p.name=$('personaName').value.trim();p.prompt=$('personaPrompt').value.trim();state.profile.active=selected;validateProfiles(state.profile);const result=call('savePersonalityProfiles',JSON.stringify(state.profile));if(result!=='OK')throw Error(result||'Activation impossible');state.active=selected;renderProfiles();refreshNative();notice('Profil « '+activeProfile().name+' » activé et enregistré pour les prochaines réponses.');}catch(err){state.profile.active=previous;state.active=previous;renderProfiles();notice('Échec activation : '+err.message,true);}};$('personaTemplate').onchange=e=>{if(templates[e.target.value]){$('personaPrompt').value=templates[e.target.value];countPrompt();notice('Modèle chargé, enregistrez pour l’appliquer.');}};
- clock();refreshNative();drawMessages();learningRefresh();setInterval(clock,1000);setInterval(refreshNative,4500);log('Cockpit Jarvis local + Internet chargé.');}
+ clock();refreshNative();drawMessages();learningRefresh();benchmarkRender();setInterval(clock,1000);setInterval(refreshNative,4500);log('Cockpit Jarvis local + Internet chargé.');}
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
 </script>
