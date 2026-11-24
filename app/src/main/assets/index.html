@@ -144,6 +144,9 @@ footer{font-size:11px;color:#659ab1;padding:15px 0;text-align:center;letter-spac
         <button type="button" id="learningCorrect">✎ Corriger</button>
         <button type="button" id="learningClear">Effacer les corrections</button>
       </div>
+      <div id="learningAuditResult" class="matrix-learning-status" role="status" aria-live="polite">
+        L’auto-critique signale des anomalies possibles ; seule la vérification arithmétique locale peut confirmer un calcul.
+      </div>
       <div class="hidden" id="learningCorrectionPanel">
         <label for="learningCorrectionText">Suggestion de l'IA locale, non vérifiée. Modifiez-la et approuvez-la avant mémorisation :</label>
         <textarea id="learningCorrectionText" maxlength="600" placeholder="Correction validée pour une question identique"></textarea>
@@ -177,7 +180,7 @@ const templates={
  coach:'Tu es J.A.R.V.I.S., assistante claire et pragmatique. Tu écoutes la question en entier, réponds directement et proposes des étapes d’action concrètes. Tu restes polie, neutre et concise à l’oral.',
  detail:'Tu es J.A.R.V.I.S., assistante analytique francophone. Tu développes les réponses avec des faits, méthodes, hypothèses et limites. Quand des informations sont récentes, utilise la recherche Internet autorisée et cite les sources.'
 };
-const state={tab:'cockpit',messages:[],profile:null,active:'',immersive:false,visionBusy:false,lastStatus:'',voiceActive:false,matrixBusy:false,matrixError:'',matrixLastAnswer:'',matrixFullscreen:false,learningQuestion:'',learningLastAnswer:'',learningBusy:false,learningEraseArmed:false};
+const state={tab:'cockpit',messages:[],profile:null,active:'',immersive:false,visionBusy:false,lastStatus:'',voiceActive:false,matrixBusy:false,matrixError:'',matrixLastAnswer:'',matrixFullscreen:false,learningQuestion:'',learningLastAnswer:'',learningBusy:false,learningEraseArmed:false,learningProposalQuestion:'',learningProposalAnswer:''};
 function call(method,...args){try{const api=bridge();if(api&&typeof api[method]==='function')return api[method](...args);}catch(e){log('Commande Android : '+e.message,true);}return null;}
 function log(msg,bad=false){const p=document.createElement('p');p.textContent='['+new Date().toLocaleTimeString('fr-FR')+'] '+msg;if(bad)p.className='bad';$('diagLog').prepend(p);while($('diagLog').children.length>20)$('diagLog').lastElementChild.remove();}
 function status(text,type='ready'){$('statusMessage').textContent=text;state.lastStatus=text;const core=$('core');core.className='core '+(type==='listen'?'listening':type==='wait'?'thinking':type==='error'?'error':'');$('coreStatus').textContent=type==='listen'?'ÉCOUTE':type==='wait'?'ANALYSE':type==='error'?'ERREUR':'PRÊT';}
@@ -253,6 +256,9 @@ function matrixAsk(){
  if(state.matrixBusy){matrixState('Question précédente en cours de traitement.',true);return;}
  if(!bridge()||typeof bridge().askMatrix!=='function'){matrixState('Terminal disponible uniquement dans l’application Android mise à jour.',true);return;}
  state.matrixBusy=true;state.matrixError='';
+ // A new turn invalidates any unapproved proposal for the previous answer.
+ state.learningProposalQuestion='';state.learningProposalAnswer='';
+ $('learningCorrectionPanel').classList.add('hidden');
  matrixState('FRIDAY analyse la question… la réponse sera écrite puis prononcée si la voix est activée.');
  drawMatrix();
  // Calls the existing Android Q&A pipeline; no JavaScript command execution.
@@ -266,6 +272,8 @@ window.fridayMatrixComplete=function(question,answer,error){
    state.matrixLastAnswer=String(answer);
    state.learningQuestion=String(question||'').trim();
    state.learningLastAnswer=String(answer);
+   state.learningProposalQuestion='';state.learningProposalAnswer='';
+   $('learningCorrectionPanel').classList.add('hidden');
    // An optional asynchronous review never writes unapproved memories.
    if(call('learningAutoReviewEnabled')===true)learningReview();
  }
@@ -302,21 +310,46 @@ function learningReview(){
    learningRefresh('Posez une question assez courte (max. 260 caractères), puis demandez une analyse.');return;
  }
  state.learningBusy=true;
+ state.learningProposalQuestion='';state.learningProposalAnswer='';
+ $('learningCorrectionPanel').classList.add('hidden');
+ $('learningAuditResult').textContent='Auto-critique en cours : réponse intégrale, sans tronquer la question.';
  $('learningReview').disabled=true;
  learningRefresh('IA locale en cours de relecture… aucune écriture automatique.');
  call('learningReview',question,answer);
 }
-window.fridayLearningProposal=function(question,proposal,error){
+window.fridayLearningProposal=function(question,answer,report,error){
  state.learningBusy=false;
  learningRefresh();
- const [current]=learningContext();
- if(current!==question){learningRefresh('Analyse terminée pour une ancienne question.');return;}
- if(error){learningRefresh('IA locale : '+String(error));return;}
- if(!proposal){learningRefresh('Aucune amélioration proposée.');return;}
+ const [current,latestAnswer]=learningContext();
+ if(current!==question||latestAnswer!==answer){
+   learningRefresh('Analyse d’une ancienne réponse ignorée.');return;
+ }
  $('matrixLearning').open=true;
+ if(error){
+   $('learningAuditResult').textContent='Analyse impossible : '+String(error);
+   learningRefresh('IA locale : '+String(error));
+   return;
+ }
+ let audit;
+ try{audit=JSON.parse(String(report||''));}
+ catch(_){
+   $('learningAuditResult').textContent='Diagnostic IA incomplet ou non structuré : aucune correction proposée.';
+   learningRefresh('Analyse non exploitable.');return;
+ }
+ const verdict=String(audit.verdict||'A_VERIFIER').replaceAll('_',' ');
+ const motif=String(audit.motif||'Aucune justification fournie.');
+ const verified=audit.verificationOutil===true;
+ $('learningAuditResult').textContent='DIAGNOSTIC · '+verdict+' · '
+   +(verified?'Contrôle indépendant par outil local. ':'Avis IA non vérifié. ')+motif;
+ const suggestion=String(audit.proposition||'').trim();
+ if(!suggestion){
+   learningRefresh('Analyse terminée · aucune correction fiable proposée à enregistrer.');
+   return;
+ }
+ state.learningProposalQuestion=question;state.learningProposalAnswer=answer;
  $('learningCorrectionPanel').classList.remove('hidden');
- $('learningCorrectionText').value=String(proposal).slice(0,600);
- learningRefresh('Proposition IA locale non vérifiée : modifiez-la puis approuvez-la si elle est correcte.');
+ $('learningCorrectionText').value=suggestion.slice(0,600);
+ learningRefresh('Proposition non enregistrée : vérifiez et approuvez manuellement.');
 };
 function learningVote(vote,correction=''){
  const [question]=learningContext();
@@ -375,6 +408,8 @@ function init(){for(const [tab,id] of [['cockpit','tabCockpit'],['history','tabH
  $('learningCorrect').onclick=()=>{
    const [question]=learningContext();
    if(!question){learningRefresh('Aucune réponse à corriger.');return;}
+   state.learningProposalQuestion=question;
+   state.learningProposalAnswer=learningContext()[1];
    $('learningCorrectionPanel').classList.remove('hidden');
    $('learningCorrectionText').value='';
    $('learningCorrectionText').focus();
@@ -383,8 +418,11 @@ function init(){for(const [tab,id] of [['cockpit','tabCockpit'],['history','tabH
  $('learningSave').onclick=()=>{
    const correction=$('learningCorrectionText').value.trim();
    if(correction.length<5||correction.length>600){learningRefresh('Correction : 5 à 600 caractères requis.');return;}
-   const [question]=learningContext();
-   if(!question){learningRefresh('Aucune question associée à la correction.');return;}
+   const [question,answer]=learningContext();
+   if(!question || question!==state.learningProposalQuestion
+       || answer!==state.learningProposalAnswer){
+     learningRefresh('Une nouvelle réponse est arrivée : l’ancienne correction n’a pas été enregistrée.');return;
+   }
    const result=call('learningFeedback',question,'correction',correction);
    learningRefresh(result||'Échec de la sauvegarde.');
    if(String(result||'').startsWith('Correction chiffrée enregistrée'))
