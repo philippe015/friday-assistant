@@ -202,6 +202,25 @@ public final class LocalJarvisEngine {
         return generateRaw(context, cfg, auditPrompt, cancellation);
     }
 
+    /**
+     * Benchmark path: uses only fixed, public test prompts. Does NOT
+     * insert profiles, encrypted memory, conversation, approved learning,
+     * Web snippets, automatic arithmetic or identity guard in the prompt.
+     * Inference remains on the device via MediaPipe or LiteRT-LM.
+     */
+    public static String benchmarkRaw(Context context, SecurePrefs cfg,
+                                      String fixedPrompt, NativeAI.CancelToken cancellation)
+            throws Exception {
+        if (!"1".equals(cfg.get("local_jarvis_enabled", "0")))
+            throw new IOException("Le modèle IA local est désactivé.");
+        if (!ready(context))
+            throw new IOException("Modèle IA local absent : importez un modèle compatible.");
+        if (fixedPrompt == null || fixedPrompt.length() < 60
+                || fixedPrompt.length() > 650)
+            throw new IOException("Question de test prédéfinie invalide.");
+        return generateRaw(context, cfg, fixedPrompt, cancellation);
+    }
+
     /** The only shared inference primitive for chat and supervised audit. */
     private static String generateRaw(Context context, SecurePrefs cfg,
                                       String prompt, NativeAI.CancelToken cancellation)
