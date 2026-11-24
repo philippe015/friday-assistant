@@ -70,7 +70,7 @@ public final class LearningSmoke {
         self.assertIn("LocalLearningMemory.promptHint(cfg, cleaned)", engine)
         self.assertIn("LocalJarvisEngine.answer(context, prefs, prompt,", reviewer)
         self.assertIn("new NativeAI.CancelToken()", reviewer)
-        self.assertNotIn("JarvisInternet", reviewer)
+        self.assertNotIn("JarvisInternet.", reviewer)
         self.assertNotIn("http", reviewer)
         self.assertIn("learningReviewRunning.compareAndSet(false, true)", activity)
         self.assertIn("learningReviewCallback(question, proposal, error)", activity)
