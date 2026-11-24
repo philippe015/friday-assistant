@@ -122,6 +122,16 @@ public final class WebSearchTest {
                 "L'assistant utilise le Web sur les demandes courantes non privées");
         check(!WebSearch.safeForGeneralSearch("Bonjour"),
                 "Une salutation ne doit pas envoyer de requête publique");
+        check(!WebSearch.safeForGeneralSearch("Suis ravi de te revoir"),
+                "Une formule amicale ne doit pas être envoyée à Wikipédia");
+        check(!WebSearch.needsWeb("Je suis heureux de te retrouver"),
+                "Une conversation amicale doit rester locale");
+        check(!WebSearch.safeForGeneralSearch("12262×43737="),
+                "Le calcul demandé doit rester sur le téléphone");
+        check(!WebSearch.needsWeb("12262×43737="),
+                "Un calcul exact ne nécessite pas Internet");
+        check(WebSearch.safeForGeneralSearch("Explique les principes de multiplication matricielle"),
+                "Une vraie question scientifique continue d'autoriser le Web");
         check(!WebSearch.safeForGeneralSearch("Quels"),
                 "Une transcription vocale incomplète ne doit pas chercher des définitions");
         check(!WebSearch.safeForGeneralSearch("Jarvis, quelles sont tes capacités ?"),

@@ -11,10 +11,16 @@ public final class LocalJarvisArithmetic {
 
     public static String tryAnswer(String question) {
         if (question == null) return null;
-        String input = question.trim().toLowerCase(Locale.FRENCH)
+        String original = question.trim().toLowerCase(Locale.FRENCH);
+        String input = original
                 .replaceFirst("^(?:friday|jarvis|open ?jarvis)[\\s,.:;!?-]*", "")
                 .replaceFirst("^(?:calcule|calculer|calcules|combien font|combien fait|quelle est la valeur de)\\s+", "");
-        if (input.equals(question.trim().toLowerCase(Locale.FRENCH))) return null;
+        boolean explicitlyRequested = !input.equals(original);
+        // A bare equation like « 12262×43737= » belongs to this local
+        // deterministic calculator, not to a Web search or a language model.
+        // Still reject plain numbers or dates without a calculation intent.
+        if (!explicitlyRequested
+                && original.matches("\\d{4}-\\d{2}-\\d{2}")) return null;
         // Vosk retranscrit souvent les opérateurs et chiffres en toutes lettres.
         input = java.text.Normalizer.normalize(input, java.text.Normalizer.Form.NFD)
                 .replaceAll("\\p{M}+", "");
@@ -31,7 +37,8 @@ public final class LocalJarvisArithmetic {
                 .replace('×', '*').replace('÷', '/').replace('−', '-')
                 .replaceAll("\\s+", "");
         if (input.length() < 3 || input.length() > 90
-                || !input.matches("[0-9.()*/+\\-^]+"))
+                || !input.matches("[0-9.()*/+\\-^]+")
+                || (!explicitlyRequested && !input.matches(".*[*/+\\-^].*")))
             return null;
         try {
             double value = new Parser(input).parse();

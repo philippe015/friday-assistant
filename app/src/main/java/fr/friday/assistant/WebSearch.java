@@ -34,6 +34,23 @@ public final class WebSearch {
             + "raconte moi une blague|que sais tu de moi|qui es tu|tu es qui)"
             + "(?:\\b|$)");
 
+    /** Greetings and friendly replies must not be treated as search terms. */
+    private static final Pattern SOCIAL_CHAT = Pattern.compile(
+            "^(?:je )?suis (?:tres )?(?:ravi|ravie|content|contente|heureux|heureuse)"
+            + " de (?:te|vous) (?:revoir|retrouver)(?: encore)?$"
+            + "|^(?:ca (?:me )?fait plaisir de (?:te|vous) revoir"
+            + "|bonne journee|a bientot)$");
+
+    /** Strict numeric expression. Avoid exporting arithmetic to search engines. */
+    private static boolean pureCalculation(String question) {
+        if (question == null) return false;
+        String q = question.trim().replaceFirst(
+                "(?iu)^(?:jarvis|friday|fraday)[\\s,.:;!?-]+", "").trim();
+        return q.length() <= 100 && q.matches("[0-9\\s.,()+\\-*/×÷^=]+")
+                && q.matches(".*[+*/×÷^\\-].*")
+                && !q.matches("\\d{4}-\\d{2}-\\d{2}");
+    }
+
     private static final String[] QUERY_STOP_WORDS = {
             "quel", "quelle", "quels", "quelles", "est", "sont", "etre", "pourquoi",
             "comment", "quoi", "qui", "que", "qu", "quand", "ou", "avec", "sans",
@@ -94,7 +111,8 @@ public final class WebSearch {
     public static boolean safeForGeneralSearch(String question) {
         if (DialogueMemoryPolicy.keepLocal(question)) return false;
         String q = withoutWake(question);
-        if (q.isEmpty() || LOCAL_CHAT.matcher(q).find()) return false;
+        if (q.isEmpty() || LOCAL_CHAT.matcher(q).find()
+                || SOCIAL_CHAT.matcher(q).matches() || pureCalculation(question)) return false;
         if (q.matches("^(?:qui|quoi|que|quel|quelle|quels|quelles|de|le|la|oui|non|stop|arrete)$"))
             return false;
         if (assistantAnswer(question, true) != null) return false;
@@ -235,7 +253,8 @@ public final class WebSearch {
         if (firstUrl(question).length() > 0) return true;
         String clean = withoutWake(question);
         if (assistantAnswer(question, true) != null) return false;
-        if (clean.isEmpty() || LOCAL_CHAT.matcher(clean).find()) return false;
+        if (clean.isEmpty() || LOCAL_CHAT.matcher(clean).find()
+                || SOCIAL_CHAT.matcher(clean).matches() || pureCalculation(question)) return false;
         // Une transcription Vosk réduite à « quels »/« quelle » ne doit
         // jamais déclencher une recherche de dictionnaire.
         if (clean.matches("^(?:qui|quoi|que|quel|quelle|quels|quelles|comment|pourquoi|de|le|la)$"))
