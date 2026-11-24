@@ -185,7 +185,7 @@ public final class JarvisInternet {
             return new Result(notice, notice, false, "");
         }
         try {
-            WebPageReader.Page guide = WebPageReader.read(TvGuidePolicy.GUIDE_URL);
+            WebPageReader.Page guide = WebPageReader.readLargeText(TvGuidePolicy.GUIDE_URL);
             String response = TvGuidePolicy.describe(
                     guide.text, question, System.currentTimeMillis());
             String sources = "[1] Guide public Télé-Loisirs — grille consultée — "
