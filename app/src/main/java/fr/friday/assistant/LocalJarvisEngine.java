@@ -221,6 +221,26 @@ public final class LocalJarvisEngine {
         return generateRaw(context, cfg, fixedPrompt, cancellation);
     }
 
+    /**
+     * Purely synthetic six-turn benchmark. No personal context, no profile,
+     * no memory and no automatic arithmetic or Internet. The only callers
+     * supply fixed public questions and earlier synthetic model responses.
+     */
+    public static String dialogueTestRaw(Context context, SecurePrefs cfg,
+                                         String syntheticPrompt,
+                                         NativeAI.CancelToken cancellation)
+            throws Exception {
+        if (!"1".equals(cfg.get("local_jarvis_enabled", "0")))
+            throw new IOException("Le modèle IA local est désactivé.");
+        if (!ready(context))
+            throw new IOException("Modèle IA local absent : importez un modèle compatible.");
+        if (syntheticPrompt == null || syntheticPrompt.length() < 110
+                || syntheticPrompt.length() > 4500
+                || !syntheticPrompt.startsWith(DialogueTestPolicy.prefix()))
+            throw new IOException("Conversation de test fictive invalide.");
+        return generateRaw(context, cfg, syntheticPrompt, cancellation);
+    }
+
     /** The only shared inference primitive for chat and supervised audit. */
     private static String generateRaw(Context context, SecurePrefs cfg,
                                       String prompt, NativeAI.CancelToken cancellation)
