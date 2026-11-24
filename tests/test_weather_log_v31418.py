@@ -56,7 +56,9 @@ public final class WeatherLogSmoke {
     def test_geocoder_never_blindly_selects_a_different_town(self):
         java=(JAVA/"JarvisWeather.java").read_text()
         self.assertIn("WeatherQueryPolicy.department94(question)",java)
-        self.assertIn('department94 ? "&countryCode=FR" : ""',java)
+        self.assertIn('"france".equals(countryHint)', java)
+        self.assertIn('"&countryCode=" + countryCode', java)
+        self.assertIn('countryCode.equalsIgnoreCase(candidate.optString("country_code", ""))', java)
         self.assertIn('normalizedCity(candidate.optString("name", ""))',java)
         self.assertIn('normalizedCity(candidate.optString("admin2", ""))',java)
         self.assertIn('equals("valdemarne")',java)

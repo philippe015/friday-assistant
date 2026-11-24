@@ -43,6 +43,24 @@ public class Friday31420Smoke {
           "Ambient speech must not be treated as a city");
     check(!WeatherFollowUpPolicy.clearSpokenCityReply("bonjour"),
           "No single ambient word");
+    check(WeatherFollowUpPolicy.clearSpokenCityReply("Joinville le pont"),
+          "French town with short middle word accepted");
+    check(!WeatherFollowUpPolicy.clearSpokenCityReply("la journée"),
+          "A requested period is not a city");
+    same(WeatherFollowUpPolicy.enrich("Joinville le pont",
+         "Pour quelle ville souhaitez-vous la météo ? Dites par exemple « météo pour Paris, France »."),
+         "météo pour joinville le pont", "Reply with multiword commune");
+    same(WeatherFollowUpPolicy.enrich("Oui",
+         "Vous indiquez « Joinville le pont ». Confirmez-vous que vous souhaitez la météo de cette commune ?"),
+         "météo pour Joinville le pont", "A yes confirms only an explicit commune");
+    check(WeatherFollowUpPolicy.enrich("Oui", "Je vous écoute.") == null,
+          "An unrelated yes must not launch a weather query");
+    same(WeatherQueryPolicy.city("la météo de la journée"), "",
+         "Period is not a city");
+    same(WeatherQueryPolicy.city("Joinville le pont france la météo"),
+         "joinville le pont, france", "Place before trailing météo");
+    same(WeatherQueryPolicy.city("météo pour Joinville-le-Pont, France"),
+         "joinville-le-pont, france", "Explicit French commune and country");
     check(!WeatherFollowUpPolicy.clearSpokenCityReply("quel temps fera demain"),
           "A fresh question must not bypass wake requirement");
     String[] stamps = {

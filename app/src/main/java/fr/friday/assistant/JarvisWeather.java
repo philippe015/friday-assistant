@@ -71,18 +71,25 @@ public final class JarvisWeather {
                     + "Activez « Autoriser Jarvis à rechercher sur Internet » dans les réglages.";
         try {
             boolean department94 = WeatherQueryPolicy.department94(question);
-            String lookup = department94 && !city.contains(",")
-                    ? city + ", France" : city;
+            String lookup = city.split(",")[0].trim();
+            String countryHint = city.contains(",")
+                    ? normalizedCity(city.substring(city.indexOf(',') + 1)) : "";
+            String countryCode = department94 || "france".equals(countryHint) ? "FR"
+                    : "belgique".equals(countryHint) ? "BE"
+                    : "suisse".equals(countryHint) ? "CH"
+                    : "canada".equals(countryHint) ? "CA" : "";
+            // Open-Meteo attend le nom de la commune dans « name » ;
+            // un pays explicitement indiqué devient un filtre countryCode.
             JSONObject places = readJson("https://geocoding-api.open-meteo.com/v1/search"
                     + "?name=" + URLEncoder.encode(lookup, "UTF-8")
-                    + (department94 ? "&countryCode=FR" : "")
+                    + (countryCode.isEmpty() ? "" : "&countryCode=" + countryCode)
                     + "&count=10&language=fr&format=json");
             JSONArray results = places.optJSONArray("results");
             if (results == null || results.length() == 0)
                 return "Aucune commune correspondant à « " + city
                         + " » n'a été trouvée par le géocodeur Open-Meteo. "
                         + "Vérifiez l'orthographe ou précisez son pays.";
-            String expected = normalizedCity(city.split(",")[0]);
+            String expected = normalizedCity(lookup);
             JSONObject place = null;
             // On refuse de remplacer Joinville-le-Pont par « Joinville »
             // simplement parce que le géocodeur classe ce dernier en tête.
@@ -90,9 +97,11 @@ public final class JarvisWeather {
                 JSONObject candidate = results.optJSONObject(i);
                 if (candidate == null || !normalizedCity(candidate.optString("name", ""))
                         .equals(expected)) continue;
-                if (department94 && (!"FR".equalsIgnoreCase(candidate.optString("country_code", ""))
-                        || !normalizedCity(candidate.optString("admin2", ""))
-                        .equals("valdemarne"))) continue;
+                if (!countryCode.isEmpty()
+                        && !countryCode.equalsIgnoreCase(candidate.optString("country_code", "")))
+                    continue;
+                if (department94 && !normalizedCity(candidate.optString("admin2", ""))
+                        .equals("valdemarne")) continue;
                 place = candidate;
                 break;
             }
@@ -105,7 +114,7 @@ public final class JarvisWeather {
             String country = place.optString("country", "pays non précisé");
             // Hors précision départementale, demander le pays pour les
             // homonymes de pays différents au lieu d'inventer un choix.
-            if (!city.contains(",") && !department94) {
+            if (countryCode.isEmpty() && !city.contains(",") && !department94) {
                 for (int i = 0; i < results.length(); i++) {
                     JSONObject alternative = results.optJSONObject(i);
                     if (alternative != null
