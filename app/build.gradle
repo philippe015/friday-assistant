@@ -35,7 +35,7 @@ android {
     buildTypes {
         // Installe la v2.0 à côté de la v1.x, sans effacer ses clés ni son modèle Vosk.
         debug {
-            applicationIdSuffix '.v31420preview'
+            applicationIdSuffix '.v31421matrix'
             versionNameSuffix '-preview'
         }
         release {
@@ -58,8 +58,8 @@ android {
 androidComponents {
     onVariants(selector().withBuildType("debug")) { variant ->
         variant.outputs.forEach { output ->
-            output.versionCode.set(114)
-            output.versionName.set("3.14.20-preview")
+            output.versionCode.set(115)
+            output.versionName.set("3.14.21-matrix-preview")
         }
     }
 }

@@ -27,6 +27,18 @@
 .matrix-editor{display:flex;gap:8px;align-items:stretch;margin-top:10px}.matrix-editor textarea{flex:1;min-width:0;min-height:66px;max-height:180px;resize:vertical;background:#020d06;color:#9affaf;border:1px solid #32904b;border-radius:8px;padding:11px;font-family:inherit;font-size:16px}.matrix-editor textarea::placeholder{color:#61a46f}.matrix-editor button{background:#08431c;color:#b4ffbf;border:1px solid #43d36e;border-radius:8px;font-weight:800;padding:11px;min-width:88px}
 .matrix-shell button:focus-visible,.matrix-shell textarea:focus-visible{outline:2px solid #78ff9e;outline-offset:2px}
 .matrix-state{min-height:25px;margin-top:10px;font-size:12px;color:#b5e6bd}
+
+/* Maximise the Matrix panel without recreating the WebView or its conversation state. */
+body.matrix-fullscreen-active{overflow:hidden}
+#matrixPage.matrix-expanded{position:fixed;inset:0;z-index:9999;width:100%;height:100vh;height:100dvh;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);background:#000602;overflow:hidden}
+#matrixPage.matrix-expanded .matrix-shell{height:100%;min-height:0;display:flex;flex-direction:column;border:0;border-radius:0;padding:12px;box-shadow:none;overflow:hidden}
+#matrixPage.matrix-expanded .matrix-screen{flex:1 1 auto;height:auto;max-height:none;min-height:0;overflow-y:auto}
+#matrixPage.matrix-expanded .matrix-hint{display:none}
+#matrixPage.matrix-expanded .matrix-head,#matrixPage.matrix-expanded .matrix-editor,#matrixPage.matrix-expanded .matrix-controls,#matrixPage.matrix-expanded .matrix-state,#matrixPage.matrix-expanded .matrix-prompt{flex-shrink:0}
+#matrixPage.matrix-expanded .matrix-editor textarea{max-height:110px}
+.matrix-head-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.matrix-toggle{min-height:44px;padding:7px 11px;border:1px solid #45bf6c;border-radius:8px;background:#073718;color:#b5ffcd;font:700 13px/1.25 ui-monospace,Consolas,"Courier New",monospace}
+@media(max-width:660px){#matrixPage.matrix-expanded .matrix-shell{padding:8px}#matrixPage.matrix-expanded .matrix-head{margin-bottom:7px;padding-bottom:7px}#matrixPage.matrix-expanded .matrix-controls{gap:5px}#matrixPage.matrix-expanded .matrix-controls button{padding:6px;min-height:42px;font-size:12px}}
 @keyframes matrix-drift{from{transform:translateY(-25px)}to{transform:translateY(25px)}}
 @media(max-width:660px){.nav{grid-template-columns:repeat(2,minmax(0,1fr))}.nav button{padding:8px 4px;font-size:14px}.matrix-shell{padding:10px}.matrix-editor{flex-wrap:wrap}.matrix-editor button{min-height:45px}.matrix-screen{height:48vh}}
 footer{font-size:11px;color:#659ab1;padding:15px 0;text-align:center;letter-spacing:.06em}
@@ -61,7 +73,7 @@ footer{font-size:11px;color:#659ab1;padding:15px 0;text-align:center;letter-spac
 </head>
 <body>
 <div class="app" id="app">
- <header class="top"><div><div class="name">J.A.R.V.I.S.</div><div class="sub">JARVIS LOCAL · INTELLIGENCE+ · MEMORY+ CHIFFRÉE · INTERNET · v3.14.18</div></div><div class="statuspill" id="livePill"><i class="dot"></i><span id="liveText">INITIALISATION</span></div></header>
+ <header class="top"><div><div class="name">J.A.R.V.I.S.</div><div class="sub">JARVIS LOCAL · INTELLIGENCE+ · MEMORY+ CHIFFRÉE · INTERNET · <span id="webVersion">v3.14.21-matrix-preview</span></div></div><div class="statuspill" id="livePill"><i class="dot"></i><span id="liveText">INITIALISATION</span></div></header>
  <nav class="nav" aria-label="Navigation"><button class="active" id="tabCockpit">◈ Cockpit</button><button id="tabHistory">☰ Dialogue</button><button id="tabPersona">✧ Personnalité</button><button id="tabMatrix">▦ Terminal Matrix</button></nav>
  <section id="cockpitPage">
   <div class="hero"><div class="corewrap"><div class="core" id="core"><div class="rings"></div><div class="center">MOTEUR<b>JARVIS</b><span id="coreStatus">PRÊT</span></div></div></div>
@@ -102,7 +114,7 @@ footer{font-size:11px;color:#659ab1;padding:15px 0;text-align:center;letter-spac
  
   <section id="matrixPage" class="hidden" aria-label="Terminal Matrix pour dialoguer avec FRIDAY">
    <div class="matrix-shell">
-    <div class="matrix-head"><span>FRIDAY://MATRIX.CONSOLE</span><span id="matrixConnection">● ANDROID LOCAL</span></div>
+    <div class="matrix-head"><span>FRIDAY://MATRIX.CONSOLE</span><div class="matrix-head-actions"><span id="matrixConnection">● ANDROID LOCAL</span><button type="button" id="matrixFullscreen" class="matrix-toggle" aria-label="Afficher le terminal Matrix en plein écran" aria-pressed="false">⛶ Plein écran</button></div></div>
     <p class="matrix-hint">Dialogue Matrix · questions et réponses écrites en vert. Les réponses sont aussi prononcées par la voix Android si elle est activée. Même IA, même mémoire locale chiffrée et mêmes autorisations Web que le cockpit.</p>
     <div id="matrixScreen" class="matrix-screen" role="log" aria-label="Historique du terminal Matrix" aria-live="polite" aria-relevant="additions text"><div class="matrix-line">[FRIDAY] Terminal Matrix prêt. Posez une question.</div></div>
     <label for="matrixInput" class="matrix-prompt">vous@friday:~$ QUESTION</label>
@@ -134,14 +146,28 @@ const templates={
  coach:'Tu es J.A.R.V.I.S., assistante claire et pragmatique. Tu écoutes la question en entier, réponds directement et proposes des étapes d’action concrètes. Tu restes polie, neutre et concise à l’oral.',
  detail:'Tu es J.A.R.V.I.S., assistante analytique francophone. Tu développes les réponses avec des faits, méthodes, hypothèses et limites. Quand des informations sont récentes, utilise la recherche Internet autorisée et cite les sources.'
 };
-const state={tab:'cockpit',messages:[],profile:null,active:'',immersive:false,visionBusy:false,lastStatus:'',voiceActive:false,matrixBusy:false,matrixError:'',matrixLastAnswer:''};
+const state={tab:'cockpit',messages:[],profile:null,active:'',immersive:false,visionBusy:false,lastStatus:'',voiceActive:false,matrixBusy:false,matrixError:'',matrixLastAnswer:'',matrixFullscreen:false};
 function call(method,...args){try{const api=bridge();if(api&&typeof api[method]==='function')return api[method](...args);}catch(e){log('Commande Android : '+e.message,true);}return null;}
 function log(msg,bad=false){const p=document.createElement('p');p.textContent='['+new Date().toLocaleTimeString('fr-FR')+'] '+msg;if(bad)p.className='bad';$('diagLog').prepend(p);while($('diagLog').children.length>20)$('diagLog').lastElementChild.remove();}
 function status(text,type='ready'){$('statusMessage').textContent=text;state.lastStatus=text;const core=$('core');core.className='core '+(type==='listen'?'listening':type==='wait'?'thinking':type==='error'?'error':'');$('coreStatus').textContent=type==='listen'?'ÉCOUTE':type==='wait'?'ANALYSE':type==='error'?'ERREUR':'PRÊT';}
-function refreshNative(){const on=call('isListening');const muted=!!call('isMicSilenced');state.voiceActive=!!on;$('microState').textContent=muted?'MUET (ANDROID)':on?'Actif':'Arrêté';$('liveText').textContent=muted?'MICRO BLOQUÉ':on?'ÉCOUTE ACTIVE':'EN ATTENTE';const version=call('currentVersion');if(version)$('versionState').textContent=version;const others=call('otherVersionsCount');if(typeof others==='number'){$('versionsState').textContent=others?others+' installée(s)':'Aucune connue';}$('voiceMode').textContent='Android standard';$('webState').textContent=call('webTelemetry')||'Indisponible';const mode=call('listeningMode');$('listeningModeState').textContent=mode||'Continu';$('startBtn').textContent=mode==='Une question'?'◉ Écouter une question':'◉ Activer écoute';const asr=call('vocabularyMode');$('vocabularyModeState').textContent=asr||'Vosk libre';const barge=call('voiceInterruptTelemetry');$('bargeState').textContent=barge||'Diagnostic indisponible';const gps=call('gpsTelemetry');$('gpsState').textContent=typeof gps==='string'?gps:'Indisponible';$('gpsShareState').textContent='Aucun partage';const activeProfileName=call('activeProfileName');$('personaState').textContent=typeof activeProfileName==='string'&&activeProfileName?activeProfileName:'Non déterminé';const place=call('locationText');if(place!==null)$('locationText').textContent=place||'Aucune mesure GPS effectuée · bouton Tester GPS';}
+function refreshNative(){const on=call('isListening');const muted=!!call('isMicSilenced');state.voiceActive=!!on;$('microState').textContent=muted?'MUET (ANDROID)':on?'Actif':'Arrêté';$('liveText').textContent=muted?'MICRO BLOQUÉ':on?'ÉCOUTE ACTIVE':'EN ATTENTE';const version=call('currentVersion');if(version){$('versionState').textContent=version;$('webVersion').textContent=version;}const others=call('otherVersionsCount');if(typeof others==='number'){$('versionsState').textContent=others?others+' installée(s)':'Aucune connue';}$('voiceMode').textContent='Android standard';$('webState').textContent=call('webTelemetry')||'Indisponible';const mode=call('listeningMode');$('listeningModeState').textContent=mode||'Continu';$('startBtn').textContent=mode==='Une question'?'◉ Écouter une question':'◉ Activer écoute';const asr=call('vocabularyMode');$('vocabularyModeState').textContent=asr||'Vosk libre';const barge=call('voiceInterruptTelemetry');$('bargeState').textContent=barge||'Diagnostic indisponible';const gps=call('gpsTelemetry');$('gpsState').textContent=typeof gps==='string'?gps:'Indisponible';$('gpsShareState').textContent='Aucun partage';const activeProfileName=call('activeProfileName');$('personaState').textContent=typeof activeProfileName==='string'&&activeProfileName?activeProfileName:'Non déterminé';const place=call('locationText');if(place!==null)$('locationText').textContent=place||'Aucune mesure GPS effectuée · bouton Tester GPS';}
 window.fridayRefreshNative = refreshNative;
 function clock(){const d=new Date();$('clock').textContent=d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
-function showTab(tab){state.tab=tab;for(const name of ['cockpit','history','persona','matrix']){$(name+'Page').classList.toggle('hidden',name!==tab);$('tab'+name[0].toUpperCase()+name.slice(1)).classList.toggle('active',name===tab);}if(tab==='persona')loadProfiles();}
+function setMatrixFullscreen(enabled){
+ const next=!!enabled;
+ if(state.matrixFullscreen===next)return;
+ state.matrixFullscreen=next;
+ $('matrixPage').classList.toggle('matrix-expanded',next);
+ document.body.classList.toggle('matrix-fullscreen-active',next);
+ const button=$('matrixFullscreen');
+ button.textContent=next?'↙ Mode normal':'⛶ Plein écran';
+ button.setAttribute('aria-pressed',String(next));
+ button.setAttribute('aria-label',next?'Revenir à la taille normale du terminal Matrix':'Afficher le terminal Matrix en plein écran');
+ // Android hides system bars; CSS remains a functional fallback in browsers.
+ call('setMatrixFullscreen',next);
+}
+window.fridayMatrixExitFullscreen=()=>setMatrixFullscreen(false);
+function showTab(tab){if(tab!=='matrix'&&state.matrixFullscreen)setMatrixFullscreen(false);state.tab=tab;for(const name of ['cockpit','history','persona','matrix']){$(name+'Page').classList.toggle('hidden',name!==tab);$('tab'+name[0].toUpperCase()+name.slice(1)).classList.toggle('active',name===tab);}if(tab==='persona')loadProfiles();}
 function drawMessages(){for(const [target,n] of [['recentMessages',4],['allMessages',40]]){const host=$(target);host.replaceChildren();const items=state.messages.slice(-n);if(items.length===0){const p=document.createElement('p');p.className='empty';p.textContent='Aucune conversation enregistrée pour le moment.';host.append(p);continue;}for(const item of items){const box=document.createElement('div');box.className='message '+(item.kind==='user'?'user':'assistant');const meta=document.createElement('div');meta.className='meta';meta.textContent=item.kind==='user'?'Vous':(call('activeProfileName')||'J.A.R.V.I.S.');const content=document.createElement('div');content.textContent=String(item.text||'');box.append(meta,content);host.append(box);}host.scrollTop=host.scrollHeight;}drawMatrix();}
 window.fridayTypedReply=function(question,answer){
   try{
@@ -228,6 +254,8 @@ function importProfiles(){const field=$('personaBackup');if(field.classList.cont
 function exportProfiles(){try{const data=JSON.stringify(validateProfiles(state.profile));if(bridge()&&typeof bridge().sharePersonalityProfiles==='function'){call('sharePersonalityProfiles',data);notice('Partage Android ouvert.');}else{$('personaBackup').value=JSON.stringify(state.profile,null,2);$('personaBackup').classList.remove('hidden');notice('Copiez le JSON de sauvegarde.');}}catch(e){notice(e.message,true);}}
 window.fridayOpenPersonality=()=>showTab('persona');
 function init(){for(const [tab,id] of [['cockpit','tabCockpit'],['history','tabHistory'],['persona','tabPersona'],['matrix','tabMatrix']])$(id).onclick=()=>showTab(tab);
+ $('matrixFullscreen').onclick=()=>setMatrixFullscreen(!state.matrixFullscreen);
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&state.matrixFullscreen){e.preventDefault();setMatrixFullscreen(false);}});
  $('matrixSend').onclick=matrixAsk;
  $('matrixInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();matrixAsk();}});
  $('matrixMic').onclick=()=>{start();matrixState('Écoute vocale Android demandée.');};
