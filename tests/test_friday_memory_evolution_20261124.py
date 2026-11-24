@@ -119,7 +119,7 @@ public final class MemoryEvolutionSmoke {
             "call('learningResolveConflict',String(entry.id),true)",
             "call('learningDeleteEntry',String(entry.id))",
             "if(erase.dataset.armed!=='yes')",
-            "corrections suspendues",
+            "Corrections suspendues",
             "$('learningMemoryRefresh').onclick=learningMemoryRefresh;",
         ):
             self.assertIn(marker, html)
