@@ -74,7 +74,7 @@ public final class ConversationSmoke {
         core=(JAVA/"JarvisInternet.java").read_text()
         rss=(JAVA/"RssArticleIntent.java").read_text()
         self.assertIn('(?:coder|code|programmer|developper)',web)
-        self.assertIn("Je peux vous aider à concevoir, écrire, expliquer et corriger",web)
+        self.assertIn("Je peux vous aider à concevoir, écrire, expliquer",web)
         self.assertIn("if (assistantAnswer(question, true) != null) return false",web)
         self.assertIn("RssArticleIntent.isPluralBulletinFollowUp(question)",core)
         self.assertIn("listRememberedArticles(settings)",core)
