@@ -743,6 +743,8 @@ public class FridayService extends Service {
                                     && phrase.trim().split("\\s+").length < 2;
                             boolean unclear = !controlPhrase && JarvisKotlinBrain.needsVoiceClarification(
                                     phrase, confidence, explicitWake);
+                            boolean unreliableLongAsr = !controlPhrase
+                                    && VoiceInputQualityPolicy.requestRepeat(phrase);
                             if (selfEcho) {
                                 asrDiagnostic("Écho du haut-parleur JARVIS ignoré : "
                                         + "la réponse ne sera pas renvoyée au modèle.");
@@ -751,11 +753,17 @@ public class FridayService extends Service {
                                 asrDiagnostic("Mot isolé reconnu par Vosk, ignoré sans "
                                         + "interroger Jarvis : « " + phrase.trim() + " ».");
                             } else if (!dropSpeaker && !phrase.trim().isEmpty()) {
-                                if (unclear) {
+                                if (unclear || unreliableLongAsr) {
                                     if (currentTurn == null && now >= echoBlockUntil
                                             && (explicitWake || acceptsDirectQuestion(now))) {
-                                        asrDiagnostic("Dictée incertaine (" + Math.round(confidence * 100)
-                                                + " %). Je vous écoute, pouvez-vous répéter ?");
+                                        if (unreliableLongAsr) {
+                                            DiagnosticLog.record(this, "VOSK_LONG_UNRELIABLE_REJECTED");
+                                            asrDiagnostic(VoiceInputQualityPolicy.clarification());
+                                            voiceState("Transcription incertaine · reformulez votre question.");
+                                        } else {
+                                            asrDiagnostic("Dictée incertaine (" + Math.round(confidence * 100)
+                                                    + " %). Je vous écoute, pouvez-vous répéter ?");
+                                        }
                                     }
                                 } else {
                                     asrDiagnostic("Question finalisée par Vosk : « "

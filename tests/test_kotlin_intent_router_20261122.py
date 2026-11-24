@@ -36,7 +36,8 @@ class KotlinIntelligenceRegression(unittest.TestCase):
 
     def test_uncertain_dictation_is_a_listening_event(self):
         voice = (JAVA / "FridayService.java").read_text(encoding="utf-8")
-        unclear = voice.split("if (unclear) {", 1)[1].split("} else {", 1)[0]
+        unclear = voice.split("if (unclear || unreliableLongAsr) {", 1)[1].split(
+            '} else {\n                                    asrDiagnostic("Question finalisée', 1)[0]
         self.assertIn('asrDiagnostic("Dictée incertaine', unclear)
         self.assertIn("acceptsDirectQuestion(now)", unclear)
         self.assertNotIn('event("error"', unclear)

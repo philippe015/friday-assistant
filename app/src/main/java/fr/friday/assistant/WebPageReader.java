@@ -134,6 +134,10 @@ public final class WebPageReader {
     public static Page readDeep(String url) throws Exception {
         return readInternal(url, true, MAX_DEEP_BYTES, MAX_DEEP_TEXT);
     }
+    /** Grande page publique NON éditoriale (guide horaire), sans extraction d'article. */
+    public static Page readLargeText(String url) throws Exception {
+        return readInternal(url, false, MAX_DEEP_BYTES, MAX_DEEP_TEXT);
+    }
 
     private static Page readInternal(String url, boolean articleMode) throws Exception {
         return readInternal(url, articleMode, MAX_BYTES, MAX_TEXT);

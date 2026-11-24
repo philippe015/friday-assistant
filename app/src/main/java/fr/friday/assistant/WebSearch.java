@@ -168,6 +168,13 @@ public final class WebSearch {
         if (q.isEmpty() || firstUrl(question).length() > 0
                 || q.matches("^(?:cherche|recherche|verifie|consulte|trouve)\\b.*"))
             return null;
+        // Television schedules are current events. When Internet is disabled,
+        // do not let the model hallucinate a channel and a movie.
+        if (!internetEnabled && TvGuidePolicy.isRequest(question))
+            return "Internet Jarvis est désactivé. Je ne peux pas vérifier "
+                    + "les horaires de télévision actuels sans accès au guide. "
+                    + "Activez Internet Jarvis ou consultez "
+                    + TvGuidePolicy.GUIDE_URL;
         // A question about JARVIS coding ability is about this device,
         // not the French word « sais » or a live Internet fact. Do not
         // search Johns Hopkins SAIS, an auction house or unrelated pages.
