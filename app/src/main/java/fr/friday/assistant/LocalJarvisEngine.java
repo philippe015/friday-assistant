@@ -299,6 +299,11 @@ public final class LocalJarvisEngine {
                 // Fail closed : le modèle reçoit seulement la question actuelle.
             }
         }
+        // A previously approved, encrypted correction is only a hint to the
+        // on-device model for exactly the same question. No weight training.
+        // Skip all sourced public/RSS transformations to avoid source contamination.
+        if (!hasWebSources && !rssTranslationOnly)
+            prompt.append(LocalLearningMemory.promptHint(cfg, cleaned));
         // Ce contexte vient UNIQUEMENT de l'historique AES-GCM sur Android.
         // Il n'est pas ajouté aux mots-clés ou aux URLs des moteurs Web.
         if (privateDialogue != null && !privateDialogue.trim().isEmpty()) {

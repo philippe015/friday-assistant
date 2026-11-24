@@ -82,6 +82,7 @@ public class MainActivity extends Activity {
     private EditText manualQuestion;
     private TextView manualAnswerLabel;
     private final AtomicBoolean typedQuestionRunning = new AtomicBoolean(false);
+    private final AtomicBoolean learningReviewRunning = new AtomicBoolean(false);
     private boolean pageReady = false;
     private boolean promptStartAfterPermission = false;
     private BroadcastReceiver events;
@@ -1442,6 +1443,16 @@ public class MainActivity extends Activity {
             });
         }, "friday-typed-request-no-mic").start();
     }
+    /** Review proposals are transient: only the explicit Approve button persists. */
+    private void learningReviewCallback(String question, String proposal, String error) {
+        runOnUiThread(() -> {
+            if (!pageReady || hud == null || isFinishing() || isDestroyed()) return;
+            hud.evaluateJavascript("window.fridayLearningProposal&&window.fridayLearningProposal("
+                    + org.json.JSONObject.quote(question) + ","
+                    + org.json.JSONObject.quote(proposal) + ","
+                    + org.json.JSONObject.quote(error) + ");", null);
+        });
+    }
     /** UI callback only; user text is not written to technical diagnostics. */
     private void matrixTerminalComplete(String question, String answer, String error) {
         if (pageReady && hud != null) {
@@ -2165,6 +2176,71 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void ask(String question) {
             if (question == null || question.length() > 15000) return;
             runOnUiThread(() -> sendQuestion(question));
+        }
+        /**
+         * Supervised autonomous analysis: only the installed local LLM can
+         * suggest a correction. No new local fact is stored until user approval.
+         */
+        @JavascriptInterface public boolean learningEnabled() {
+            return LocalLearningMemory.enabled(prefs);
+        }
+        @JavascriptInterface public boolean learningAutoReviewEnabled() {
+            return LocalLearningMemory.enabled(prefs)
+                    && "1".equals(prefs.get("local_learning_auto_review", "0"));
+        }
+        @JavascriptInterface public String learningStatus() {
+            return LocalLearningMemory.status(prefs);
+        }
+        @JavascriptInterface public String learningSetEnabled(boolean enabled) {
+            LocalLearningMemory.setEnabled(prefs, enabled);
+            if (!enabled) prefs.put("local_learning_auto_review", "0");
+            return LocalLearningMemory.status(prefs);
+        }
+        @JavascriptInterface public String learningSetAutoReview(boolean enabled) {
+            if (enabled && !LocalLearningMemory.enabled(prefs))
+                return "Activez d'abord l'apprentissage local.";
+            prefs.put("local_learning_auto_review", enabled ? "1" : "0");
+            return enabled ? "Auto-analyse locale activée pour les réponses Matrix."
+                    : "Auto-analyse locale désactivée.";
+        }
+        @JavascriptInterface public String learningFeedback(String question, String vote,
+                                                             String correction) {
+            try {
+                return LocalLearningMemory.record(prefs, question, vote, correction);
+            } catch (Exception unavailable) {
+                return "Erreur de mémoire chiffrée : rien n'a été enregistré en clair.";
+            }
+        }
+        @JavascriptInterface public String learningClear() {
+            try {
+                return LocalLearningMemory.clear(prefs);
+            } catch (Exception unavailable) {
+                return "Impossible d'effacer la mémoire chiffrée.";
+            }
+        }
+        /** Review runs on a separate thread and never uploads conversations. */
+        @JavascriptInterface public void learningReview(String question, String answer) {
+            if (question == null || question.length() > 260
+                    || answer == null || answer.length() > 1500) return;
+            if (!learningReviewRunning.compareAndSet(false, true)) {
+                learningReviewCallback(question, "", "Analyse IA déjà en cours.");
+                return;
+            }
+            new Thread(() -> {
+                String proposal = "";
+                String error = "";
+                try {
+                    proposal = LocalLearningAdvisor.propose(
+                            getApplicationContext(), prefs, question, answer);
+                } catch (Exception unavailable) {
+                    error = unavailable.getMessage() == null
+                            ? "Modèle IA local indisponible pour cette analyse."
+                            : unavailable.getMessage();
+                } finally {
+                    learningReviewRunning.set(false);
+                }
+                learningReviewCallback(question, proposal, error);
+            }, "friday-ondevice-learning-review").start();
         }
         /** Matrix is a chat UI, never an Android or Linux command shell. */
         @JavascriptInterface public void askMatrix(String question) {
