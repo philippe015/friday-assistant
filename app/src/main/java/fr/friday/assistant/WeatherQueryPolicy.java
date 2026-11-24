@@ -27,7 +27,9 @@ public final class WeatherQueryPolicy {
     private static final Pattern INVALID_CITY = Pattern.compile(
         "^(?:moi|nous|ma ville|mon village|mes alentours|chez moi|"
       + "la maison|ma position|proximite|ici|ma localisation|"
-      + "quel endroit|quel pays|maintenant|aujourd hui|demain)$");
+      + "quel endroit|quel pays|maintenant|aujourd hui|demain|journee|la journee|"
+      + "toute la journee|dans la journee|pour la journee|la matinee|le matin|"
+      + "le soir|en ce moment|les prochaines heures)$");
 
     public static String fold(String input) {
         return Normalizer.normalize(input == null ? "" : input, Normalizer.Form.NFD)
@@ -49,10 +51,21 @@ public final class WeatherQueryPolicy {
         Matcher weather = WEATHER.matcher(normalized);
         if (!weather.find()) return "";
         String tail = normalized.substring(weather.end());
+        // La ville peut précéder « la météo » : « Joinville le pont France la météo ».
+        // Ne jamais prendre « la journée » ou « France » pour une nouvelle ville.
+        if (tail.trim().isEmpty()) {
+            tail = normalized.substring(0, weather.start())
+                    .replaceFirst("\\s+(?:la|de la|pour la)$", "")
+                    .replaceFirst("^(?:bonjour|salut)\\s+", "").trim();
+        }
         tail = PERIOD.matcher(tail).replaceAll(" ")
                 .replaceAll("\\s+", " ").trim()
                 .replaceFirst("^-?il\\s+", "")
-                .replaceFirst("^(?:(?:a|pour|sur|de|dans)\\s+)+", "").trim();
+                .replaceFirst("^(?:(?:a|pour|sur|de|dans)\\s+)+", "")
+                .replaceFirst("^(?:du jour|de la journee)\\s+", "")
+                .replaceFirst("\\s+(?:pour )?la journee$", "")
+                .replaceFirst("\\s+(france|belgique|suisse|canada)$", ", $1")
+                .trim();
         if (tail.matches("^(?:pour|a|sur|de|dans|en|il)$")) return "";
         Matcher match = DESTINATION.matcher(tail);
         if (!match.matches()) return "";
