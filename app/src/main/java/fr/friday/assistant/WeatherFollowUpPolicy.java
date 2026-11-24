@@ -15,7 +15,7 @@ public final class WeatherFollowUpPolicy {
         "^Prévisions météo pour ([\\p{L} -]{2,65}), ([\\p{L} -]{2,45}), "
       + "(?:aujourd'hui|demain) \\(");
     private static final Pattern CITY_REPLY = Pattern.compile(
-        "^(?:pour\\s+)?([a-z][a-z0-9-]{2,}(?:\\s+[a-z][a-z0-9-]{2,}){0,2}"
+        "^(?:pour\\s+)?([a-z][a-z0-9-]{1,}(?:\\s+[a-z][a-z0-9-]{1,}){0,4}"
       + "(?:\\s*,\\s*[a-z-]{2,})?)$");
     // The speaker may answer with a city AND the time requested by Jarvis:
     // « Vitry-sur-Seine ce soir ». This time is not part of the city name.
@@ -25,9 +25,12 @@ public final class WeatherFollowUpPolicy {
     private static final Pattern UNCERTAIN_CITY_VOSK = Pattern.compile(
         "^(?:(?:c est|c|ce|sur)\\s+){1,3}.*\\b(?:scene|seine|vitry|france)\\b.*$");
 
+    // Only an explicit confirmation of a previously repeated commune is actionable.
+    private static final Pattern CONFIRMED_CITY = Pattern.compile(
+        "^Vous indiquez « ([\\p{L}][\\p{L} -]{1,65}) »\\. Confirmez-vous que vous souhaitez la météo de cette commune \\?$");
     private static final Pattern OTHER_CITY = Pattern.compile(
-        "^et\\s+(?:pour|a|sur)\\s+([a-z][a-z0-9-]{2,}"
-      + "(?:\\s+[a-z][a-z0-9-]{2,}){0,2}(?:\\s*,\\s*[a-z-]{2,})?)$");
+        "^et\\s+(?:pour|a|sur)\\s+([a-z][a-z0-9-]{1,}"
+      + "(?:\\s+[a-z][a-z0-9-]{1,}){0,4}(?:\\s*,\\s*[a-z-]{2,})?)$");
 
     /** An uncertain city correction immediately after a local weather prompt
      * should request clarification instead of launching arbitrary web search.
@@ -53,6 +56,8 @@ public final class WeatherFollowUpPolicy {
         Matcher match = CITY_REPLY.matcher(text);
         if (!match.matches()) return false;
         String city = match.group(1).trim();
+        if (city.matches("^(?:la journee|pour la journee|toute la journee|"
+                + "la matinee|ce matin|le soir|chez moi)$")) return false;
         if (city.matches("^(?:bonjour|merci|bonne|bonsoir|comment|pourquoi|qui|"
                 + "quelle|quel|combien|ceci|cela|je|tu|nous|on|oui|non)\\b.*"))
             return false;
@@ -70,6 +75,10 @@ public final class WeatherFollowUpPolicy {
         // A complete explicit weather question belongs to the regular tool,
         // not to a city-only follow-up. Avoid « météo pour météo pour Paris ».
         if (WeatherQueryPolicy.isWeather(q)) return null;
+        if (q.equals("oui")) {
+            Matcher confirmed = CONFIRMED_CITY.matcher(previousAssistant);
+            if (confirmed.matches()) return "météo pour " + confirmed.group(1);
+        }
         // Réponse à la question directe « Pour quelle ville ? »
         if (previousAssistant.startsWith("Pour quelle ville souhaitez-vous la météo")) {
             Matcher period = REPLY_PERIOD.matcher(q);
@@ -78,7 +87,8 @@ public final class WeatherFollowUpPolicy {
             String cityOnly = hasPeriod ? period.replaceFirst("").trim() : q;
             Matcher city = CITY_REPLY.matcher(cityOnly);
             if (city.matches() && !city.group(1).matches(
-                    "(?i)(merci|bonjour|aujourd hui|demain|oui|non|je sais|chez moi)"))
+                    "(?i)(merci|bonjour|aujourd hui|demain|oui|non|je sais|chez moi|"
+                  + "la journee|toute la journee|la matinee|pour la journee)"))
                 return "météo " + (periodText.isEmpty() ? "" : periodText + " ")
                         + "pour " + city.group(1);
             return null;
