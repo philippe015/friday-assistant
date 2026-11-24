@@ -37,6 +37,15 @@ body.matrix-fullscreen-active .app{max-width:none;width:100%;height:100%;min-hei
 #matrixPage.matrix-expanded .matrix-hint{display:none}
 #matrixPage.matrix-expanded .matrix-head,#matrixPage.matrix-expanded .matrix-editor,#matrixPage.matrix-expanded .matrix-controls,#matrixPage.matrix-expanded .matrix-state,#matrixPage.matrix-expanded .matrix-prompt{flex-shrink:0}
 #matrixPage.matrix-expanded .matrix-editor textarea{max-height:110px}
+.matrix-learning{margin-top:9px;border-top:1px solid #216838;padding:7px 0;flex-shrink:0;color:#a6e8b8;font-family:ui-monospace,monospace}
+.matrix-learning summary{cursor:pointer;min-height:26px;font-size:12px;color:#7cffaa;list-style:inside}
+.matrix-learning-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.matrix-learning-actions button{border:1px solid #338d51;background:#082d15;color:#b4ffcd;min-height:38px;padding:6px 9px;border-radius:7px;font-size:12px}
+.matrix-learning-actions button:disabled{opacity:.45}
+.matrix-learning-status{margin-top:7px;color:#b3dfbf;font-size:11px;overflow-wrap:anywhere}
+#learningCorrectionPanel{margin-top:8px}
+#learningCorrectionText{width:100%;box-sizing:border-box;background:#001308;color:#c6ffdc;min-height:56px;max-height:110px;border:1px solid #3bb569;border-radius:6px;padding:7px;font-size:14px;resize:vertical}
+#learningCorrectionPanel button{margin-top:5px;padding:8px;background:#06391b;color:#b9ffd2;border:1px solid #3bb569;border-radius:6px}
 .matrix-head-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .matrix-toggle{min-height:44px;padding:7px 11px;border:1px solid #45bf6c;border-radius:8px;background:#073718;color:#b5ffcd;font:700 13px/1.25 ui-monospace,Consolas,"Courier New",monospace}
 @media(max-width:660px){#matrixPage.matrix-expanded .matrix-shell{padding:8px}#matrixPage.matrix-expanded .matrix-head{margin-bottom:7px;padding-bottom:7px}#matrixPage.matrix-expanded .matrix-controls{gap:5px}#matrixPage.matrix-expanded .matrix-controls button{padding:6px;min-height:42px;font-size:12px}}
@@ -122,6 +131,25 @@ footer{font-size:11px;color:#659ab1;padding:15px 0;text-align:center;letter-spac
     <div class="matrix-editor"><textarea id="matrixInput" maxlength="5000" rows="2" aria-label="Votre question pour FRIDAY" placeholder="Posez une question… (Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne)"></textarea><button type="button" id="matrixSend">ENVOYER ↵</button></div>
     <div class="matrix-controls"><button type="button" id="matrixMic">◉ Écoute vocale</button><button type="button" id="matrixReplay">▸ Lire la réponse</button><button type="button" id="matrixSilence">■ Stop voix</button></div>
     <div class="matrix-state" id="matrixState" role="status" aria-live="polite">FRIDAY prêt · aucune commande système n'est exécutée.</div>
+    <details class="matrix-learning" id="matrixLearning">
+      <summary>◈ AUTO-ÉVOLUTION · IA LOCALE SUPERVISÉE</summary>
+      <div class="matrix-learning-actions">
+        <button type="button" id="learningToggle" aria-pressed="false">Apprentissage : OFF</button>
+        <button type="button" id="learningAuto" aria-pressed="false">Auto-analyse : OFF</button>
+        <button type="button" id="learningReview">IA locale : analyser</button>
+        <button type="button" id="learningGood">✓ Utile</button>
+        <button type="button" id="learningBad">✕ Insuffisant</button>
+        <button type="button" id="learningCorrect">✎ Corriger</button>
+        <button type="button" id="learningClear">Effacer les corrections</button>
+      </div>
+      <div class="hidden" id="learningCorrectionPanel">
+        <label for="learningCorrectionText">Suggestion de l'IA locale, non vérifiée. Modifiez-la et approuvez-la avant mémorisation :</label>
+        <textarea id="learningCorrectionText" maxlength="600" placeholder="Correction validée pour une question identique"></textarea>
+        <button type="button" id="learningSave">Approuver et enregistrer chiffré</button>
+        <button type="button" id="learningCancel">Annuler</button>
+      </div>
+      <div id="learningStatus" class="matrix-learning-status" role="status" aria-live="polite">Désactivé par défaut. Aucun modèle n'est réentraîné automatiquement.</div>
+    </details>
     <p class="matrix-hint">Terminal de conversation uniquement : aucune commande Linux/Android n'est exécutée. L'écran reprend l'historique de dialogue de l'appareil ; les questions utilisent le traitement Android habituel.</p>
    </div>
   </section>
@@ -147,7 +175,7 @@ const templates={
  coach:'Tu es J.A.R.V.I.S., assistante claire et pragmatique. Tu écoutes la question en entier, réponds directement et proposes des étapes d’action concrètes. Tu restes polie, neutre et concise à l’oral.',
  detail:'Tu es J.A.R.V.I.S., assistante analytique francophone. Tu développes les réponses avec des faits, méthodes, hypothèses et limites. Quand des informations sont récentes, utilise la recherche Internet autorisée et cite les sources.'
 };
-const state={tab:'cockpit',messages:[],profile:null,active:'',immersive:false,visionBusy:false,lastStatus:'',voiceActive:false,matrixBusy:false,matrixError:'',matrixLastAnswer:'',matrixFullscreen:false};
+const state={tab:'cockpit',messages:[],profile:null,active:'',immersive:false,visionBusy:false,lastStatus:'',voiceActive:false,matrixBusy:false,matrixError:'',matrixLastAnswer:'',matrixFullscreen:false,learningQuestion:'',learningLastAnswer:'',learningBusy:false,learningEraseArmed:false};
 function call(method,...args){try{const api=bridge();if(api&&typeof api[method]==='function')return api[method](...args);}catch(e){log('Commande Android : '+e.message,true);}return null;}
 function log(msg,bad=false){const p=document.createElement('p');p.textContent='['+new Date().toLocaleTimeString('fr-FR')+'] '+msg;if(bad)p.className='bad';$('diagLog').prepend(p);while($('diagLog').children.length>20)$('diagLog').lastElementChild.remove();}
 function status(text,type='ready'){$('statusMessage').textContent=text;state.lastStatus=text;const core=$('core');core.className='core '+(type==='listen'?'listening':type==='wait'?'thinking':type==='error'?'error':'');$('coreStatus').textContent=type==='listen'?'ÉCOUTE':type==='wait'?'ANALYSE':type==='error'?'ERREUR':'PRÊT';}
@@ -232,11 +260,68 @@ function matrixAsk(){
 window.fridayMatrixComplete=function(question,answer,error){
  state.matrixBusy=false;
  state.matrixError=String(error||'');
- if(!state.matrixError && answer)state.matrixLastAnswer=String(answer);
+ if(!state.matrixError && answer){
+   state.matrixLastAnswer=String(answer);
+   state.learningQuestion=String(question||'').trim();
+   state.learningLastAnswer=String(answer);
+   // An optional asynchronous review never writes unapproved memories.
+   if(call('learningAutoReviewEnabled')===true)learningReview();
+ }
  if(state.matrixError)matrixState('Erreur : '+state.matrixError,true);
  else matrixState('Réponse affichée · synthèse vocale Android selon les réglages.');
  drawMatrix();
 };
+function learningContext(){
+ if(state.learningQuestion&&state.learningLastAnswer)
+   return [state.learningQuestion,state.learningLastAnswer];
+ for(let i=state.messages.length-1;i>=1;i--){
+   const reply=state.messages[i],q=state.messages[i-1];
+   if(reply?.kind==='assistant'&&q?.kind==='user')
+     return [String(q.text||''),String(reply.text||'')];
+ }
+ return ['',''];
+}
+function learningRefresh(message){
+ const enabled=call('learningEnabled')===true;
+ const auto=call('learningAutoReviewEnabled')===true;
+ $('learningToggle').textContent='Apprentissage : '+(enabled?'ON':'OFF');
+ $('learningToggle').setAttribute('aria-pressed',String(enabled));
+ $('learningAuto').textContent='Auto-analyse : '+(auto?'ON':'OFF');
+ $('learningAuto').setAttribute('aria-pressed',String(auto));
+ for(const id of ['learningAuto','learningGood','learningBad','learningCorrect','learningReview'])
+   $(id).disabled=!enabled;
+ $('learningStatus').textContent=message||(call('learningStatus')||'Non disponible dans ce navigateur.');
+}
+function learningReview(){
+ if(state.learningBusy){learningRefresh('Une analyse IA locale est déjà en cours.');return;}
+ if(call('learningEnabled')!==true){learningRefresh('Activez d’abord l’apprentissage local.');return;}
+ const [question,answer]=learningContext();
+ if(question.length<4||question.length>260||answer.length<5||answer.length>1500){
+   learningRefresh('Posez une question assez courte (max. 260 caractères), puis demandez une analyse.');return;
+ }
+ state.learningBusy=true;
+ $('learningReview').disabled=true;
+ learningRefresh('IA locale en cours de relecture… aucune écriture automatique.');
+ call('learningReview',question,answer);
+}
+window.fridayLearningProposal=function(question,proposal,error){
+ state.learningBusy=false;
+ learningRefresh();
+ const [current]=learningContext();
+ if(current!==question){learningRefresh('Analyse terminée pour une ancienne question.');return;}
+ if(error){learningRefresh('IA locale : '+String(error));return;}
+ if(!proposal){learningRefresh('Aucune amélioration proposée.');return;}
+ $('matrixLearning').open=true;
+ $('learningCorrectionPanel').classList.remove('hidden');
+ $('learningCorrectionText').value=String(proposal).slice(0,600);
+ learningRefresh('Proposition IA locale non vérifiée : modifiez-la puis approuvez-la si elle est correcte.');
+};
+function learningVote(vote,correction=''){
+ const [question]=learningContext();
+ if(!question){learningRefresh('Aucune question récente à évaluer.');return;}
+ const result=call('learningFeedback',question,vote,correction);
+ learningRefresh(result||'Stockage local indisponible.');
+}
 function matrixReplay(){
  const last=state.matrixLastAnswer||[...state.messages].reverse().find(x=>x.kind==='assistant')?.text;
  if(!last){matrixState('Aucune réponse à relire.',true);return;}
@@ -274,10 +359,50 @@ function init(){for(const [tab,id] of [['cockpit','tabCockpit'],['history','tabH
  $('matrixMic').onclick=()=>{start();matrixState('Écoute vocale Android demandée.');};
  $('matrixReplay').onclick=matrixReplay;
  $('matrixSilence').onclick=()=>{call('stopSpeakingNative');matrixState('Lecture vocale interrompue ; microphone inchangé.');};
+ $('learningToggle').onclick=()=>{
+   const enabled=call('learningEnabled')!==true;
+   learningRefresh(call('learningSetEnabled',enabled));
+ };
+ $('learningAuto').onclick=()=>{
+   const enabled=call('learningAutoReviewEnabled')!==true;
+   learningRefresh(call('learningSetAutoReview',enabled));
+ };
+ $('learningGood').onclick=()=>learningVote('good');
+ $('learningBad').onclick=()=>learningVote('bad');
+ $('learningReview').onclick=learningReview;
+ $('learningCorrect').onclick=()=>{
+   const [question]=learningContext();
+   if(!question){learningRefresh('Aucune réponse à corriger.');return;}
+   $('learningCorrectionPanel').classList.remove('hidden');
+   $('learningCorrectionText').value='';
+   $('learningCorrectionText').focus();
+ };
+ $('learningCancel').onclick=()=>{$('learningCorrectionPanel').classList.add('hidden');learningRefresh();};
+ $('learningSave').onclick=()=>{
+   const correction=$('learningCorrectionText').value.trim();
+   if(correction.length<5||correction.length>600){learningRefresh('Correction : 5 à 600 caractères requis.');return;}
+   const [question]=learningContext();
+   if(!question){learningRefresh('Aucune question associée à la correction.');return;}
+   const result=call('learningFeedback',question,'correction',correction);
+   learningRefresh(result||'Échec de la sauvegarde.');
+   if(String(result||'').startsWith('Correction chiffrée enregistrée'))
+      $('learningCorrectionPanel').classList.add('hidden');
+ };
+ $('learningClear').onclick=()=>{
+   if(!state.learningEraseArmed){
+     state.learningEraseArmed=true;
+     $('learningClear').textContent='Confirmer effacement';
+     learningRefresh('Appuyez de nouveau pour effacer les corrections locales chiffrées.');
+     return;
+   }
+   state.learningEraseArmed=false;
+   $('learningClear').textContent='Effacer les corrections';
+   learningRefresh(call('learningClear'));
+ };
  $('startBtn').onclick=start;$('stopBtn').onclick=stop;$('interruptBtn').onclick=interrupt;$('nativeSettingsBtn').onclick=()=>call('configure');$('sendBtn').onclick=()=>ask($('questionInput').value);$('questionInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ask($('questionInput').value);}});
  for(const b of document.querySelectorAll('[data-question]'))b.onclick=()=>ask(b.dataset.question);$('gpsBtn').onclick=()=>{call('gpsCheck');status('Vérification GPS Android…','wait');};$('gpsConsentBtn').onclick=()=>call('gpsConsent');$('fullscreenBtn').onclick=toggleImmersive;$('versionsBtn').onclick=()=>call('manageVersions');$('diagnosticViewBtn').onclick=()=>call('showDiagnosticLogs');$('diagnosticExportBtn').onclick=()=>call('exportDiagnosticLogs');$('diagnosticGithubBtn').onclick=()=>call('reportDiagnosticGitHub');$('diagnosticClearBtn').onclick=()=>call('clearDiagnosticLogs');
  $('personaVerify').onclick=verifySavedProfile;$('personaSave').onclick=saveProfiles;$('personaTest').onclick=testProfile;$('personaNew').onclick=()=>newProfile(false);$('personaDuplicate').onclick=()=>newProfile(true);$('personaDelete').onclick=deleteProfile;$('personaImport').onclick=importProfiles;$('personaExport').onclick=exportProfiles;$('personaClose').onclick=()=>showTab('cockpit');$('personaPrompt').oninput=countPrompt;$('personaProfiles').onchange=e=>{const selected=e.target.value,previous=state.active;try{const p=activeProfile();p.name=$('personaName').value.trim();p.prompt=$('personaPrompt').value.trim();state.profile.active=selected;validateProfiles(state.profile);const result=call('savePersonalityProfiles',JSON.stringify(state.profile));if(result!=='OK')throw Error(result||'Activation impossible');state.active=selected;renderProfiles();refreshNative();notice('Profil « '+activeProfile().name+' » activé et enregistré pour les prochaines réponses.');}catch(err){state.profile.active=previous;state.active=previous;renderProfiles();notice('Échec activation : '+err.message,true);}};$('personaTemplate').onchange=e=>{if(templates[e.target.value]){$('personaPrompt').value=templates[e.target.value];countPrompt();notice('Modèle chargé, enregistrez pour l’appliquer.');}};
- clock();refreshNative();drawMessages();setInterval(clock,1000);setInterval(refreshNative,4500);log('Cockpit Jarvis local + Internet chargé.');}
+ clock();refreshNative();drawMessages();learningRefresh();setInterval(clock,1000);setInterval(refreshNative,4500);log('Cockpit Jarvis local + Internet chargé.');}
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
 </script>
