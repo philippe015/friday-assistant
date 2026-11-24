@@ -18,8 +18,8 @@ class FridayPreviewPackage(unittest.TestCase):
         self.assertIn("versionCode 112", GRADLE)
         self.assertIn("versionName '3.14.18'", GRADLE)
         self.assertIn('onVariants(selector().withBuildType("debug"))', GRADLE)
-        self.assertIn("output.versionCode.set(118)", GRADLE)
-        self.assertIn('output.versionName.set("3.14.24-memory-evolution-preview")', GRADLE)
+        self.assertIn("output.versionCode.set(119)", GRADLE)
+        self.assertIn('output.versionName.set("3.14.25-conversation-plus-preview")', GRADLE)
 
     def test_models_and_secrets_are_not_bundled_by_preview(self):
         self.assertIn("implementation 'com.alphacephei:vosk-android", GRADLE)
