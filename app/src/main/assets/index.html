@@ -50,6 +50,16 @@ body.matrix-fullscreen-active .app{max-width:none;width:100%;height:100%;min-hei
 .matrix-source-item{border:1px solid #286d43;border-radius:6px;padding:7px;font-size:12px}
 .matrix-source-meta{display:block;color:#c3dacb;font-size:11px;margin-top:3px}
 .matrix-source-excerpt{display:block;color:#a5dab6;font-size:11px;margin-top:5px;white-space:pre-wrap;overflow-wrap:anywhere}
+.memory-v2{margin-top:10px;border:1px solid #276e3c;border-radius:8px;padding:8px;background:#03180c}
+.memory-v2>button{background:#06391b;color:#bbfbd3;border:1px solid #398855;border-radius:7px;min-height:40px;padding:7px 10px}
+.memory-v2>div{font-size:11px;margin-top:7px}
+.memory-v2-item{border-top:1px solid #256337;padding:7px 0;overflow-wrap:anywhere;font-size:12px}
+.memory-v2-title{font-weight:700;color:#b7ffd2}
+.memory-v2-note{margin-top:5px;color:#b5d9c1;white-space:pre-wrap}
+.memory-v2-conflict{color:#ffc58b;font-weight:700;margin-top:5px}
+.memory-v2-actions{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+.memory-v2-actions button{border:1px solid #469e5e;background:#092e18;color:#dbffe3;padding:6px 9px;min-height:38px;border-radius:6px}
+.memory-v2-empty{font-size:12px;color:#b3dac1}
 #learningCorrectionPanel{margin-top:8px}
 #learningCorrectionText{width:100%;box-sizing:border-box;background:#001308;color:#c6ffdc;min-height:56px;max-height:110px;border:1px solid #3bb569;border-radius:6px;padding:7px;font-size:14px;resize:vertical}
 #learningCorrectionPanel button{margin-top:5px;padding:8px;background:#06391b;color:#b9ffd2;border:1px solid #3bb569;border-radius:6px}
@@ -157,6 +167,12 @@ footer{font-size:11px;color:#659ab1;padding:15px 0;text-align:center;letter-spac
         Sources : consultation manuelle seulement. Le bouton envoie une question publique, jamais votre réponse ni l'historique privé.
       </div>
       <div id="learningSourcesList" class="matrix-learning-sources" aria-label="Sources publiques du contrôle indépendant"></div>
+      <div class="memory-v2" id="learningMemoryBoard">
+        <button type="button" id="learningMemoryRefresh">◈ Memory Evolution+ · voir les corrections</button>
+        <div id="learningMemoryEntries" aria-label="Gestion des corrections chiffrées">
+          Mémoire locale : liste accessible uniquement sur le téléphone.
+        </div>
+      </div>
       <div class="hidden" id="learningCorrectionPanel">
         <label for="learningCorrectionText">Suggestion de l'IA locale, non vérifiée. Modifiez-la et approuvez-la avant mémorisation :</label>
         <textarea id="learningCorrectionText" maxlength="600" placeholder="Correction validée pour une question identique"></textarea>
@@ -313,6 +329,67 @@ function learningRefresh(message){
  for(const id of ['learningAuto','learningGood','learningBad','learningCorrect','learningReview'])
    $(id).disabled=!enabled;
  $('learningStatus').textContent=message||(call('learningStatus')||'Non disponible dans ce navigateur.');
+}
+function learningMemoryRefresh(){
+ const host=$('learningMemoryEntries');
+ host.replaceChildren();
+ const raw=call('learningEntries');
+ let items;
+ try{items=JSON.parse(String(raw||'[]'));}catch(_){items=null;}
+ if(!Array.isArray(items)){
+   host.textContent=items?.error||'Impossible de lire la mémoire chiffrée.';
+   return;
+ }
+ if(!items.length){host.textContent='Aucune correction ni évaluation enregistrée.';return;}
+ let pending=0;
+ for(const entry of items){
+   if(!entry || !/^[a-fA-F0-9-]{36}$/.test(String(entry.id||'')))continue;
+   const card=document.createElement('div');card.className='memory-v2-item';
+   const title=document.createElement('div');title.className='memory-v2-title';
+   title.textContent=String(entry.question||'Question inconnue').slice(0,260);
+   const note=document.createElement('div');note.className='memory-v2-note';
+   note.textContent='Correction approuvée : '+(String(entry.correction||'').slice(0,600)||'aucune')
+     +' · Utile '+(Number(entry.good)||0)+' / Insuffisant '+(Number(entry.bad)||0);
+   card.append(title,note);
+   const actions=document.createElement('div');actions.className='memory-v2-actions';
+   if(entry.pendingCorrection){
+     pending++;
+     const alert=document.createElement('div');alert.className='memory-v2-conflict';
+     alert.textContent='CONFLIT · Corrections suspendues pour cette question.';
+     const proposal=document.createElement('div');proposal.className='memory-v2-note';
+     proposal.textContent='Nouvelle correction proposée : '+String(entry.pendingCorrection||'').slice(0,600);
+     card.append(alert,proposal);
+     const oldBtn=document.createElement('button');oldBtn.type='button';
+     oldBtn.textContent='Garder l’ancienne';
+     oldBtn.onclick=()=>{
+       learningRefresh(call('learningResolveConflict',String(entry.id),false));
+       learningMemoryRefresh();
+     };
+     const newBtn=document.createElement('button');newBtn.type='button';
+     newBtn.textContent='Approuver la nouvelle';
+     newBtn.onclick=()=>{
+       learningRefresh(call('learningResolveConflict',String(entry.id),true));
+       learningMemoryRefresh();
+     };
+     actions.append(oldBtn,newBtn);
+   }
+   const erase=document.createElement('button');erase.type='button';
+   erase.textContent='Supprimer cette entrée';
+   erase.onclick=()=>{
+     if(erase.dataset.armed!=='yes'){
+       erase.dataset.armed='yes';erase.textContent='Confirmer suppression';
+       return;
+     }
+     learningRefresh(call('learningDeleteEntry',String(entry.id)));
+     learningMemoryRefresh();
+   };
+   actions.append(erase);card.append(actions);host.append(card);
+ }
+ if(pending){
+   const msg=document.createElement('p');msg.className='memory-v2-conflict';
+   msg.textContent=pending+' conflit(s) : les notes concernées ne sont pas réutilisées avant votre décision.';
+   host.prepend(msg);
+ }
 }
 function verifySources(){
  if(state.evidenceBusy){$('learningEvidenceResult').textContent='Une vérification Web est déjà en cours.';return;}
@@ -474,6 +551,7 @@ function init(){for(const [tab,id] of [['cockpit','tabCockpit'],['history','tabH
  $('learningGood').onclick=()=>learningVote('good');
  $('learningBad').onclick=()=>learningVote('bad');
  $('learningReview').onclick=learningReview;
+ $('learningMemoryRefresh').onclick=learningMemoryRefresh;
  $('learningVerifySources').onclick=verifySources;
  $('learningCorrect').onclick=()=>{
    const [question]=learningContext();
@@ -495,8 +573,11 @@ function init(){for(const [tab,id] of [['cockpit','tabCockpit'],['history','tabH
    }
    const result=call('learningFeedback',question,'correction',correction);
    learningRefresh(result||'Échec de la sauvegarde.');
-   if(String(result||'').startsWith('Correction chiffrée enregistrée'))
+   if(String(result||'').startsWith('Correction chiffrée enregistrée')
+      || String(result||'').startsWith('Conflit détecté')){
       $('learningCorrectionPanel').classList.add('hidden');
+      learningMemoryRefresh();
+   }
  };
  $('learningClear').onclick=()=>{
    if(!state.learningEraseArmed){
@@ -508,6 +589,7 @@ function init(){for(const [tab,id] of [['cockpit','tabCockpit'],['history','tabH
    state.learningEraseArmed=false;
    $('learningClear').textContent='Effacer les corrections';
    learningRefresh(call('learningClear'));
+   learningMemoryRefresh();
  };
  $('startBtn').onclick=start;$('stopBtn').onclick=stop;$('interruptBtn').onclick=interrupt;$('nativeSettingsBtn').onclick=()=>call('configure');$('sendBtn').onclick=()=>ask($('questionInput').value);$('questionInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ask($('questionInput').value);}});
  for(const b of document.querySelectorAll('[data-question]'))b.onclick=()=>ask(b.dataset.question);$('gpsBtn').onclick=()=>{call('gpsCheck');status('Vérification GPS Android…','wait');};$('gpsConsentBtn').onclick=()=>call('gpsConsent');$('fullscreenBtn').onclick=toggleImmersive;$('versionsBtn').onclick=()=>call('manageVersions');$('diagnosticViewBtn').onclick=()=>call('showDiagnosticLogs');$('diagnosticExportBtn').onclick=()=>call('exportDiagnosticLogs');$('diagnosticGithubBtn').onclick=()=>call('reportDiagnosticGitHub');$('diagnosticClearBtn').onclick=()=>call('clearDiagnosticLogs');
