@@ -1444,11 +1444,13 @@ public class MainActivity extends Activity {
         }, "friday-typed-request-no-mic").start();
     }
     /** Review proposals are transient: only the explicit Approve button persists. */
-    private void learningReviewCallback(String question, String proposal, String error) {
+    private void learningReviewCallback(String question, String answer,
+                                        String proposal, String error) {
         runOnUiThread(() -> {
             if (!pageReady || hud == null || isFinishing() || isDestroyed()) return;
             hud.evaluateJavascript("window.fridayLearningProposal&&window.fridayLearningProposal("
                     + org.json.JSONObject.quote(question) + ","
+                    + org.json.JSONObject.quote(answer) + ","
                     + org.json.JSONObject.quote(proposal) + ","
                     + org.json.JSONObject.quote(error) + ");", null);
         });
@@ -2220,10 +2222,15 @@ public class MainActivity extends Activity {
         }
         /** Review runs on a separate thread and never uploads conversations. */
         @JavascriptInterface public void learningReview(String question, String answer) {
-            if (question == null || question.length() > 260
-                    || answer == null || answer.length() > 1500) return;
+            if (question == null || question.length() < 4 || question.length() > 260
+                    || answer == null || answer.length() < 5 || answer.length() > 1500) {
+                learningReviewCallback(question == null ? "" : question,
+                        answer == null ? "" : answer, "",
+                        "Réponse trop longue ou incomplète : analyse intégrale impossible.");
+                return;
+            }
             if (!learningReviewRunning.compareAndSet(false, true)) {
-                learningReviewCallback(question, "", "Analyse IA déjà en cours.");
+                learningReviewCallback(question, answer, "", "Analyse IA déjà en cours.");
                 return;
             }
             new Thread(() -> {
@@ -2239,7 +2246,7 @@ public class MainActivity extends Activity {
                 } finally {
                     learningReviewRunning.set(false);
                 }
-                learningReviewCallback(question, proposal, error);
+                learningReviewCallback(question, answer, proposal, error);
             }, "friday-ondevice-learning-review").start();
         }
         /** Matrix is a chat UI, never an Android or Linux command shell. */
