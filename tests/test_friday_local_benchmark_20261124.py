@@ -81,8 +81,8 @@ public class LocalBenchmarkSmoke {
         self.assertIn("versionCode 112",gradle)
         self.assertIn("versionName '3.14.18'",gradle)
         self.assertIn("applicationIdSuffix '.v31421matrix'",gradle)
-        self.assertIn("output.versionCode.set(120)",gradle)
-        self.assertIn('output.versionName.set("3.14.26-local-benchmark-preview")',gradle)
+        self.assertIn("output.versionCode.set(121)",gradle)
+        self.assertIn('output.versionName.set("3.14.27-dialogue-pro-preview")',gradle)
 
 if __name__=="__main__":
     unittest.main()
