@@ -208,8 +208,8 @@ public final class LocalJarvisEngine {
             throws Exception {
         if (cancellation != null) cancellation.check();
         if ("litertlm".equals(format(context))) {
-            String result = LiteRtJarvisEngine.answer(
-                    context, modelFile(context), prompt, cancellation);
+            String result = LiteRtJarvisEngine.answer(context, modelFile(context),
+                    prompt, cancellation);
             if (result == null || result.trim().isEmpty())
                 throw new IOException("Le modèle LiteRT local n'a produit aucun texte.");
             return result.trim();
