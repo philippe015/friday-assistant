@@ -114,8 +114,8 @@ public final class AutoCritiqueSmoke {
 
     def test_no_changes_to_play_release(self):
         gradle=(ROOT/"app/build.gradle").read_text(encoding="utf-8")
-        self.assertIn("output.versionCode.set(120)",gradle)
-        self.assertIn('output.versionName.set("3.14.26-local-benchmark-preview")',gradle)
+        self.assertIn("output.versionCode.set(121)",gradle)
+        self.assertIn('output.versionName.set("3.14.27-dialogue-pro-preview")',gradle)
         self.assertIn("applicationIdSuffix '.v31421matrix'",gradle)
         self.assertIn("versionCode 112",gradle)
         self.assertIn("versionName '3.14.18'",gradle)
