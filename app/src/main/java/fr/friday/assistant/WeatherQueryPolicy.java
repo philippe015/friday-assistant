@@ -76,7 +76,7 @@ public final class WeatherQueryPolicy {
         if (!match.matches()) return "";
         String name = match.group(1).trim();
         if (name.length() < 3 || name.length() > 65
-                || INVALID_CITY.matcher(name).matches()) return "";
+                || INVALID_CITY.matcher(name.replace('-', ' ')).matches()) return "";
         String country = match.group(3);
         return country == null ? name : name + ", " + country.trim();
     }
