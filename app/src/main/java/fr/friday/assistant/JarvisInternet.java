@@ -138,7 +138,8 @@ public final class JarvisInternet {
         // Une demande de lecture d'un lien RSS déjà présenté reste explicite.
         // L'état du réseau est vérifié dans readRememberedRssArticle().
         if (RssArticleIntent.isRequest(question)
-                || RssArticleIntent.isBareReference(question)) return true;
+                || RssArticleIntent.isBareReference(question)
+                || RssArticleIntent.isPluralBulletinFollowUp(question)) return true;
         if (!enabled(settings)) return false;
         // Ne jamais envoyer commandes de mémoire ni données de position
         // aux moteurs de recherche publics, même en mode « toujours ».
@@ -163,6 +164,8 @@ public final class JarvisInternet {
         if (RssArticleIntent.isRequest(question)
                 || RssArticleIntent.isBareReference(question))
             return readRememberedRssArticle(context, settings, question, cancellation);
+        if (RssArticleIntent.isPluralBulletinFollowUp(question))
+            return listRememberedArticles(settings);
         if (!shouldResearch(settings, question)) {
             String answer = LocalJarvisEngine.answer(
                     context, settings, question, privateDialogue, cancellation);
@@ -474,6 +477,43 @@ public final class JarvisInternet {
      * sur la seule description RSS. Ni conversation ni profil envoyé au site.
      * Paywalls, JS et refus HTTP restent strictement respectés.
      */
+    /**
+     * Short, offline index of the previous RSS bulletin. No new search is
+     * permitted on the ambiguous word « entier », and no URL is opened
+     * without a numbered user instruction.
+     */
+    private static Result listRememberedArticles(SecurePrefs settings) {
+        JSONArray stored = new JSONArray();
+        try {
+            if (settings.hasSecret(LAST_RSS_KEY))
+                stored = new JSONArray(settings.secret(LAST_RSS_KEY));
+        } catch (Exception unavailable) {
+            // No plaintext fallback, no guesses and no Internet call.
+        }
+        if (stored.length() == 0) {
+            String notice = "Je n'ai aucun article RSS récent mémorisé. "
+                    + "Demandez les actualités, puis choisissez un numéro d'article.";
+            return new Result(notice, notice, false, "");
+        }
+        StringBuilder list = new StringBuilder("J'ai les références de ")
+                .append(stored.length()).append(" articles du dernier bulletin :");
+        int limit = Math.min(stored.length(), 7);
+        for (int i = 0; i < limit; i++) {
+            JSONObject item = stored.optJSONObject(i);
+            if (item == null) continue;
+            list.append("\nArticle ").append(i + 1).append(" : ")
+                    .append(clip(item.optString("title", "titre indisponible"), 130))
+                    .append(".");
+        }
+        list.append("\nDites « lis l'article 1 en entier » ou « résume l'article 2 ». ")
+                .append("Je consulterai la page de l'éditeur si elle est accessible ; ")
+                .append("un extrait RSS seul ne constitue pas un article entier.");
+        String spoken = "J'ai conservé " + stored.length() + " références du dernier "
+                + "bulletin. Dites par exemple « lis l'article 1 en entier ». "
+                + "Je ne vais pas effectuer une recherche sans rapport.";
+        return new Result(list.toString(), spoken, false, "");
+    }
+
     private static Result readRememberedRssArticle(
             Context context, SecurePrefs settings, String question,
             NativeAI.CancelToken cancellation) throws Exception {
