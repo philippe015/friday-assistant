@@ -72,6 +72,10 @@ public class MainActivity extends Activity {
     private LinearLayout config;
     private ScrollView configScroll;
     private WebView hud;
+    /** Native controls must also disappear; enlarging HTML inside a small WebView is not fullscreen. */
+    private LinearLayout matrixRoot;
+    private final java.util.Map<View, Integer> matrixSavedNativeVisibility =
+            new java.util.LinkedHashMap<>();
     private boolean matrixFullscreenActive = false;
     private int matrixSavedSystemUiVisibility;
     private TextToSpeech testTts;
@@ -180,13 +184,17 @@ public class MainActivity extends Activity {
         LinearLayout outer = new LinearLayout(this);
         outer.setOrientation(LinearLayout.VERTICAL);
         outer.setBackgroundColor(Color.rgb(4,15,27));
+        matrixRoot = outer;
         // Android 15+ (target 35) dessine sous les barres système : préserver
         // la zone caméra, les gestes et le clavier sans rogner les boutons.
         if (Build.VERSION.SDK_INT >= 35) {
             outer.setOnApplyWindowInsetsListener((view, insets) -> {
                 android.graphics.Insets safe = insets.getInsets(
                         WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
-                view.setPadding(safe.left, safe.top, safe.right, safe.bottom);
+                // En plein écran, ne pas conserver les marges des barres masquées :
+                // elles empêchaient le WebView de remplir le vrai écran.
+                if (matrixFullscreenActive) view.setPadding(0, 0, 0, 0);
+                else view.setPadding(safe.left, safe.top, safe.right, safe.bottom);
                 return insets;
             });
         }
@@ -527,6 +535,8 @@ public class MainActivity extends Activity {
                 + "Aucune question ni donnée personnelle envoyée à une API IA."));
 
         hud = new WebView(this);
+        // Keep the input field visible when the Android software keyboard opens.
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         hud.setBackgroundColor(Color.rgb(5,17,28));
         WebSettings settings = hud.getSettings();
         settings.setJavaScriptEnabled(true); settings.setDomStorageEnabled(true);
@@ -554,20 +564,63 @@ public class MainActivity extends Activity {
         hud.loadUrl("file:///android_asset/index.html");
         configScroll.setVisibility(View.GONE);
     }
-    /** Keep Android status/navigation bars in sync with the Matrix overlay. */
+    /** Full-screen Matrix: WebView fills the entire activity, including former native toolbar area. */
     private void setMatrixFullscreenMode(boolean enabled) {
         if (matrixFullscreenActive == enabled) return;
         View decor = getWindow().getDecorView();
+        matrixFullscreenActive = enabled;
         if (enabled) {
             matrixSavedSystemUiVisibility = decor.getSystemUiVisibility();
-            matrixFullscreenActive = true;
+            // Hide every native sibling of the WebView, restoring its original
+            // VISIBLE/GONE state exactly when the terminal returns to normal.
+            matrixSavedNativeVisibility.clear();
+            if (matrixRoot != null) {
+                for (int i = 0; i < matrixRoot.getChildCount(); i++) {
+                    View child = matrixRoot.getChildAt(i);
+                    if (child != hud) {
+                        matrixSavedNativeVisibility.put(child, child.getVisibility());
+                        child.setVisibility(View.GONE);
+                    }
+                }
+            }
+            // Legacy flags also request layout behind both bars (Android 8+).
             decor.setSystemUiVisibility(matrixSavedSystemUiVisibility
+                    | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
                     | View.SYSTEM_UI_FLAG_FULLSCREEN
                     | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                     | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+            if (Build.VERSION.SDK_INT >= 30) {
+                android.view.WindowInsetsController controller = getWindow().getInsetsController();
+                if (controller != null) {
+                    controller.setSystemBarsBehavior(
+                            android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                    controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+                }
+            }
         } else {
-            matrixFullscreenActive = false;
+            for (java.util.Map.Entry<View, Integer> item : matrixSavedNativeVisibility.entrySet())
+                item.getKey().setVisibility(item.getValue());
+            matrixSavedNativeVisibility.clear();
             decor.setSystemUiVisibility(matrixSavedSystemUiVisibility);
+            if (Build.VERSION.SDK_INT >= 30) {
+                android.view.WindowInsetsController controller = getWindow().getInsetsController();
+                if (controller != null)
+                    controller.show(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+            }
+        }
+        // Android 15+ applies edge-to-edge insets even after changing decor flags.
+        // Force a new dispatch so the fullscreen WebView loses its old padding.
+        if (matrixRoot != null) {
+            if (enabled) matrixRoot.setPadding(0, 0, 0, 0);
+            matrixRoot.requestApplyInsets();
+            matrixRoot.requestLayout();
+        }
+        if (hud != null) {
+            hud.requestLayout();
+            hud.post(() -> hud.evaluateJavascript(
+                    "window.fridayMatrixViewportChanged&&window.fridayMatrixViewportChanged();", null));
         }
     }
 
