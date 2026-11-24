@@ -2267,6 +2267,26 @@ public class MainActivity extends Activity {
         @JavascriptInterface public String benchmarkCancel() {
             return localBenchmark.stop();
         }
+        /** Clipboard export is initiated by a tap; no automatic sharing. */
+        @JavascriptInterface public String benchmarkCopy() {
+            try {
+                org.json.JSONObject snapshot = new org.json.JSONObject(localBenchmark.status(prefs));
+                org.json.JSONObject report = snapshot.optJSONObject("report");
+                if (report == null) return "Aucun rapport local disponible.";
+                String reportText = report.toString(2);
+                runOnUiThread(() -> {
+                    android.content.ClipboardManager clipboard =
+                            (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                    if (clipboard != null)
+                        clipboard.setPrimaryClip(
+                                ClipData.newPlainText("FRIDAY rapport IA local", reportText));
+                });
+                return "Rapport copié sur demande. Vérifiez-le avant de le partager : "
+                        + "le presse-papiers n'est pas un stockage chiffré.";
+            } catch (Exception unavailable) {
+                return "Rapport indisponible : aucun texte copié.";
+            }
+        }
         /** Review runs on a separate thread and never uploads conversations. */
         @JavascriptInterface public void learningReview(String question, String answer) {
             if (question == null || question.length() < 4 || question.length() > 260
