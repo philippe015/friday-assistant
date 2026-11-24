@@ -54,7 +54,7 @@ public final class WeatherQueryPolicy {
         // La ville peut précéder « la météo » : « Joinville le pont France la météo ».
         // Ne jamais prendre « la journée » ou « France » pour une nouvelle ville.
         if (tail.trim().isEmpty()) {
-            tail = normalized.substring(0, weather.start())
+            tail = normalized.substring(0, weather.start()).trim()
                     .replaceFirst("\\s+(?:la|de la|pour la)$", "")
                     .replaceFirst("^(?:bonjour|salut)\\s+", "").trim();
         }
@@ -64,8 +64,9 @@ public final class WeatherQueryPolicy {
                 .replaceFirst("^(?:(?:a|pour|sur|de|dans)\\s+)+", "")
                 .replaceFirst("^(?:du jour|de la journee)\\s+", "")
                 .replaceFirst("\\s+(?:pour )?la journee$", "")
-                .replaceFirst("\\s+(france|belgique|suisse|canada)$", ", $1")
                 .trim();
+        if (!tail.contains(","))
+            tail = tail.replaceFirst("\\s+(france|belgique|suisse|canada)$", ", $1");
         if (tail.matches("^(?:pour|a|sur|de|dans|en|il)$")) return "";
         Matcher match = DESTINATION.matcher(tail);
         if (!match.matches()) return "";
