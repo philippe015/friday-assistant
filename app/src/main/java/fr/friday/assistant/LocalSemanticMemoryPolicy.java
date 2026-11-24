@@ -35,6 +35,8 @@ public final class LocalSemanticMemoryPolicy {
                 .toLowerCase(Locale.FRENCH);
         // Only unambiguous paraphrases: "weather in Paris" ≈ "what's
         // the weather in Paris"; do not change "time" in other contexts.
+        v = v.replaceAll("[^a-z0-9]+", " ").replaceAll("\\s+", " ").trim();
+        v = v.replaceAll("\\baujourd\\s+hui\\b", "aujourdhui");
         v = v.replaceAll("\\bquel\\s+temps\\s+(?:fait\\s+il|fait\\s+elle|fait)\\b",
                 "meteo");
         v = v.replaceAll("\\b(?:bulletin\\s+meteo|previsions?\\s+meteo"
