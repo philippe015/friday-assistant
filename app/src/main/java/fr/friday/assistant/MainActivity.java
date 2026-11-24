@@ -83,6 +83,7 @@ public class MainActivity extends Activity {
     private TextView manualAnswerLabel;
     private final AtomicBoolean typedQuestionRunning = new AtomicBoolean(false);
     private final AtomicBoolean learningReviewRunning = new AtomicBoolean(false);
+    private final AtomicBoolean evidenceReviewRunning = new AtomicBoolean(false);
     private boolean pageReady = false;
     private boolean promptStartAfterPermission = false;
     private BroadcastReceiver events;
@@ -1455,6 +1456,18 @@ public class MainActivity extends Activity {
                     + org.json.JSONObject.quote(error) + ");", null);
         });
     }
+    /** Ephemeral source review: only the Matrix WebView receives this report. */
+    private void independentEvidenceCallback(String question, String answer,
+                                             String report, String error) {
+        runOnUiThread(() -> {
+            if (!pageReady || hud == null || isFinishing() || isDestroyed()) return;
+            hud.evaluateJavascript("window.fridayIndependentEvidence&&window.fridayIndependentEvidence("
+                    + org.json.JSONObject.quote(question) + ","
+                    + org.json.JSONObject.quote(answer) + ","
+                    + org.json.JSONObject.quote(report) + ","
+                    + org.json.JSONObject.quote(error) + ");", null);
+        });
+    }
     /** UI callback only; user text is not written to technical diagnostics. */
     private void matrixTerminalComplete(String question, String answer, String error) {
         if (pageReady && hud != null) {
@@ -2248,6 +2261,47 @@ public class MainActivity extends Activity {
                 }
                 learningReviewCallback(question, answer, proposal, error);
             }, "friday-ondevice-learning-review").start();
+        }
+        /**
+         * Independent public-source lookup, started ONLY by a direct tap.
+         * There is no automatic upload of private conversations to Web.
+         */
+        @JavascriptInterface public void verifyIndependentEvidence(String question,
+                                                                   String answer) {
+            if (question == null || question.length() < 12 || question.length() > 260
+                    || answer == null || answer.length() < 5 || answer.length() > 1500) {
+                independentEvidenceCallback(question == null ? "" : question,
+                        answer == null ? "" : answer, "",
+                        "Question ou réponse trop longue, ou incomplète : aucun envoi Web.");
+                return;
+            }
+            if (!IndependentEvidencePolicy.eligible(
+                    question, JarvisInternet.enabled(prefs), true)) {
+                independentEvidenceCallback(question, answer, "",
+                        "La vérification par Internet est réservée aux questions "
+                        + "factuelles publiques, avec Internet activé. Aucun envoi.");
+                return;
+            }
+            if (!evidenceReviewRunning.compareAndSet(false, true)) {
+                independentEvidenceCallback(question, answer, "",
+                        "Vérification des sources déjà en cours.");
+                return;
+            }
+            new Thread(() -> {
+                String report = "";
+                String error = "";
+                try {
+                    report = JarvisInternet.independentEvidence(
+                            prefs, question, new NativeAI.CancelToken());
+                } catch (Exception unavailable) {
+                    error = unavailable.getMessage() == null
+                            ? "Sources publiques indisponibles."
+                            : unavailable.getMessage();
+                } finally {
+                    evidenceReviewRunning.set(false);
+                }
+                independentEvidenceCallback(question, answer, report, error);
+            }, "friday-independent-public-evidence").start();
         }
         /** Matrix is a chat UI, never an Android or Linux command shell. */
         @JavascriptInterface public void askMatrix(String question) {
