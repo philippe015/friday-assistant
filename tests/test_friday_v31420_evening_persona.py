@@ -126,7 +126,11 @@ public class Friday31420Smoke {
         self.assertIn("WeatherFollowUpPolicy.clearSpokenCityReply(heard)", voice)
         self.assertIn("lastReplyAt + 50_000L", voice)
         self.assertIn("AssistantResponseIdentityGuard.correct(", inference)
-        self.assertGreaterEqual(inference.count("AssistantResponseIdentityGuard.correct("), 2)
+        self.assertEqual(inference.count("AssistantResponseIdentityGuard.correct("), 1)
+        self.assertIn("return AssistantResponseIdentityGuard.correct(cleaned, raw,", inference)
+        self.assertIn("return generateRaw(context, cfg, auditPrompt, cancellation)", inference)
+        # One shared identity guard protects both chat inference engines;
+        # the audit intentionally bypasses persona and identity rewriting.
         self.assertNotIn("privateDialogue", (JAVA/"WeatherEveningPolicy.java").read_text())
         self.assertNotIn("https://", (JAVA/"AssistantResponseIdentityGuard.java").read_text())
 
