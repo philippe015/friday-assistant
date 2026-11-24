@@ -26,7 +26,7 @@ class JarvisWebAccess(unittest.TestCase):
 
     def test_voice_questions_use_web_when_needed_but_jarvis_always_generates(self):
         section=VOICE.split("private void answerTurn(",1)[1].split("private String streamAndSpeak(",1)[0]
-        self.assertIn("JarvisInternet.shouldResearch(settings, question)",section)
+        self.assertIn("JarvisInternet.shouldResearch(settings, question, privateDialogue)",section)
         self.assertIn("this, settings, question, privateDialogue, turn.api)",section)
         self.assertIn("this, settings, question, privateDialogue, turn.api)",section)
         self.assertIn("webResearch.speech",section)
@@ -36,7 +36,7 @@ class JarvisWebAccess(unittest.TestCase):
 
     def test_written_questions_are_spoken_without_reading_urls(self):
         typed=UI.split("private void sendQuestion(String question) {",1)[1].split("private void testVoice()",1)[0]
-        self.assertIn("JarvisInternet.shouldResearch(prefs, request)",typed)
+        self.assertIn("JarvisInternet.shouldResearch(prefs, request, privateDialogue)",typed)
         self.assertIn("JarvisInternet.answer(",typed)
         self.assertIn("LocalJarvisEngine.answer(",typed)
         self.assertIn("spokenResult",typed)
