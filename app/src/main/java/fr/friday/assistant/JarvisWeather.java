@@ -61,6 +61,24 @@ public final class JarvisWeather {
 
     /** Retourne null si la question ne porte pas sur la météo. */
     public static String answer(String question, boolean webEnabled) {
+        // A department or a region must NOT be sent to Open-Meteo's
+        // commune geocoder as if it were a city.
+        String region = WeatherQueryPolicy.region(question);
+        if (region != null) {
+            if (!webEnabled) return "La météo de " + region
+                    + " nécessite Internet : activez Internet Jarvis.";
+            String representative = "Val-de-Marne".equals(region)
+                    ? "Créteil" : "Paris";
+            String forecast = answer("météo "
+                    + (WeatherQueryPolicy.tomorrow(question) ? "demain " : "")
+                    + "pour " + representative + ", France", true);
+            if (forecast == null) return "Impossible d'obtenir les données météo "
+                    + "pour " + region + " à cet instant.";
+            return "Pour " + region + ", je consulte " + representative
+                    + " comme point de référence uniquement : les conditions "
+                    + "peuvent varier ailleurs dans le département ou la région. "
+                    + forecast + " Pour une prévision précise, indiquez une commune.";
+        }
         String city = WeatherQueryPolicy.city(question);
         if (city == null) return null;
         if (city.isEmpty())
