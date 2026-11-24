@@ -73,6 +73,22 @@ public final class RssArticleIntent {
      * Limiter aux phrases ENTIERES, sans mention de code de loi ni autre sujet.
      * La présence du dernier bulletin est vérifiée par le lecteur chiffré.
      */
+    /**
+     * « Lis-moi les articles en entier » refers to the previous bulletin,
+     * not a new Web search for the word « entier ». There is no invented
+     * article number: the user must explicitly choose a saved article.
+     */
+    public static boolean isPluralBulletinFollowUp(String question) {
+        String q = VoiceText.normalize(question);
+        if (q == null || q.length() > 170
+                || isRequest(question) || isBareReference(question)) return false;
+        if (q.matches(".*\b(?:code penal|code civil|loi|juridique|legislation)\b.*"))
+            return false;
+        return q.matches(".*\b(?:articles|actualites|titres)\b.*")
+                && q.matches(".*\b(?:entier|entiers|integralement|complet|complets|"
+                        + "lecture|lire|lis|lit|ouvre|ouvrir|resume|resumer)\b.*");
+    }
+
     public static boolean isBareReference(String question) {
         String q = VoiceText.normalize(question)
                 .replaceAll("[’']", " ").replaceAll("[^a-z0-9 ]+", " ")
