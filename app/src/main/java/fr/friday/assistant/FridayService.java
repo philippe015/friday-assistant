@@ -1153,7 +1153,7 @@ public class FridayService extends Service {
             String answer;
             if (local != null) {
                 answer = local;
-            } else if (JarvisInternet.shouldResearch(settings, question)) {
+            } else if (JarvisInternet.shouldResearch(settings, question, privateDialogue)) {
                 DiagnosticLog.record(this,
                         RssArticleIntent.isRequest(question)
                                 ? (RssArticleIntent.wantsAnalysis(question)
@@ -1168,6 +1168,8 @@ public class FridayService extends Service {
                 answer = webResearch.text;
                 if (webResearch.usedInternet) event("web_sources", webResearch.sources);
             } else {
+                if (ConversationTurnPolicy.shouldUseLocalModel(question, privateDialogue))
+                    DiagnosticLog.record(this, "DIALOGUE_LOCAL_FOLLOW_UP");
                 event("status", "Jarvis local : réponse générée sur le téléphone sans moteur distant.");
                 answer = LocalJarvisEngine.answer(
                         this, settings, question, privateDialogue, turn.api);
