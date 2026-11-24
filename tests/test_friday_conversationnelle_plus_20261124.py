@@ -93,7 +93,7 @@ public final class ConversationSmoke {
         self.assertIn('String representative = "Val-de-Marne".equals(region)',weather)
         self.assertIn('?"Créteil"',weather.replace(" ", ""))
         self.assertIn("comme point de référence uniquement",weather)
-        self.assertIn("INVALID_CITY.matcher(name).matches()",region)
+        self.assertIn("INVALID_CITY.matcher(name.replace('-', ' ')).matches()",region)
 
     def test_release_configuration_remains_stable(self):
         gradle=(ROOT/"app/build.gradle").read_text()
