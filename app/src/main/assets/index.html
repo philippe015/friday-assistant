@@ -193,6 +193,18 @@ footer{font-size:11px;color:#659ab1;padding:15px 0;text-align:center;letter-spac
       <pre id="benchmarkReport" class="matrix-learning-status" aria-label="Résultats du banc d'essai hors ligne" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:45vh;overflow:auto"></pre>
       <p class="matrix-hint">Les indicateurs automatiques ne prouvent pas qu'un modèle raisonne correctement. Les réponses doivent être relues. Seule la dernière analyse est enregistrée dans la mémoire AES-GCM du téléphone ; le presse-papiers n'est pas chiffré.</p>
     </details>
+    <details class="matrix-learning" id="dialogueTestPanel">
+      <summary>◈ DIALOGUE INTELLIGENT PRO+ · TEST 6 ÉCHANGES LOCAUX</summary>
+      <p class="matrix-hint">Lancez six questions fictives sur une application de suivi de plantes. Chaque réponse du modèle est réutilisée comme contexte du tour suivant. Aucun message personnel n'est lu ; ce test n'utilise ni Internet ni mémoire chiffrée personnelle. Évitez de discuter en parallèle avec l'IA durant le test.</p>
+      <div class="matrix-learning-actions">
+        <button type="button" id="dialogueTestStart">▶ Tester le suivi de conversation (6 tours)</button>
+        <button type="button" id="dialogueTestStop" disabled>■ Interrompre</button>
+        <button type="button" id="dialogueTestCopy">Copier le rapport de dialogue</button>
+      </div>
+      <div id="dialogueTestStatus" class="matrix-learning-status" role="status" aria-live="polite">Aucun test lancé ; évaluation manuelle requise.</div>
+      <pre id="dialogueTestReport" class="matrix-learning-status" aria-label="Dialogue fictif de six tours" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:48vh;overflow:auto"></pre>
+      <p class="matrix-hint">Les indices sont des repères lexicaux, pas une note de raisonnement. Les réponses brutes doivent être lues. Rapport chiffré sur Android ; copie volontaire non chiffrée.</p>
+    </details>
     <p class="matrix-hint">Terminal de conversation uniquement : aucune commande Linux/Android n'est exécutée. L'écran reprend l'historique de dialogue de l'appareil ; les questions utilisent le traitement Android habituel.</p>
    </div>
   </section>
@@ -453,6 +465,49 @@ function benchmarkCancel(){
 function benchmarkCopy(){
  $('benchmarkStatus').textContent=String(call('benchmarkCopy')||'Rapport non disponible.');
 }
+function dialogueTestRender(){
+ const raw=call('dialogueBenchStatus');
+ let data;
+ try{data=JSON.parse(String(raw||''));}catch(_){
+   $('dialogueTestStatus').textContent='Fonction disponible uniquement sur Android 3.14.27.';return;
+ }
+ const running=data.state==='running';
+ $('dialogueTestStart').disabled=running;
+ $('dialogueTestStop').disabled=!running;
+ $('dialogueTestStatus').textContent=String(data.message||'')
+   +' · '+String(data.done??0)+'/'+String(data.total??6)+' tours';
+ const report=data.report;
+ if(!report || !Array.isArray(report.details))return;
+ const lines=report.details.map((e,i)=>
+   'Échange '+String(e.tour??i+1)
+   +' · '+String(e.indice||e.statut||'À vérifier')
+   +' · '+String(e.duree_ms??'?')+' ms\n'
+   +'Vous (fictif) : '+String(e.question_publique||'')+'\n'
+   +'IA locale : '+String(e.reponse_ia_locale||'(aucune réponse)')+'\n'
+   +(e.cause?'Erreur : '+String(e.cause)+'\n':'')
+ ).join('\n');
+ $('dialogueTestReport').textContent='JARVIS v3.14.27 — six échanges fictifs\n'
+   +'Moteur : '+String(report.moteur||'Non disponible')+'\n'
+   +'Validation : '+(report.complet?'COMPLET':'PARTIEL')
+   +' · continuités lexicales : '+String(report.indices_contexte??0)
+   +' · vérification manuelle : '+String(report.lecture_manuelle??0)
+   +' · durée médiane : '+String(report.duree_mediane_ms??'?')+' ms\n\n'
+   +lines+'\n'+String(report.avertissement||'');
+}
+function dialogueTestStart(){
+ if(!bridge()||typeof bridge().dialogueBenchStart!=='function'){
+   $('dialogueTestStatus').textContent='Mettez à jour l’APK pour lancer ce test.';return;
+ }
+ $('dialogueTestStatus').textContent=String(call('dialogueBenchStart')||'Échec du démarrage.');
+ dialogueTestRender();
+}
+function dialogueTestStop(){
+ $('dialogueTestStatus').textContent=String(call('dialogueBenchCancel')||'Interruption demandée.');
+ dialogueTestRender();
+}
+function dialogueTestCopy(){
+ $('dialogueTestStatus').textContent=String(call('dialogueBenchCopy')||'Rapport absent.');
+}
 function verifySources(){
  if(state.evidenceBusy){$('learningEvidenceResult').textContent='Une vérification Web est déjà en cours.';return;}
  const [question,answer]=learningContext();
@@ -602,6 +657,10 @@ function init(){for(const [tab,id] of [['cockpit','tabCockpit'],['history','tabH
  $('matrixMic').onclick=()=>{start();matrixState('Écoute vocale Android demandée.');};
  $('matrixReplay').onclick=matrixReplay;
  $('matrixSilence').onclick=()=>{call('stopSpeakingNative');matrixState('Lecture vocale interrompue ; microphone inchangé.');};
+ $('dialogueTestStart').onclick=dialogueTestStart;
+ $('dialogueTestStop').onclick=dialogueTestStop;
+ $('dialogueTestCopy').onclick=dialogueTestCopy;
+ setInterval(()=>{if($('dialogueTestPanel').open)dialogueTestRender();},1800);
  $('benchmarkStart').onclick=benchmarkStart;
  $('benchmarkCancel').onclick=benchmarkCancel;
  $('benchmarkCopy').onclick=benchmarkCopy;
@@ -660,7 +719,7 @@ function init(){for(const [tab,id] of [['cockpit','tabCockpit'],['history','tabH
  $('startBtn').onclick=start;$('stopBtn').onclick=stop;$('interruptBtn').onclick=interrupt;$('nativeSettingsBtn').onclick=()=>call('configure');$('sendBtn').onclick=()=>ask($('questionInput').value);$('questionInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ask($('questionInput').value);}});
  for(const b of document.querySelectorAll('[data-question]'))b.onclick=()=>ask(b.dataset.question);$('gpsBtn').onclick=()=>{call('gpsCheck');status('Vérification GPS Android…','wait');};$('gpsConsentBtn').onclick=()=>call('gpsConsent');$('fullscreenBtn').onclick=toggleImmersive;$('versionsBtn').onclick=()=>call('manageVersions');$('diagnosticViewBtn').onclick=()=>call('showDiagnosticLogs');$('diagnosticExportBtn').onclick=()=>call('exportDiagnosticLogs');$('diagnosticGithubBtn').onclick=()=>call('reportDiagnosticGitHub');$('diagnosticClearBtn').onclick=()=>call('clearDiagnosticLogs');
  $('personaVerify').onclick=verifySavedProfile;$('personaSave').onclick=saveProfiles;$('personaTest').onclick=testProfile;$('personaNew').onclick=()=>newProfile(false);$('personaDuplicate').onclick=()=>newProfile(true);$('personaDelete').onclick=deleteProfile;$('personaImport').onclick=importProfiles;$('personaExport').onclick=exportProfiles;$('personaClose').onclick=()=>showTab('cockpit');$('personaPrompt').oninput=countPrompt;$('personaProfiles').onchange=e=>{const selected=e.target.value,previous=state.active;try{const p=activeProfile();p.name=$('personaName').value.trim();p.prompt=$('personaPrompt').value.trim();state.profile.active=selected;validateProfiles(state.profile);const result=call('savePersonalityProfiles',JSON.stringify(state.profile));if(result!=='OK')throw Error(result||'Activation impossible');state.active=selected;renderProfiles();refreshNative();notice('Profil « '+activeProfile().name+' » activé et enregistré pour les prochaines réponses.');}catch(err){state.profile.active=previous;state.active=previous;renderProfiles();notice('Échec activation : '+err.message,true);}};$('personaTemplate').onchange=e=>{if(templates[e.target.value]){$('personaPrompt').value=templates[e.target.value];countPrompt();notice('Modèle chargé, enregistrez pour l’appliquer.');}};
- clock();refreshNative();drawMessages();learningRefresh();benchmarkRender();setInterval(clock,1000);setInterval(refreshNative,4500);log('Cockpit Jarvis local + Internet chargé.');}
+ clock();refreshNative();drawMessages();learningRefresh();benchmarkRender();dialogueTestRender();setInterval(clock,1000);setInterval(refreshNative,4500);log('Cockpit Jarvis local + Internet chargé.');}
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
 </script>
