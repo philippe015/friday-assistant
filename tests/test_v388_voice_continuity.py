@@ -12,7 +12,7 @@ class VoiceContinuityV388(unittest.TestCase):
                     src.index("// Aucune coordonnée GPS n'est envoyée")]
         self.assertIn("Recherche publique HTTPS facultative",section)
         self.assertIn("this, settings, question, privateDialogue, turn.api)",section)
-        self.assertIn("JarvisInternet.shouldResearch(settings, question)",section)
+        self.assertIn("JarvisInternet.shouldResearch(settings, question, privateDialogue)",section)
         self.assertNotIn("NativeAI.answer(",section)
         self.assertNotIn("streamAndSpeak(prepared",section)
 
