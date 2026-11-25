@@ -51,9 +51,12 @@ public final class WeatherQueryPolicy {
     public static String explicitlyRecognizedCity(String question) {
         if (question == null || question.length() > 145) return null;
         String q = fold(question).replace('-', ' ').replaceAll("\\s+", " ").trim();
-        return q.matches(".*\\b(?:vitry|vitri)\\s+(?:sur|dur|du)\\s+"
-                + "(?:seine|scene|senne|sene)\\b.*")
-                ? "vitry-sur-seine, france" : null;
+        boolean explicitTown = q.matches(".*\\b(?:vitry|vitri)\\s+(?:sur|dur|du)\\s+"
+                + "(?:seine|scene|senne|sene)\\b.*");
+        // Correctly transcribed "vitry sur seine" must preserve the existing
+        // geocoder input and legacy forecasts; repair only ASR deformations.
+        boolean degradedWords = q.matches(".*\\b(?:vitri|dur|du|scene|senne|sene)\\b.*");
+        return explicitTown && degradedWords ? "vitry-sur-seine, france" : null;
     }
 
     /** Retourne null hors météo, "" si le lieu n'est pas fourni. */
