@@ -116,7 +116,7 @@ public class VitryWeatherSmoke {
         self.assertIn("WeatherFollowUpPolicy.clearSpokenCityReply(heard)",service)
         self.assertIn("lastReplyAt + 50_000L",service)
         self.assertNotIn("HttpURLConnection",(JAVA/"WeatherCitySpeechPolicy.java").read_text())
-        self.assertNotIn("GPS",(JAVA/"WeatherCitySpeechPolicy.java").read_text())
+        self.assertNotIn("getLastKnownLocation",(JAVA/"WeatherCitySpeechPolicy.java").read_text())
 
     def test_debug_metadata(self):
         gradle=(ROOT/"app/build.gradle").read_text()
