@@ -50,10 +50,24 @@ public final class TvGuidePolicy {
                 + "chaine|chaines)\\b.*")
                 && q.matches(".*\\b(?:tele|television|tv|tnt|film|films|"
                 + "soiree|ce soir|diffusion)\\b.*");
+        // Éviter « Explique pourquoi le cinéma a fermé ce soir » :
+        // le mot cinéma et une période seuls ne signifient pas grille TV.
         boolean eveningMovie = q.matches(".*\\b(?:films?|cinema)\\b.*")
-                && q.matches(".*\\b(?:ce soir|a la tele|a la television|a la tv|"
-                + "passent|passe ce soir|diffuse ce soir)\\b.*");
-        return schedule || eveningMovie;
+                && (q.matches(".*\\b(?:a la tele|a la television|a la tv|"
+                        + "passent|passe ce soir|diffuse ce soir)\\b.*")
+                    || q.matches("^(?:quels?|quelles?|c est quoi|donne moi|"
+                        + "montre moi|je veux|je cherche)\\b.*"
+                        + "\\bfilms?\\b.*\\bce soir\\b.*"));
+        // Une demande naturelle doit aller au guide TV même avec le bruit
+        // ajouté par Vosk : « sein pour ce soir qu'est-ce qui est à la télévision ».
+        // Le sujet + la période + la forme interrogative sont tous exigés
+        // pour ne pas envoyer de conversation ordinaire à un site Web.
+        boolean naturalEveningTv = q.matches(".*\\b(?:tele|television|tv|tnt)\\b.*")
+                && q.matches(".*\\bce soir\\b.*")
+                && q.matches(".*\\b(?:qu est ce (?:qui|qu il|que)|qu y a t il|"
+                        + "qu est ce qu il y a|qui passe|quels? programmes?|"
+                        + "que passe t il|c est quoi|quoi voir|que regarder)\\b.*");
+        return schedule || eveningMovie || naturalEveningTv;
     }
 
     /** Strict TV-specific follow-ups, never a general person/place search. */

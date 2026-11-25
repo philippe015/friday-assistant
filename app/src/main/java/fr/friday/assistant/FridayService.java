@@ -547,6 +547,9 @@ public class FridayService extends Service {
                             earlyCancelled = false; sawSpeakerFeedback = false;
                             interruptDiagnostics = "Micro à nouveau accessible";
                             voiceState("Micro restauré : dites Jarvis");
+                            // Succès de reprise sans stocker de son, d'application
+                            // concurrente supposée ou de texte reconnu.
+                            DiagnosticLog.record(this, "MIC_POLICY_RESTORED");
                             event("status", "Microphone de nouveau accessible. Dites Jarvis.");
                         }
                         // Affiche uniquement une mesure d'énergie PCM indicative.

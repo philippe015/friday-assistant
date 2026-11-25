@@ -69,8 +69,11 @@ public final class WeatherQueryPolicy {
                 .replaceFirst("^(?:du jour|de la journee)\\s+", "")
                 .replaceFirst("\\s+(?:pour )?la journee$", "")
                 .trim();
+        // Vosk : « météo sur Joinville le Pont en France » ne doit pas
+        // devenir « joinville le pont en, france » côté géocodeur.
         if (!tail.contains(","))
-            tail = tail.replaceFirst("\\s+(france|belgique|suisse|canada)$", ", $1");
+            tail = tail.replaceFirst("\\s+(?:(?:en|au|aux)\\s+)?"
+                    + "(france|belgique|suisse|canada)$", ", $1");
         if (tail.matches("^(?:pour|a|sur|de|dans|en|il)$")) return "";
         Matcher match = DESTINATION.matcher(tail);
         if (!match.matches()) return "";
