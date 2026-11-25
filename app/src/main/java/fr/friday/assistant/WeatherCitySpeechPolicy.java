@@ -15,7 +15,13 @@ public final class WeatherCitySpeechPolicy {
 
     public static String canonicalCity(String question) {
         if (question == null || question.length() > 145) return null;
-        return WeatherQueryPolicy.explicitlyRecognizedCity(question);
+        String repaired = WeatherQueryPolicy.explicitlyRecognizedCity(question);
+        if (repaired != null) return repaired;
+        String q = fold(question);
+        // For contextual weather replies, a fully pronounced city is sufficient;
+        // this never changes the general geocoder's already-correct spelling.
+        return q.matches(".*\\bvitry\\s+sur\\s+seine\\b.*")
+                ? "vitry-sur-seine, france" : null;
     }
 
     /**
@@ -42,7 +48,7 @@ public final class WeatherCitySpeechPolicy {
             || lastAssistant.startsWith("Aucune commune correspondant à")
             || lastAssistant.startsWith("Les résultats Open-Meteo ne correspondent")
             || lastAssistant.startsWith("La commune «")
-            || lastAssistant.startsWith("Je n'ai pas compris le nom de la commune")
+            || lastAssistant.startsWith("Je n'ai pas compris le nom")
             || (lastAssistant.startsWith("Vous indiquez «")
                 && lastAssistant.contains("souhaitez la météo de cette commune"));
     }
