@@ -136,6 +136,31 @@ public final class JarvisInternet {
         return report.toString();
     }
 
+    /**
+     * News brief for TTS only. Preserve full, dated RSS titles and URLs in
+     * the written answer; speak up to two verified titles without URLs.
+     * No local LLM, no guessed event facts or public query expansion.
+     */
+    private static String briefRecentHeadlines(List<Source> sources, int hours, long now) {
+        int total = 0;
+        for (Source source : sources)
+            if (RssFreshness.withinHours(source.publishedAt, now, hours)) total++;
+        if (total == 0) return "Aucun titre RSS suffisamment daté disponible.";
+        StringBuilder spoken = new StringBuilder("J'ai trouvé ")
+                .append(total).append(total == 1 ? " titre RSS récent. " : " titres RSS récents. ");
+        int said = 0;
+        for (Source source : sources) {
+            if (!RssFreshness.withinHours(source.publishedAt, now, hours)) continue;
+            said++;
+            if (said > 2) break;
+            spoken.append("Article ").append(said).append(" : ")
+                    .append(clip(source.title, 100)).append(". ");
+        }
+        spoken.append("Les dates et liens sont dans le dialogue. "
+                + "Dites « lis l'article un en entier » pour approfondir.");
+        return spoken.toString();
+    }
+
     public static boolean shouldResearch(SecurePrefs settings, String question) {
         // Une demande de lecture d'un lien RSS déjà présenté reste explicite.
         // L'état du réseau est vérifié dans readRememberedRssArticle().
@@ -395,8 +420,7 @@ public final class JarvisInternet {
             }
             rememberRssArticleLinks(settings, sources);
             return new Result(spoken + "\n\n" + references,
-                    spoken + " Pour lire le contenu disponible d'un article, dites : "
-                            + "Jarvis, lis l'article 1 en entier.",
+                    briefRecentHeadlines(sources, newsHours, System.currentTimeMillis()),
                     true, references.toString());
         }
         StringBuilder contextPrompt = new StringBuilder(MAX_WEB_PROMPT + 400);
