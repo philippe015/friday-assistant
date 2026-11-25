@@ -1,7 +1,5 @@
 package fr.friday.assistant;
 
-import java.util.regex.Pattern;
-
 /**
  * On-device speech-repair policy for a short, explicitly requested weather
  * city. Never infers a city from an orphaned phonetic fragment ("scène").
@@ -15,16 +13,9 @@ public final class WeatherCitySpeechPolicy {
                 .replaceAll("\\s+", " ").trim();
     }
 
-    // Only explicit "Vitry + sur/du/dur + Seine/scène" identifies this city.
-    // "sur scène" or "scène France" must NOT be silently rewritten.
-    private static final Pattern VITRY_SEINE = Pattern.compile(
-            "\\b(?:vitry|vitri)\\s+(?:sur|dur|du)\\s+"
-          + "(?:seine|scene|senne|sene)\\b");
-
     public static String canonicalCity(String question) {
         if (question == null || question.length() > 145) return null;
-        String q = fold(question);
-        return VITRY_SEINE.matcher(q).find() ? "vitry-sur-seine, france" : null;
+        return WeatherQueryPolicy.explicitlyRecognizedCity(question);
     }
 
     /**
