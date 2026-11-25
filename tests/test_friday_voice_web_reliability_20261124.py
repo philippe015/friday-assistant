@@ -111,8 +111,8 @@ public class VoiceWebSmoke {
         self.assertIn("versionCode 112",gradle)
         self.assertIn("versionName '3.14.18'",gradle)
         self.assertIn("applicationIdSuffix '.v31421matrix'",gradle)
-        self.assertIn("output.versionCode.set(123)",gradle)
-        self.assertIn('output.versionName.set("3.14.29-voice-response-optimizer-preview")',gradle)
+        self.assertIn("output.versionCode.set(124)",gradle)
+        self.assertIn('output.versionName.set("3.14.30-voice-intelligence-stability-preview")',gradle)
 
 if __name__=="__main__":
     unittest.main()
