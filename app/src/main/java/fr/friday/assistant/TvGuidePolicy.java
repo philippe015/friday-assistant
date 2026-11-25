@@ -50,9 +50,14 @@ public final class TvGuidePolicy {
                 + "chaine|chaines)\\b.*")
                 && q.matches(".*\\b(?:tele|television|tv|tnt|film|films|"
                 + "soiree|ce soir|diffusion)\\b.*");
+        // Éviter « Explique pourquoi le cinéma a fermé ce soir » :
+        // le mot cinéma et une période seuls ne signifient pas grille TV.
         boolean eveningMovie = q.matches(".*\\b(?:films?|cinema)\\b.*")
-                && q.matches(".*\\b(?:ce soir|a la tele|a la television|a la tv|"
-                + "passent|passe ce soir|diffuse ce soir)\\b.*");
+                && (q.matches(".*\\b(?:a la tele|a la television|a la tv|"
+                        + "passent|passe ce soir|diffuse ce soir)\\b.*")
+                    || q.matches("^(?:quels?|quelles?|c est quoi|donne moi|"
+                        + "montre moi|je veux|je cherche)\\b.*"
+                        + "\\bfilms?\\b.*\\bce soir\\b.*"));
         // Une demande naturelle doit aller au guide TV même avec le bruit
         // ajouté par Vosk : « sein pour ce soir qu'est-ce qui est à la télévision ».
         // Le sujet + la période + la forme interrogative sont tous exigés
