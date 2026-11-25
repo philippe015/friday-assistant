@@ -39,8 +39,47 @@ public final class JarvisWeather {
             JSONObject prior = history.optJSONObject(end - 1);
             if (prior == null || !"assistant".equals(prior.optString("kind"))) return null;
             String lastAssistant = prior.optString("text", "");
+            boolean awaitingCity = WeatherCitySpeechPolicy.awaitingWeatherCity(lastAssistant);
+            // A previous weather request can specify "demain", while the
+            // user's subsequent reply contains only the city. This local scan
+            // never exports the encrypted history to Open-Meteo.
+            String previousWeatherRequest = "";
+            if (awaitingCity) {
+                for (int i = end - 2; i >= Math.max(0, end - 8); i--) {
+                    JSONObject item = history.optJSONObject(i);
+                    if (item != null && "user".equals(item.optString("kind"))
+                            && WeatherQueryPolicy.isWeather(item.optString("text", ""))) {
+                        previousWeatherRequest = item.optString("text", "");
+                        break;
+                    }
+                }
+                // A Vosk fragment like "scène France", "ii sur scène" or
+                // "sur scène" is NOT enough to choose Vitry-sur-Seine.
+                if (WeatherCitySpeechPolicy.missingCityInAudio(question)) {
+                    DiagnosticLog.record(context, "WEATHER_CITY_ASR_CLARIFY");
+                    return WeatherCitySpeechPolicy.askCityAgain();
+                }
+                String resolved = WeatherCitySpeechPolicy.explicitWeatherQuestion(
+                        question, previousWeatherRequest);
+                if (resolved != null) {
+                    DiagnosticLog.record(context, "WEATHER_CITY_PHONETIC_ACCEPTED");
+                    return answer(resolved, enabledWeb(prefs));
+                }
+            }
             String query = WeatherFollowUpPolicy.enrich(question, lastAssistant);
-            if (query != null) return answer(query, enabledWeb(prefs));
+            if (query != null) {
+                // Keep the previous explicit date when the response is a city
+                // alone. Explicit "ce soir/demain" in the reply wins.
+                if (awaitingCity && !WeatherQueryPolicy.tomorrow(query)
+                        && !WeatherEveningPolicy.requested(query)
+                        && WeatherQueryPolicy.tomorrow(previousWeatherRequest))
+                    query = query.replaceFirst("^météo\\s+", "météo demain ");
+                return answer(query, enabledWeb(prefs));
+            }
+            if (awaitingCity && WeatherFollowUpPolicy.clearSpokenCityReply(question)) {
+                DiagnosticLog.record(context, "WEATHER_CITY_ASR_CLARIFY");
+                return WeatherCitySpeechPolicy.askCityAgain();
+            }
             if (WeatherFollowUpPolicy.uncertainCityAfterWeatherPrompt(
                     question, lastAssistant)) {
                 return "Je n'ai pas compris le nom de la commune. "
