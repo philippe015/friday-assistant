@@ -38,8 +38,20 @@ object LiteRtJarvisEngine {
         if (!file.isFile || file.length() < 1_000_000L) {
             throw IOException("Le modèle .litertlm n'est pas installé sur ce téléphone.")
         }
-        if (!lock.tryLock(3, TimeUnit.SECONDS)) {
-            throw IOException("Jarvis LiteRT-LM traite déjà une question. Réessayez après la réponse.")
+        // Le moteur et le benchmark partagent un seul verrou natif. Un tour
+        // utilisateur attend brièvement plutôt que d'échouer systématiquement
+        // après trois secondes si un test local vient de lancer l'inférence.
+        // Attente bornée ET annulable : aucune génération concurrente ni
+        // relance cloud n'est autorisée.
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(18)
+        var acquired = false
+        while (!acquired && System.nanoTime() < deadline) {
+            cancellation?.check()
+            acquired = lock.tryLock(750, TimeUnit.MILLISECONDS)
+        }
+        if (!acquired) {
+            throw IOException("Jarvis LiteRT-LM est encore occupé après attente "
+                    + "bornée. Arrêtez le benchmark ou réessayez.")
         }
         try {
             cancellation?.check()
