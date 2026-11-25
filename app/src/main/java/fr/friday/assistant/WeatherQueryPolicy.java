@@ -74,6 +74,10 @@ public final class WeatherQueryPolicy {
         if (!tail.contains(","))
             tail = tail.replaceFirst("\\s+(?:(?:en|au|aux)\\s+)?"
                     + "(france|belgique|suisse|canada)$", ", $1");
+        // A supported phonetic variant must include BOTH Vitry and Seine.
+        // An isolated "scène" is NEVER sufficient to infer a municipality.
+        String verifiedPhoneticCity = WeatherCitySpeechPolicy.canonicalCity(tail);
+        if (verifiedPhoneticCity != null) return verifiedPhoneticCity;
         if (tail.matches("^(?:pour|a|sur|de|dans|en|il)$")) return "";
         Matcher match = DESTINATION.matcher(tail);
         if (!match.matches()) return "";
