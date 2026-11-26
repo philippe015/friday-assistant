@@ -1,0 +1,83 @@
+name: Publish FRIDAY JARVIS 3.14.31 Preview
+
+on:
+  push:
+    branches:
+      - feature/friday-weather-voice-city-v31431-20261125
+    paths:
+      - .github/workflows/publish-friday-31431-preview.yml
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify APK version and original successful build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          grep -Fq 'output.versionCode.set(125)' app/build.gradle
+          grep -Fq '3.14.31-weather-voice-city-preview' app/build.gradle
+          RESULT="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/45679089884" --jq '.conclusion')"
+          BRANCH="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/45679089884" --jq '.head_branch')"
+          test "$RESULT" = "success"
+          test "$BRANCH" = "feature/friday-weather-voice-city-v31431-20261125"
+      - name: Download tested CI APK and write checksum
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh run download 45679089884 --repo "$GITHUB_REPOSITORY" \
+            --name FRIDAY-pr-debug-apk --dir dist
+          APK="$(find dist -type f -name '*.apk' -print -quit)"
+          test -n "$APK"
+          test -s "$APK"
+          unzip -tq "$APK"
+          cp "$APK" FRIDAY-JARVIS-3.14.31-Voice-Weather-Preview.apk
+          sha256sum FRIDAY-JARVIS-3.14.31-Voice-Weather-Preview.apk > SHA256SUMS.txt
+      - name: Publish GitHub prerelease (not Google Play)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="friday-3.14.31-weather-voice-preview"
+          cat > /tmp/release-notes.md <<'NOTES'
+          ## FRIDAY JARVIS 3.14.31 — Compréhension vocale améliorée
+
+          **APK de préversion Android ARM64 à installer directement sur téléphone, sans ordinateur.**
+
+          ### Principales améliorations
+          - Meilleure interprétation des noms de villes prononcés en français, notamment **Vitry-sur-Seine**.
+          - Variantes telles que « Vitry sur scène » ou « Vitry dur Seine » interprétées uniquement si « Vitry » est aussi entendu.
+          - Quand Vosk n'entend que « scène », JARVIS demande une précision plutôt que d'inventer une ville ou de rechercher « scène » sur Wikipédia.
+          - Le suivi de la météo conserve la période « demain » lors d'une précision du nom de commune.
+          - Mémoire chiffrée locale, IA LiteRT-LM locale, recherche Internet facultative et lecture vocale Android préservées.
+
+          ### Installation
+          1. Télécharger l'APK dans la section **Assets** de cette Release.
+          2. Installer sur Android 8.0+ ARM64 ; autoriser l'installation de la source si Android le demande.
+          3. Tester « JARVIS, donne-moi la météo de Vitry-sur-Seine pour demain. »
+          4. Si le nom reste mal entendu, utiliser le dialogue écrit ou répéter la ville distinctement.
+
+          **Tests GitHub et compilation Android réussis.** La correction ne garantit pas une reconnaissance vocale parfaite sur toutes les voix : le moteur acoustique Vosk reste inchangé.
+          **Préversion signée debug, non publiée sur Google Play.** Ne désinstallez pas une version fonctionnelle sans sauvegarder au préalable vos données. Les modèles Vosk et LiteRT-LM sont installés/importés séparément.
+
+          Code source et discussion : https://github.com/philippe015/friday-assistant/pull/133
+          NOTES
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release already exists; abort instead of overwriting another APK"
+            exit 1
+          fi
+          gh release create "$TAG" \
+            FRIDAY-JARVIS-3.14.31-Voice-Weather-Preview.apk SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "FRIDAY JARVIS 3.14.31 — Compréhension vocale améliorée" \
+            --notes-file /tmp/release-notes.md \
+            --prerelease --latest=false
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,isPrerelease,assets
