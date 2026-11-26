@@ -47,6 +47,18 @@ public final class WeatherQueryPolicy {
         return WEATHER.matcher(text).find();
     }
 
+    /** Repairs phonetic variants ONLY if both Vitry and (sur) Seine occur. */
+    public static String explicitlyRecognizedCity(String question) {
+        if (question == null || question.length() > 145) return null;
+        String q = fold(question).replace('-', ' ').replaceAll("\\s+", " ").trim();
+        boolean explicitTown = q.matches(".*\\b(?:vitry|vitri)\\s+(?:sur|dur|du)\\s+"
+                + "(?:seine|scene|senne|sene)\\b.*");
+        // Correctly transcribed "vitry sur seine" must preserve the existing
+        // geocoder input and legacy forecasts; repair only ASR deformations.
+        boolean degradedWords = q.matches(".*\\b(?:vitri|dur|du|scene|senne|sene)\\b.*");
+        return explicitTown && degradedWords ? "vitry-sur-seine, france" : null;
+    }
+
     /** Retourne null hors météo, "" si le lieu n'est pas fourni. */
     public static String city(String question) {
         if (!isWeather(question)) return null;
@@ -74,6 +86,10 @@ public final class WeatherQueryPolicy {
         if (!tail.contains(","))
             tail = tail.replaceFirst("\\s+(?:(?:en|au|aux)\\s+)?"
                     + "(france|belgique|suisse|canada)$", ", $1");
+        // A supported phonetic variant must include BOTH Vitry and Seine.
+        // An isolated "scène" is NEVER sufficient to infer a municipality.
+        String verifiedPhoneticCity = explicitlyRecognizedCity(tail);
+        if (verifiedPhoneticCity != null) return verifiedPhoneticCity;
         if (tail.matches("^(?:pour|a|sur|de|dans|en|il)$")) return "";
         Matcher match = DESTINATION.matcher(tail);
         if (!match.matches()) return "";

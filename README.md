@@ -1,3 +1,23 @@
+# FRIDAY JARVIS 3.14.31 — Compréhension vocale améliorée (Android)
+
+> **Version à tester mise en avant — 26 novembre 2026.** Cette préversion améliore l'interprétation des demandes vocales en français, en particulier les noms de communes lors des questions météo. Le code est proposé dans la [PR #133](https://github.com/philippe015/friday-assistant/pull/133) ; il n'est **pas fusionné dans main** et n'est **pas publié sur Google Play**.
+
+**[Télécharger directement FRIDAY JARVIS 3.14.31 — APK Android (GitHub Release)](https://github.com/philippe015/friday-assistant/releases/download/friday-3.14.31-weather-voice-preview/FRIDAY-JARVIS-3.14.31-Voice-Weather-Preview.apk)** · [Fiche GitHub de la préversion et SHA-256](https://github.com/philippe015/friday-assistant/releases/tag/friday-3.14.31-weather-voice-preview) · [Code source PR #133](https://github.com/philippe015/friday-assistant/pull/133) · [Manuel de la version](https://github.com/philippe015/friday-assistant/blob/feature/friday-weather-voice-city-v31431-20261125/docs/FRIDAY_WEATHER_VOICE_CITY_RECOVERY_20261125.md)
+
+**Comprend mieux certaines formulations vocales :**
+- **Météo à Vitry-sur-Seine :** interprète prudemment « Vitry dur Seine » ou « Vitry sur scène » lorsque *Vitry* est bien entendu par Vosk.
+- **Si la commune n'est pas reconnue :** demande de la répéter, au lieu de chercher « scène » sur Wikipédia ou de deviner une ville.
+- **Dialogue plus naturel :** garde le contexte « météo pour demain » lorsqu'on précise ensuite le nom de la ville.
+- **Mode local préservé :** IA LiteRT-LM sur le téléphone, historique chiffré, TTS Android, recherche Internet facultative.
+
+**Installation Android :** utilisez **Télécharger directement l'APK** ci-dessus, puis ouvrez le fichier dans les téléchargements du téléphone. Si le téléchargement direct de la Release est indisponible, [récupérez l'artefact de compilation sur GitHub Actions](https://github.com/philippe015/friday-assistant/actions/runs/45679089884) (connexion GitHub parfois nécessaire, ZIP à extraire). **Android 8+ ARM64, APK de test signé debug (~43,6 Mo)** ; les modèles IA et Vosk ne sont pas inclus. Conservez vos données avant toute désinstallation : une signature incompatible peut empêcher la mise à jour directe.
+
+**État de validation :** tests automatiques et compilation Android réussis ; l'amélioration de la reconnaissance acoustique sur tous les téléphones n'est pas garantie, car le moteur Vosk lui-même n'est pas remplacé. [Signaler une anomalie](https://github.com/philippe015/friday-assistant/issues) sans publier vos conversations personnelles.
+
+---
+
+## Versions précédentes et historique
+
 ## JARVIS v3.14.16 — contributions communautaires GitHub sans données privées
 
 Il est désormais possible pour **chaque utilisateur Android** de signaler

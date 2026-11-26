@@ -1219,7 +1219,7 @@ public class FridayService extends Service {
             weatherCityFollowupUntil = spoken
                     && !"1".equals(settings.get("listen_once", "0"))
                     && answer != null
-                    && answer.startsWith("Pour quelle ville souhaitez-vous la météo")
+                    && WeatherCitySpeechPolicy.awaitingWeatherCity(answer)
                     ? lastReplyAt + 50_000L : 0L;
             if (spoken) {
                 if ("1".equals(settings.get("listen_once", "0")))
