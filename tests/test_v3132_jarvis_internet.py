@@ -74,7 +74,7 @@ class JarvisWebAccess(unittest.TestCase):
         self.assertIn('android.permission.INTERNET',MANIFEST)
 
     def test_failure_does_not_fabricate_live_news(self):
-        self.assertIn("Recherche Internet indisponible",WEB)
+        self.assertIn("Aucun article correspondant trouvé avec un horodatage",WEB)
         self.assertIn("Jarvis ne fabrique pas d'actualités",WEB)
         self.assertIn("HTTP 202, 403 ou 429",UI)
 

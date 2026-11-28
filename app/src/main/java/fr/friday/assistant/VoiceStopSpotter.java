@@ -4,8 +4,9 @@ package fr.friday.assistant;
  * Commandes vocales courtes, séparées de la dictée libre Vosk.
  *
  * Utilisé seulement lorsque FRIDAY génère / prononce une réponse. Les résultats
- * partiels doivent être confirmés pour réduire les fausses alertes causées par
- * les haut-parleurs ; un résultat final peut être traité immédiatement.
+ * partiels avec mot-clé doivent être confirmés ; les ordres isolés sans
+ * « Jarvis » attendent une fin de phrase afin d'éviter un faux STOP après
+ * deux trames identiques provenant du haut-parleur.
  */
 public final class VoiceStopSpotter {
     public enum Action { NONE, STOP, CLARIFY, STOP_MIC }
@@ -49,7 +50,7 @@ public final class VoiceStopSpotter {
                 ? Action.STOP : Action.NONE;
     }
 
-    /** Double observation au Vosk partiel, résultat final immédiatement. */
+    /** Les partiels sans mot-clé ne doivent jamais couper la lecture. */
     public Action accept(String recognized, String speech, boolean finalResult) {
         Action choice = classify(recognized, speech);
         if (choice == Action.NONE) {
@@ -68,7 +69,8 @@ public final class VoiceStopSpotter {
                 .replaceAll("[^a-z0-9 ]+", " ").replaceAll("\\s+", " ").trim();
         boolean repeated = choice == Action.STOP && normalized.matches(
                 ".*\\b(stop|stoppe|arrete|silence|pause|attends)\\s+(stop|stoppe|arrete|silence|pause|attends)\\b.*");
-        if (finalResult || confirmations >= 2 || repeated) {
+        if (finalResult || repeated
+                || (BargeInPolicy.startsWithWake(recognized) && confirmations >= 2)) {
             reset();
             return choice;
         }

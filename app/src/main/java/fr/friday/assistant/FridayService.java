@@ -118,6 +118,8 @@ public class FridayService extends Service {
         volatile boolean cancelled;
         final long startedAt = SystemClock.elapsedRealtime();
         final AtomicLong firstVoiceAt = new AtomicLong();
+        /** Ne vider la file TTS qu'au premier segment de ce tour. */
+        final AtomicBoolean ttsQueueStarted = new AtomicBoolean(false);
         void cancel() {
             cancelled = true;
             api.cancel();
@@ -167,6 +169,9 @@ public class FridayService extends Service {
             return START_NOT_STICKY;
         }
         if (running) return START_NOT_STICKY;
+        // Retrait définitif de l’interruption vocale : aucune ancienne préférence
+        // ne doit réactiver le décodeur STOP. Le bouton reste opérationnel.
+        settings.put("barge_in_enabled", "0");
         // Mise a niveau de stabilite : le mode « une question » fermait le
         // service apres la premiere reponse. Sur la premiere ouverture de
         // v3.11.2, garantir une ecoute continue et neutraliser les faux STOP
@@ -292,7 +297,7 @@ public class FridayService extends Service {
     /** Capture Vosk continue pendant les appels Mistral et la lecture audio. */
     private void runLoop() {
         try (Model model = new Model(ModelInstaller.modelDir(this).getAbsolutePath())) {
-            event("status", "Reconnaissance française prête. Pendant une réponse, STOP et les précisions restent disponibles ; les nouvelles questions reprennent après la voix.");
+            event("status", "Reconnaissance française prête. La réponse est lue intégralement ; interruption uniquement par le bouton. Écoute vocale reprise après la voix.");
             // Ne pas bloquer 15 secondes le micro en attendant le moteur TTS Android.
             new Thread(this::initTts, "friday-tts-setup").start();
             int consecutiveErrors = 0;
@@ -312,7 +317,10 @@ public class FridayService extends Service {
                     if (minimum <= 0) throw new IllegalStateException("Microphone 16 kHz indisponible");
                     int bytes = Math.max(16384, minimum * 4);
                     PhoneAudioRoute.usePhoneSpeaker(this);
-                    boolean bargeEnabled = "1".equals(settings.get("barge_in_enabled", "0"));
+                    // Désactivation permanente du décodeur des commandes STOP.
+                    // Le microphone est toujours utilisé pour les questions, jamais
+                    // pour interrompre une réponse en cours.
+                    boolean bargeEnabled = false;
                     // Si Android a rendu VOICE_COMMUNICATION muet, repartir
                     // sur VOICE_RECOGNITION lors de la prochaine session audio.
                     int src = (bargeEnabled && mutedMicroReopens == 0)
@@ -368,16 +376,15 @@ public class FridayService extends Service {
                     }
                     recognizer = createRecognizer(model);
                     ar.startRecording();
+                    boolean microphoneConfirmed = false;
                     if (firstQuestionOnMicStart) {
                         firstQuestionOnMicStart = false;
                         wakeOnlyUntil = SystemClock.elapsedRealtime() + 15_000L;
                         asrDiagnostic("Micro et Vosk prêts : première question directe pendant 15 secondes");
                     }
                     event("status", PhoneAudioRoute.inputStatus(ar));
-                    voiceState("Micro actif : dites Jarvis pour parler");
-                    interruptDiagnostics = bargeEnabled
-                            ? "Micro PCM prêt · décodeur STOP démarre à la réponse"
-                            : "Désactivé dans Réglages · autoriser l'interruption vocale";
+                    voiceState("Micro démarré · vérification de l'accès Android…");
+                    interruptDiagnostics = "STOP vocal retiré · utiliser le bouton Interrompre";
                     event("status", "Microphone du téléphone prêt. Réduction du bruit "
                             + (noiseSuppressor != null ? "active" : "non disponible")
                             + " · gain " + (gainControl != null ? "automatique" : "standard")
@@ -395,9 +402,11 @@ public class FridayService extends Service {
                     boolean sawSpeakerFeedback = false;
                     boolean generalInputBlocked = false;
                     long mutedSince = 0;
+                    long nextMuteNoticeAt = 0;
                     while (running) {
-                        // Une question : écoute active PENDANT la réponse pour permettre
-                        // « stop » et « j'ai une précision ». Fermeture APRÈS la réponse.
+                        // Capture et transcription Vosk continuent pendant la
+                        // recherche silencieuse. Seuls le TTS et sa queue
+                        // d'anti-écho bloquent la dictée ; STOP reste manuel.
                         if (oneShotTriggered && currentTurn == null) {
                             event("status", "Mode une question : réponse terminée, micro arrêté.");
                             break;
@@ -464,8 +473,10 @@ public class FridayService extends Service {
                                 mutedSince = mutedAt;
                                 micSilenced = true;
                                 voiceState("Android a coupé le micro : contrôle des permissions / autre application");
-                                event("mic_conflict", "Micro muet selon Android. "
-                                        + "FRIDAY essaiera un autre mode de capture si possible.");
+                                event("mic_conflict", "Android fournit un microphone silencieux. "
+                                        + "Fermez les anciennes éditions FRIDAY ou toute autre application qui utilise le micro. "
+                                        + "La capture reprendra automatiquement lorsque Android la libérera.");
+                                nextMuteNoticeAt = mutedAt + 8000L;
                                 if (stopRecognizer != null) {
                                     stopRecognizer.close(); stopRecognizer = null;
                                     stopSpotter.reset();
@@ -475,18 +486,24 @@ public class FridayService extends Service {
                                 confidenceSum = 0; confidenceCount = 0;
                                 earlyCancelled = false; sawSpeakerFeedback = false;
                             }
-                            if (mutedAt - mutedSince >= 8000L) {
-                                mutedMicroReopens++;
-                                event("error", "Android maintient le micro muet depuis 8 secondes : "
-                                        + "tentative de recuperation " + mutedMicroReopens
-                                        + ". Fermez toute autre application utilisant le micro.");
-                                // Ne jamais rester pour toujours dans une boucle muette :
-                                // reconstruire AudioRecord avec temporisation progressive.
-                                throw new IllegalStateException("Microphone rendu muet par Android");
+                            // Une capture que la politique Android rend silencieuse
+                            // peut retrouver automatiquement du son. La détruire toutes
+                            // les 8 secondes crée une boucle de redémarrages inutile.
+                            if (mutedAt >= nextMuteNoticeAt) {
+                                event("mic_conflict", "Android maintient le micro muet. "
+                                        + "Forcez l'arrêt des anciennes éditions FRIDAY dans leurs informations Android, "
+                                        + "ou contrôlez le tableau de bord Microphone.");
+                                nextMuteNoticeAt = mutedAt + 30000L;
                             }
+                            SystemClock.sleep(100L);
                             continue;
                         }
                         consecutiveErrors = 0;
+                        if (!microphoneConfirmed) {
+                            microphoneConfirmed = true;
+                            voiceState("Micro actif : dites Jarvis pour parler");
+                            event("status", "Capture microphone confirmée par Android.");
+                        }
                         if (mutedSince != 0 || micSilenced) {
                             mutedSince = 0;
                             micSilenced = false;
@@ -568,10 +585,11 @@ public class FridayService extends Service {
                             stopRecognizer.close(); stopRecognizer = null; stopSpotter.reset();
                             if (bargeEnabled) interruptDiagnostics = "Micro actif · prêt";
                         }
-                        // Pendant Mistral/Web en attente, FRIDAY NE PARLE PAS :
-                        // le Vosk général doit rester disponible pour une nouvelle
-                        // question « Friday ... », même si currentTurn est présent.
-                        // Seule la sortie TTS effective et sa queue d'écho le bloquent.
+                        // Une recherche Web en cours peut durer plusieurs secondes.
+                        // Ne jamais suspendre le décodeur Vosk à cause de
+                        // currentTurn : sinon le téléphone semble ne plus écouter.
+                        // Seules la voix réellement jouée et sa queue d'écho
+                        // imposent une suspension, STOP vocal restant désactivé.
                         long asrNow = SystemClock.elapsedRealtime();
                         boolean blocked = TtsEchoGate.suppressGeneralAsr(
                                 speakingNow, asrNow, echoBlockUntil);
@@ -582,8 +600,8 @@ public class FridayService extends Service {
                                 completed = interim = ""; lastVoice = 0;
                                 confidenceSum = 0; confidenceCount = 0;
                                 earlyCancelled = false; sawSpeakerFeedback = false;
-                                voiceState("Lecture TTS / anti-écho : dictée suspendue, STOP disponible");
-                                event("barge_diag", "Protection anti-écho : dictée suspendue · STOP actif pendant la voix");
+                                voiceState("Lecture TTS / anti-écho : dictée suspendue, interruption uniquement par bouton");
+                                event("barge_diag", "Protection anti-écho : dictée suspendue · STOP vocal désactivé · bouton disponible");
                             }
                             continue;
                         }
@@ -681,6 +699,10 @@ public class FridayService extends Service {
                                     event("error", "Je n'ai pas bien compris : « " + phrase.trim()
                                             + " » (confiance " + Math.round(confidence * 100) + " %). Pouvez-vous répéter ?");
                                 } else {
+                                    asrDiagnostic("Question finalisée par Vosk : « "
+                                            + (phrase.length() > 140
+                                                    ? phrase.substring(0, 140) + "…" : phrase)
+                                            + " »");
                                     handlePhrase(phrase.trim());
                                 }
                             }
@@ -796,6 +818,19 @@ public class FridayService extends Service {
     private void handlePhrase(String heard) {
         if (!running || heard == null || heard.trim().isEmpty()) return;
         long now = SystemClock.elapsedRealtime();
+        // Aucun ordre vocal ne doit interrompre FRIDAY : seules les actions
+        // explicites du bouton (ou une nouvelle question écrite) ont ce droit.
+        if (BargeInPolicy.isStopListening(heard)
+                || BargeInPolicy.isStopAnswer(heard)
+                || BargeInPolicy.isBareStopAnswer(heard)) return;
+        if (currentTurn != null) {
+            // La transcription fonctionne toujours pendant une recherche ;
+            // ne pas lancer simultanément une deuxième réponse automatique.
+            // L'interruption reste volontaire, via le bouton uniquement.
+            asrDiagnostic("Question entendue pendant le traitement précédent : "
+                    + "utilisez le bouton Interrompre pour poser une nouvelle question.");
+            return;
+        }
         if (BargeInPolicy.isStopListening(heard)) {
             event("status", "Arrêt complet de l'écoute demandé.");
             shutdown(); return;
@@ -846,20 +881,25 @@ public class FridayService extends Service {
                 return;
             }
         } else if ((TtsEchoGate.followupAccepts(now, echoBlockUntil, wakeOnlyUntil) ||
+                // Le cockpit ouvert est un consentement explicite à l'écoute :
+                // ne pas ignorer une phrase reconnue après 15/20 secondes.
+                (MainActivity.isCockpitVisible() &&
+                 AutoListenPolicy.enabled(settings.get("jarvis_auto_listen_on_open", "1"))) ||
                 ("1".equals(settings.get("followup_handsfree", "0")) && wakeArmed &&
                 (now - lastReplyAt <= followupMs || now < clarificationUntil))) &&
                 now >= echoBlockUntil) {
-            // Le mode mains libres est desactive par defaut : Vosk peut transcrire
-            // le haut-parleur, une TV ou du bruit en fausse question.
-            // « Écoute ON », le bouton d'interruption ou un mot-clé isolé
-            // autorisent UNE question directe pendant une fenêtre courte.
+            // Hors du cockpit, une question directe n'est acceptée que
+            // pendant la fenêtre post-réponse, pour limiter les faux positifs.
+            // Dans le cockpit, conserver l'écoute même après cette fenêtre.
             if (heard.trim().split("\\s+").length < 2) return;
             question = heard;
         } else {
             // Le PCM est présent, Vosk comprend une phrase, mais aucun mot-clé :
             // ce n'est pas une panne de Jarvis ou du microphone.
             if (heard.trim().split("\\s+").length >= 2)
-                asrDiagnostic("Vosk a transcrit une phrase ; mot-clé Jarvis absent");
+                asrDiagnostic("Question transcrite par Vosk mais non envoyée : "
+                        + "dites Jarvis au début, ou ouvrez le cockpit pour "
+                        + "une question directe.");
             return;
         }
         if (BargeInPolicy.wantsToAddDetails(question)) {
@@ -882,8 +922,11 @@ public class FridayService extends Service {
         currentTurn = turn;
         boolean localJarvis = true; // Mode exclusif Jarvis pour toute demande vocale.
         voiceState("Question reçue · "
-                + "Jarvis sur le téléphone, sans réseau"
-                + " · micro disponible pour une nouvelle question avec Jarvis");
+                + "Jarvis local sur le téléphone"
+                + (JarvisInternet.shouldResearch(settings, question)
+                    ? " · recherche Web publique possible si disponible"
+                    : " · sans recherche Web pour cette question")
+                + " · écoute Vosk active pendant la recherche, STOP par bouton");
         // Protège contre un fournisseur/API bloqué : aucun tour muet ne doit
         // garder l'écoute occupée indéfiniment. Un TTS en lecture n'est pas coupé.
         turn.watchdog = () -> {
@@ -1041,10 +1084,17 @@ public class FridayService extends Service {
             }
             if (memoryAction) event("status", "Commande mémoire effectuée localement.");
             else event("assistant", answer);
+            // Distingue le calcul/réseau du temps de synthèse vocale.
+            // Les commandes locales (dont l'accès à Maps) évitent la recherche Web.
+            long preparationMs = SystemClock.elapsedRealtime() - turn.startedAt;
+            event("latency", "Réponse préparée en " + preparationMs + " ms"
+                    + (webResearch == null ? " · pas de recherche Web dans ce tour"
+                       : webResearch.usedInternet ? " · sources Web consultées"
+                       : " · recherche Web non aboutie") + ".");
             if (!turn.streamedVoice) {
                 spokenText = speechAnswer;
                 speakingNow = true;
-                event("status", "Réponse vocale en cours. Dites « STOP » pour interrompre ; attendez la fin pour une nouvelle question.");
+                event("status", "Réponse vocale en cours. Utilisez le bouton Interrompre pour arrêter ; nouvelle question après la voix.");
             }
             boolean spoken = turn.streamedVoice ? turn.streamingVoiceSucceeded : speak(speechAnswer, turn);
             if (!live(turn)) return;
@@ -1068,6 +1118,15 @@ public class FridayService extends Service {
                 String reason = ex.getMessage() == null
                         ? ex.getClass().getSimpleName() : ex.getMessage();
                 event("error", "Réponse indisponible : " + reason);
+                // La question apparaît déjà dans l'historique en tant que
+                // « Vous ». En cas d'échec du moteur, afficher aussi une réponse
+                // explicite dans la boîte de dialogue, au lieu de laisser
+                // l'utilisateur attendre silencieusement.
+                String visibleFailure = "J'ai reçu votre question, mais Jarvis "
+                        + "n'a pas réussi à préparer une réponse. "
+                        + "Diagnostic : " + (reason.length() > 165
+                            ? reason.substring(0, 165) : reason);
+                event("assistant", visibleFailure);
                 // Une panne API ne doit pas donner l'impression d'un assistant
                 // définitivement muet. Dire une courte notification locale
                 // sans inventer une réponse Mistral ni interrompre le micro.
@@ -1365,7 +1424,13 @@ public class FridayService extends Service {
                     // Protège contre la course entre tts.stop() du micro et
                     // un nouveau tts.speak() lancé depuis le thread streaming.
                     if (!live(turn) || tts == null) return false;
-                    code = tts.speak(part, TextToSpeech.QUEUE_FLUSH, new Bundle(), utterance);
+                    // QUEUE_FLUSH pour le premier segment seulement : vider la
+                    // file à chaque phrase peut tronquer une lecture en cours
+                    // avec certains moteurs TTS Android.
+                    int queueMode = turn.ttsQueueStarted.get()
+                            ? TextToSpeech.QUEUE_ADD : TextToSpeech.QUEUE_FLUSH;
+                    code = tts.speak(part, queueMode, new Bundle(), utterance);
+                    if (code == TextToSpeech.SUCCESS) turn.ttsQueueStarted.set(true);
                 }
                 if (code != TextToSpeech.SUCCESS) {
                     event("error", "Synthèse refusée (code " + code + "). Vérifiez la sortie média et le moteur TTS.");

@@ -12,13 +12,15 @@ def code(name):
     return (JAVA / name).read_text(encoding="utf-8")
 
 class FullVoiceAuditV389(unittest.TestCase):
-    def test_web_network_wait_does_not_mute_general_vosk(self):
+    def test_network_wait_keeps_vosk_listening_tts_blocks_echo_only(self):
         service = code("FridayService.java")
         gate = code("TtsEchoGate.java")
-        self.assertIn("TtsEchoGate.suppressGeneralAsr(\n                                speakingNow, asrNow, echoBlockUntil)", service)
-        self.assertNotIn("TtsEchoGate.suppressGeneralAsr(\n                                currentTurn != null", service)
-        self.assertIn("TtsEchoGate.useStopRecognizer(speakingNow, bargeEnabled)", service)
-        self.assertIn("BargeInPolicy.canBarge(heard, spokenText)", service)
+        self.assertIn("boolean blocked = TtsEchoGate.suppressGeneralAsr(\n                                speakingNow, asrNow, echoBlockUntil)", service)
+        self.assertNotIn("boolean blocked = currentTurn != null", service)
+        self.assertIn("if (blocked) {", service)
+        self.assertIn("recognizer.close(); recognizer = createRecognizer(model);", service)
+        self.assertIn("Question entendue pendant le traitement précédent", service)
+        self.assertIn("boolean bargeEnabled = false;", service)
         self.assertIn("return voicePlaybackActive || nowMs < untilMs;", gate)
         self.assertIn("!voicePlaybackActive", gate)
 
@@ -31,8 +33,8 @@ class FullVoiceAuditV389(unittest.TestCase):
         self.assertIn("recognizer.close(); recognizer = createRecognizer(model);", area)
         self.assertEqual(area.count("if (mutedSince == 0)"), 1)
         self.assertNotIn("mutedMicroReopens < 2", area)
-        self.assertIn("if (mutedAt - mutedSince >= 8000L)", area)
-        self.assertIn("mutedAt - mutedSince >= 8000L", area)
+        self.assertIn("if (mutedAt >= nextMuteNoticeAt)", area)
+        self.assertIn("nextMuteNoticeAt = mutedAt + 30000L", area)
         self.assertIn("mutedMicroReopens == 0", service)
         self.assertIn("MediaRecorder.AudioSource.VOICE_RECOGNITION", service)
         self.assertIn('voiceState("Micro restauré : dites Jarvis")', service)

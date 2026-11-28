@@ -59,11 +59,15 @@ public class MainActivity extends Activity {
     private boolean recordAfterMicPermission = false;
     private EditText memoryEditor, memorySearchInput;
     private EditText silenceInput, followupInput, ttsInput, voskHintsEditor;
-    private CheckBox bargeEnabled, followupHandsfreeEnabled, autoListenOnOpen;
+    private CheckBox followupHandsfreeEnabled, autoListenOnOpen;
     /** One automatic start per Activity open; never rearm after manual Stop. */
     private boolean startupListenAttempted = false;
     private boolean manuallyStoppedListening = false;
     private boolean activityVisible = false;
+    /** Le service vocal autorise les questions directes pendant que le cockpit
+     * est réellement visible, même après expiration de la fenêtre de 20 s. */
+    private static volatile boolean cockpitVisible = false;
+    public static boolean isCockpitVisible() { return cockpitVisible; }
     private LinearLayout config;
     private ScrollView configScroll;
     private WebView hud;
@@ -214,7 +218,7 @@ public class MainActivity extends Activity {
         outer.addView(button("⏸ Interrompre la réponse et écouter", this::interruptSpeaking));
         LinearLayout checks = new LinearLayout(this);
         checks.setPadding(dp(7),0,dp(7),0);
-        checks.addView(button("🔊 Tester la voix", this::testVoice), new LinearLayout.LayoutParams(0,dp(48),1));
+        checks.addView(button("🔊 Tester le haut-parleur", this::testVoice), new LinearLayout.LayoutParams(0,dp(48),1));
         checks.addView(button("✓ Tester IA Jarvis locale", this::testLocalAnswer), new LinearLayout.LayoutParams(0,dp(48),1));
         outer.addView(checks);
         status = label(FridayService.isActive() ?
@@ -382,13 +386,7 @@ public class MainActivity extends Activity {
                 + "20 secondes. Passé ce délai, dites Friday ou Jarvis. "
                 + "La case ci-dessus permet de prolonger cette période, avec "
                 + "davantage de risque de déclenchements involontaires."));
-        bargeEnabled = new CheckBox(this);
-        bargeEnabled.setText("Activer STOP vocal pendant la réponse (« stop », « Friday stop », « j’ai une précision »)");
-        bargeEnabled.setTextColor(Color.WHITE);
-        bargeEnabled.setChecked("1".equals(prefs.get("barge_in_enabled", "0")));
-        config.addView(bargeEnabled);
-        config.addView(label("Stabilite v3.11.2 : STOP vocal desactive par defaut pour eviter les interruptions dues a l'echo du haut-parleur. Le bouton Interrompre reste disponible. Re-activez cette case uniquement apres avoir verifie le comportement avec un casque."));
-        config.addView(label("Anti-écho v3.8.9 : Vosk reste actif pendant les recherches Web en attente. Il se suspend uniquement quand FRIDAY parle et pendant 2,5 secondes après. Le micro reste disponible pour les commandes STOP et précision grâce au décodeur séparé. Posez une nouvelle question après cette courte pause. Si Android bloque le micro, utilisez le bouton Interrompre."));
+        config.addView(label("STOP vocal retiré : pendant que Jarvis parle, il ne peut être interrompu que par le bouton « Interrompre la réponse et écouter ». Le micro reprend automatiquement après la fin réelle de la lecture et la protection anti-écho de 2,5 secondes."));
         config.addView(label("AUDIO · microphone et haut-parleur intégrés du téléphone"));
         config.addView(label("FRIDAY n'utilise plus le micro ni le mode mains libres Bluetooth. "
                 + "Les réponses Jarvis sortent par le haut-parleur du téléphone. "
@@ -532,7 +530,7 @@ public class MainActivity extends Activity {
             prefs.put("silence_ms", bounded(silenceInput, 2100, 900, 6000));
             prefs.put("followup_sec", bounded(followupInput, 75, 15, 180));
             prefs.put("followup_handsfree", followupHandsfreeEnabled.isChecked() ? "1" : "0");
-            prefs.put("barge_in_enabled", bargeEnabled.isChecked() ? "1" : "0");
+            prefs.put("barge_in_enabled", "0");
             prefs.put("bluetooth_mic_enabled", "0");
             prefs.put("tts_speed", bounded(ttsInput, 100, 70, 150));
             prefs.put("voice_enabled", voiceEnabled.isChecked() ? "1" : "0");
@@ -1440,7 +1438,7 @@ public class MainActivity extends Activity {
         // y compris après l'autorisation RECORD_AUDIO : l'activité doit rester
         // visible au moment du démarrage du service de premier plan.
         java.util.List<FridayVersionGuard.Installed> others = FridayVersionGuard.installed(this);
-        if (!others.isEmpty()) {
+        if (!others.isEmpty() && !automatically) {
             new AlertDialog.Builder(this)
                 .setTitle("Autre édition F.R.I.D.A.Y. installée")
                 .setMessage(FridayVersionPolicy.warning(others.size()) +
@@ -1452,6 +1450,11 @@ public class MainActivity extends Activity {
                 .show();
             return;
         }
+        // Ne pas bloquer le démarrage automatique par une fenêtre modale :
+        // Android n'indique pas si une autre édition utilise réellement le micro.
+        if (automatically && !others.isEmpty())
+            status.setText("Démarrage automatique : d'autres éditions FRIDAY sont installées. "
+                    + "Si Android rend le micro muet, forcez l'arrêt des anciennes éditions.");
         startServiceUnchecked();
     }
     private void startServiceUnchecked() {
@@ -1553,7 +1556,9 @@ public class MainActivity extends Activity {
     @Override protected void onResume() {
         super.onResume();
         activityVisible = true;
+        cockpitVisible = true;
         replayVoiceHistory();
+        boolean autoStartScheduled = false;
         if (!startupListenAttempted) {
             boolean shouldAutoStart = AutoListenPolicy.shouldStart(
                     prefs.get("jarvis_auto_listen_on_open", "1"),
@@ -1561,6 +1566,7 @@ public class MainActivity extends Activity {
                     FridayService.isActive());
             startupListenAttempted = true;
             if (shouldAutoStart) {
+                autoStartScheduled = true;
                 status.setText("JARVIS se prépare : activation automatique du micro…");
                 // L'activité est désormais visible. Un seul démarrage
                 // et aucune relance automatique après un appui sur Stop.
@@ -1580,7 +1586,9 @@ public class MainActivity extends Activity {
                 });
             }
         }
-        if (status != null) {
+        // Ne pas écraser « activation automatique en cours » par
+        // « Micro arrêté » avant l'exécution du startForegroundService.
+        if (status != null && !autoStartScheduled) {
             if (FridayService.isMicSilenced()) status.setText("Microphone momentanément rendu muet par Android : vérifiez les autres applications.");
             else if (FridayService.isActive()) status.setText("Écoute native active · " + FridayVersionGuard.thisVersion(this));
             else if (voskDownloadRunning.get())
@@ -1594,6 +1602,7 @@ public class MainActivity extends Activity {
     }
     @Override protected void onPause() {
         activityVisible = false;
+        cockpitVisible = false;
         super.onPause();
     }
 
@@ -1744,8 +1753,7 @@ public class MainActivity extends Activity {
         @JavascriptInterface public boolean isMicSilenced() { return FridayService.isMicSilenced(); }
         @JavascriptInterface public String voiceReadiness() { return FridayService.voiceReadiness(); }
         @JavascriptInterface public String voiceInterruptTelemetry() {
-            if (!"1".equals(prefs.get("barge_in_enabled", "1"))) return "Désactivé dans Réglages";
-            return FridayService.interruptionDiagnostics();
+            return "STOP vocal retiré · interruption uniquement avec le bouton";
         }
         @JavascriptInterface public String currentVersion() { return FridayVersionGuard.thisVersion(MainActivity.this); }
         @JavascriptInterface public int otherVersionsCount() { return FridayVersionGuard.installed(MainActivity.this).size(); }
@@ -1764,6 +1772,7 @@ public class MainActivity extends Activity {
     }
     @Override public void onDestroy() {
         hudCloneSpeaking.set(false);
+        cockpitVisible = false;
         if (events != null) unregisterReceiver(events);
         if (testTts != null) { try { testTts.shutdown(); } catch (Exception ignored) {} testTts = null; }
         if (webVoice != null) { try { webVoice.shutdown(); } catch (Exception ignored) {} webVoice = null; }

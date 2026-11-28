@@ -6,7 +6,8 @@ package fr.friday.assistant;
  * Mistral encore en attente : l'utilisateur doit pouvoir dire "Friday"
  * pour interrompre une recherche qui ne produit aucun son.
  *
- * Un Vosk indépendant garde STOP disponible pendant la vraie lecture vocale.
+ * L'interruption vocale est désactivée par FRIDAY ; l'utilisateur dispose
+ * du bouton manuel pendant la lecture de la réponse.
  *
  * Ne dépend ni de l'horloge Android ni du matériel : testable hors téléphone.
  */

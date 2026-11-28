@@ -9,7 +9,7 @@ public final class VoiceStopSpotterTest {
         yes(d.accept("stop", "Bonjour, voici le résultat.", false)
                 == VoiceStopSpotter.Action.NONE, "un seul partiel ne suffit pas");
         yes(d.accept("stop", "Bonjour, voici le résultat.", false)
-                == VoiceStopSpotter.Action.STOP, "deux partiels identiques déclenchent l'arrêt");
+                == VoiceStopSpotter.Action.NONE, "deux partiels sans Jarvis ne doivent pas couper la voix");
         yes(d.accept("stop", "Bonjour, voici le résultat.", true)
                 == VoiceStopSpotter.Action.STOP, "final stop immédiat");
         yes(d.accept("stop", "FRIDAY dit : stop, puis recommence.", true)
@@ -17,6 +17,13 @@ public final class VoiceStopSpotterTest {
         d.reset();
         yes(d.accept("jarvis stop", "Voici une longue réponse.", true)
                 == VoiceStopSpotter.Action.STOP, "commande avec nom détectée");
+        d.reset();
+        yes(d.accept("jarvis stop", "Voici une longue réponse.", false)
+                == VoiceStopSpotter.Action.NONE, "un seul partiel Jarvis stop ne suffit pas");
+        yes(d.accept("jarvis stop", "Voici une longue réponse.", false)
+                == VoiceStopSpotter.Action.STOP, "deux partiels Jarvis stop confirment l'arrêt");
+        yes(d.accept("stop", "Voici une longue réponse.", true)
+                == VoiceStopSpotter.Action.STOP, "stop sans mot-clé reste possible après phrase finale");
         yes(d.accept("j'ai une précision", "Voici une réponse.", true)
                 == VoiceStopSpotter.Action.CLARIFY, "demande de précision sans wake");
         yes(d.accept("Jarvis, j'ai une précision", "Bonjour.", true)
@@ -38,6 +45,6 @@ public final class VoiceStopSpotterTest {
                 == VoiceStopSpotter.Action.NONE, "stop répété généré par FRIDAY ignoré");
         yes(VoiceStopSpotter.GRAMMAR.contains("\"stop stop stop\""),
                 "grammaire Vosk inclut les trois STOP");
-        System.out.println("VoiceStopSpotterTest OK (17 cas)");
+        System.out.println("VoiceStopSpotterTest OK (20 cas)");
     }
 }

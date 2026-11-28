@@ -20,6 +20,10 @@ public final class JarvisAndroidTools {
 
     public static String answer(Context context, SecurePrefs settings, String utterance) {
         if (utterance == null || utterance.trim().length() > 5000) return null;
+        // L'utilisateur n'a pas indiqué quelle présidentielle. Ne pas faire
+        // une longue recherche Web aveugle ni inventer des candidats.
+        String clarification = ElectionQuestionPolicy.clarification(utterance);
+        if (clarification != null) return clarification;
         JarvisToolPolicy.Kind kind = JarvisToolPolicy.classify(utterance);
         if (kind == JarvisToolPolicy.Kind.NONE) {
             // Reuse existing deterministic on-device tools before HTTPS or
@@ -32,6 +36,7 @@ public final class JarvisAndroidTools {
         }
         switch (kind) {
             case CAPABILITIES: return capabilities(context, settings);
+            case MAPS: return mapsAccess(context, settings);
             case MICROPHONE: return microphone(context);
             case MODEL: return model(context, settings);
             case DEVICE: return device(context);
@@ -58,6 +63,26 @@ public final class JarvisAndroidTools {
                     : "La recherche Web est désactivée. ")
                 + "Je ne pilote pas le système Android, les autres applications ou "
                 + "les appareils connectés sans outil spécifique autorisé.";
+    }
+
+    /** Réponse locale à une question d'accès à Maps, sans recherche de
+     * mots-clés Web mal ciblée ni prétention d'avoir Google Maps en direct. */
+    private static String mapsAccess(Context context, SecurePrefs cfg) {
+        boolean gpsPermission = FridayLocation.hasPermission(context);
+        boolean gpsEnabled = FridayLocation.providerEnabled(context);
+        return "Je n'ai pas d'accès direct à l'application Google Maps, à sa carte "
+                + "interactive ni à la navigation en temps réel. "
+                + "Je peux utiliser la localisation fournie par Android "
+                + "si vous l'autorisez ; permission de localisation "
+                + (gpsPermission ? "accordée" : "non accordée")
+                + ", service de localisation "
+                + (gpsEnabled ? "activé" : "désactivé") + ". "
+                + (JarvisInternet.enabled(cfg)
+                    ? "Je peux aussi consulter certaines pages Web publiques, "
+                      + "mais cela ne donne pas accès au contenu privé ni à l'API Google Maps."
+                    : "Mes recherches Web sont actuellement désactivées.")
+                + " Pour obtenir un itinéraire ou examiner une carte réelle, "
+                + "ouvrez l'application Maps sur le téléphone.";
     }
 
     private static String microphone(Context context) {

@@ -16,9 +16,10 @@ class MicrophoneRecovery(unittest.TestCase):
         self.assertIn('settings.put("stream_enabled", "0")', SERVICE)
 
     def test_not_stuck_muted_after_two_retries(self):
-        self.assertIn("if (mutedAt - mutedSince >= 8000L)", SERVICE)
+        self.assertIn("nextMuteNoticeAt = mutedAt + 8000L", SERVICE)
         self.assertNotIn("mutedMicroReopens < 2)", SERVICE)
-        self.assertIn('throw new IllegalStateException("Microphone rendu muet par Android")', SERVICE)
+        self.assertNotIn('throw new IllegalStateException("Microphone rendu muet par Android")', SERVICE)
+        self.assertIn("SystemClock.sleep(100L);", SERVICE)
         self.assertIn("consecutiveErrors = 0;", SERVICE)
         self.assertIn("if (mutedSince != 0 || micSilenced)", SERVICE)
         self.assertIn("PhoneAudioRoute.inputStatus(ar)", SERVICE)
@@ -37,8 +38,9 @@ class MicrophoneRecovery(unittest.TestCase):
         self.assertNotIn("shutdown();", block)
         self.assertIn("VoiceStopSpotter.Action.STOP_MIC", block)
         self.assertIn("interruptResponse(", block)
-        self.assertIn('settings.get("barge_in_enabled", "0")', SERVICE)
-        self.assertIn('prefs.get("barge_in_enabled", "0")', UI)
+        self.assertIn('boolean bargeEnabled = false;', SERVICE)
+        self.assertIn('prefs.put("barge_in_enabled", "0")', UI)
+        self.assertNotIn('bargeEnabled = new CheckBox(this)', UI)
 
     def test_version(self):
         gradle=(ROOT/"app/build.gradle").read_text(encoding="utf-8")
